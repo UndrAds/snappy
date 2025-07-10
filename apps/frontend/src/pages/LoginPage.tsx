@@ -29,7 +29,7 @@ export default function LoginPage() {
 
     try {
       await login(formData)
-      navigate('/dashboard')
+      navigate('/')
     } catch (err: any) {
       const status = err.response?.status
       const message = err.response?.data?.error?.message || 'Login failed'

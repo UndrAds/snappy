@@ -5,7 +5,6 @@ import type {
   User,
   CreateUserRequest,
   LoginRequest,
-  AuthResponse,
 } from '@snappy/shared-types'
 
 interface UseAuthReturn {
@@ -69,7 +68,7 @@ export const useAuth = (): UseAuthReturn => {
   })
 
   // Get user profile query
-  const { data: profileData } = useQuery({
+  useQuery({
     queryKey: ['user', 'profile'],
     queryFn: userAPI.getProfile,
     enabled: !!user,

@@ -55,4 +55,41 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+  
+  /* Cursor styles for interactive elements */
+  button,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  select,
+  summary,
+  a,
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    cursor: text;
+  }
+  
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+  
+  input:disabled,
+  button:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
 }

@@ -37,7 +37,7 @@ export default function RegisterPage() {
 
     try {
       await register(formData)
-      navigate('/dashboard')
+      navigate('/')
     } catch (err: any) {
       setError(err.response?.data?.error?.message || 'Registration failed')
     }

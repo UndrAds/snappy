@@ -102,7 +102,7 @@ export default function DashboardLayout() {
                   !sidebarOpen && 'justify-center'
                 } ${
                   isActive
-                    ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
+                    ? 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}
                 onClick={() => handleMenuClick(item.path)}
@@ -122,7 +122,7 @@ export default function DashboardLayout() {
               !sidebarOpen && 'justify-center'
             } ${
               location.pathname === '/settings'
-                ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
+                ? 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
                 : 'hover:bg-accent hover:text-accent-foreground'
             }`}
             onClick={() => handleMenuClick('/settings')}
@@ -174,9 +174,7 @@ export default function DashboardLayout() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => handleMenuClick('/profile')}
-                  >
+                  <DropdownMenuItem onClick={() => handleMenuClick('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     Profile Settings
                   </DropdownMenuItem>
@@ -191,7 +189,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto px-6 py-2">
           <Outlet />
         </main>
       </div>

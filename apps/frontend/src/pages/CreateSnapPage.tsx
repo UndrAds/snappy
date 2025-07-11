@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ interface SnapData {
 }
 
 export default function CreateSnapPage() {
+  const navigate = useNavigate()
   const [snapData, setSnapData] = useState<SnapData>({
     name: '',
     publisher: {
@@ -146,7 +148,7 @@ export default function CreateSnapPage() {
     }
 
     toast.success('Snap saved successfully! Moving to edit mode...')
-    // TODO: Navigate to edit mode
+    navigate('/editor')
   }
 
   const FileUpload = ({

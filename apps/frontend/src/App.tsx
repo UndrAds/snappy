@@ -8,6 +8,7 @@ import DashboardHomePage from '@/pages/DashboardHomePage'
 import CreateSnapPage from '@/pages/CreateSnapPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import SettingsPage from '@/pages/SettingsPage'
+import EditorPage from '@/pages/editor/EditorPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
@@ -43,6 +44,7 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="profile" element={<SettingsPage />} />
           </Route>
+          <Route path="editor" element={<EditorPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>

@@ -38,20 +38,27 @@ interface SnapData {
 }
 
 export default function CreateSnapPage() {
+  const defaultPublisherPic =
+    'https://ui-avatars.com/api/?name=John+Doe&background=random'
+  const defaultLargeThumbnail =
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
+  const defaultSmallThumbnail =
+    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=200&q=80'
+
   const navigate = useNavigate()
   const [snapData, setSnapData] = useState<SnapData>({
-    name: '',
+    name: 'My Amazing Story',
     publisher: {
-      name: '',
-      profilePic: null,
+      name: 'John Doe',
+      profilePic: null, // File upload will still work, but preview will use default
     },
     thumbnails: {
       large: null,
       small: null,
     },
     cta: {
-      type: null,
-      value: '',
+      type: 'redirect' as const,
+      value: 'https://example.com',
     },
   })
 
@@ -59,7 +66,11 @@ export default function CreateSnapPage() {
     publisherPic?: string
     largeThumbnail?: string
     smallThumbnail?: string
-  }>({})
+  }>({
+    publisherPic: defaultPublisherPic,
+    largeThumbnail: defaultLargeThumbnail,
+    smallThumbnail: defaultSmallThumbnail,
+  })
 
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
@@ -126,15 +137,16 @@ export default function CreateSnapPage() {
       toast.error('Please enter a publisher name')
       return
     }
-    if (!snapData.publisher.profilePic) {
+    // Allow if either a file is uploaded or a default image is present
+    if (!snapData.publisher.profilePic && !previewUrls.publisherPic) {
       toast.error('Please upload a publisher profile picture')
       return
     }
-    if (!snapData.thumbnails.large) {
+    if (!snapData.thumbnails.large && !previewUrls.largeThumbnail) {
       toast.error('Please upload a large thumbnail')
       return
     }
-    if (!snapData.thumbnails.small) {
+    if (!snapData.thumbnails.small && !previewUrls.smallThumbnail) {
       toast.error('Please upload a small thumbnail')
       return
     }
@@ -152,7 +164,8 @@ export default function CreateSnapPage() {
       storyTitle: snapData.name,
       publisherName: snapData.publisher.name,
       publisherPic: previewUrls.publisherPic,
-      mainContent: previewUrls.largeThumbnail,
+      thumbnail: previewUrls.largeThumbnail, // This is the thumbnail for preview
+      background: previewUrls.largeThumbnail, // This becomes the background of the story
       ctaType: snapData.cta.type,
       ctaValue: snapData.cta.value,
     }
@@ -319,7 +332,9 @@ export default function CreateSnapPage() {
                 <Label htmlFor="cta-type">CTA Type</Label>
                 <Select
                   value={snapData.cta.type || ''}
-                  onValueChange={(value) => handleCtaChange('type', value)}
+                  onValueChange={(value) =>
+                    handleCtaChange(value, snapData.cta.value)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select CTA type" />
@@ -352,7 +367,9 @@ export default function CreateSnapPage() {
                             : 'Product Name'
                     }
                     value={snapData.cta.value}
-                    onChange={(e) => handleCtaChange('value', e.target.value)}
+                    onChange={(e) =>
+                      handleCtaChange(snapData.cta.type!, e.target.value)
+                    }
                   />
                 </div>
               )}

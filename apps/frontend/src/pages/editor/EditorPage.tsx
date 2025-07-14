@@ -47,7 +47,8 @@ interface StoryData {
   storyTitle: string
   publisherName: string
   publisherPic?: string
-  mainContent?: string
+  thumbnail?: string
+  background?: string
   ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue: string
 }
@@ -63,10 +64,16 @@ export default function EditorPage() {
       order: 1,
       elements: [],
       hasContent: false,
-      background: {
-        type: 'color',
-        value: 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-      },
+      background: storyData?.background
+        ? {
+            type: 'image' as const,
+            value: storyData.background,
+          }
+        : {
+            type: 'color' as const,
+            value:
+              'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+          },
     },
   ])
   const [selectedFrameId, setSelectedFrameId] = useState<string>('1')
@@ -87,6 +94,7 @@ export default function EditorPage() {
       order: frames.length + 1,
       elements: [],
       hasContent: false,
+      background: frames[0]?.background, // Use the same background as the first frame
     }
     setFrames((prev) => [...prev, newFrame])
     setSelectedFrameId(newFrame.id)

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Type, Image, Shapes, X } from 'lucide-react'
+import { Image, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CanvasElement {
@@ -50,7 +50,6 @@ interface StoryFrameProps {
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
   onElementUpdate?: (elementId: string, updates: Partial<CanvasElement>) => void
-  onElementAdd?: (element: CanvasElement) => void
   onElementRemove?: (elementId: string) => void
 
   // Edit mode display options
@@ -76,7 +75,6 @@ export default function StoryFrame({
   selectedElementId,
   onElementSelect,
   onElementUpdate,
-  onElementAdd,
   onElementRemove,
 
   // Edit mode display options
@@ -86,42 +84,6 @@ export default function StoryFrame({
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-
-  // Editor mode functions
-  const handleAddElement = (type: 'text' | 'image' | 'shape') => {
-    if (!isEditMode || !onElementAdd) return
-
-    const newElement: CanvasElement = {
-      id: Date.now().toString(),
-      type,
-      x: 50,
-      y: 50,
-      width: type === 'text' ? 200 : 150,
-      height: type === 'text' ? 60 : 150,
-      content: type === 'text' ? 'Double click to edit' : undefined,
-      style: {
-        fontSize: 16,
-        fontFamily: 'Arial',
-        fontWeight: 'normal',
-        color: '#000000',
-        backgroundColor: 'transparent',
-        opacity: 100,
-        rotation: 0,
-        brightness: 50,
-        contrast: 50,
-        saturation: 50,
-        sharpness: 50,
-        highlights: 50,
-        filter: 'none',
-      },
-    }
-
-    onElementAdd(newElement)
-    onElementSelect?.(newElement.id)
-    toast.success(
-      `${type.charAt(0).toUpperCase() + type.slice(1)} element added!`
-    )
-  }
 
   const handleElementClick = (elementId: string) => {
     if (!isEditMode) return

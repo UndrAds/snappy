@@ -33,7 +33,8 @@ interface StoryData {
   storyTitle: string
   publisherName: string
   publisherPic?: string
-  mainContent?: string
+  thumbnail?: string
+  background?: string
   ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue: string
 }
@@ -119,12 +120,11 @@ export default function EditorCanvas({
           selectedElementId={selectedElementId}
           onElementSelect={onElementSelect}
           onElementUpdate={onElementUpdate}
-          onElementAdd={onElementAdd}
           onElementRemove={onElementRemove}
           storyTitle={storyData?.storyTitle}
           publisherName={storyData?.publisherName}
           publisherPic={storyData?.publisherPic}
-          mainContent={storyData?.mainContent}
+          mainContent={storyData?.thumbnail} // Use thumbnail as main content for preview
           ctaType={storyData?.ctaType}
           showPublisherInfo={true}
           showCTA={true}

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+import { useLocation } from 'react-router-dom'
 import EditorLayout from './EditorLayout'
 import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
@@ -42,7 +43,20 @@ interface StoryFrame {
   }
 }
 
+interface StoryData {
+  storyTitle: string
+  publisherName: string
+  publisherPic?: string
+  mainContent?: string
+  ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
+  ctaValue: string
+}
+
 export default function EditorPage() {
+  const location = useLocation()
+  const storyData = location.state?.storyData as StoryData | undefined
+  const fromCreate = location.state?.fromCreate || false
+
   const [frames, setFrames] = useState<StoryFrame[]>([
     {
       id: '1',
@@ -57,6 +71,15 @@ export default function EditorPage() {
   ])
   const [selectedFrameId, setSelectedFrameId] = useState<string>('1')
   const [selectedElementId, setSelectedElementId] = useState<string>('')
+
+  // Show welcome message if coming from create page
+  useEffect(() => {
+    if (fromCreate && storyData) {
+      toast.success(
+        `Welcome to the editor! You can now customize your story "${storyData.storyTitle}"`
+      )
+    }
+  }, [fromCreate, storyData])
 
   const addNewFrame = () => {
     const newFrame: StoryFrame = {
@@ -209,6 +232,7 @@ export default function EditorPage() {
       onRedo={handleRedo}
       onPreview={handlePreview}
       onExport={handleExport}
+      storyTitle={storyData?.storyTitle}
     >
       <EditorSidebar
         frames={frames}
@@ -231,6 +255,11 @@ export default function EditorPage() {
         onElementUpdate={updateElement}
         onElementAdd={addElement}
         onElementRemove={removeElement}
+        storyData={storyData}
+        currentSlide={
+          frames.findIndex((frame) => frame.id === selectedFrameId) + 1
+        }
+        totalSlides={frames.length}
       />
 
       <PropertyPanel

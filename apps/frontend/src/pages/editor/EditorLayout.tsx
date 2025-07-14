@@ -12,6 +12,7 @@ interface EditorLayoutProps {
   onExport?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  storyTitle?: string
 }
 
 export default function EditorLayout({
@@ -23,6 +24,7 @@ export default function EditorLayout({
   onExport,
   canUndo = false,
   canRedo = false,
+  storyTitle,
 }: EditorLayoutProps) {
   const navigate = useNavigate()
 
@@ -42,9 +44,13 @@ export default function EditorLayout({
           </Button>
           <div className="h-6 w-px bg-gray-300"></div>
           <div>
-            <h1 className="text-lg font-semibold">Story Editor</h1>
+            <h1 className="text-lg font-semibold">
+              {storyTitle ? `Editing: ${storyTitle}` : 'Story Editor'}
+            </h1>
             <p className="text-xs text-muted-foreground">
-              Create engaging web stories
+              {storyTitle
+                ? 'Customize your story elements'
+                : 'Create engaging web stories'}
             </p>
           </div>
         </div>

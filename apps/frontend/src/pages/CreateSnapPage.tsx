@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Upload, Save } from 'lucide-react'
 import { toast } from 'sonner'
-import StoryPreview from '@/components/StoryPreview'
+import StoryFrame from '@/components/StoryFrame'
 
 interface SnapData {
   name: string
@@ -147,8 +147,25 @@ export default function CreateSnapPage() {
       return
     }
 
+    // Prepare the data to pass to editor
+    const editorData = {
+      storyTitle: snapData.name,
+      publisherName: snapData.publisher.name,
+      publisherPic: previewUrls.publisherPic,
+      mainContent: previewUrls.largeThumbnail,
+      ctaType: snapData.cta.type,
+      ctaValue: snapData.cta.value,
+    }
+
+    // Navigate to editor with the data
+    navigate('/editor', {
+      state: {
+        storyData: editorData,
+        fromCreate: true,
+      },
+    })
+
     toast.success('Snap saved successfully! Moving to edit mode...')
-    navigate('/editor')
   }
 
   const FileUpload = ({
@@ -345,8 +362,8 @@ export default function CreateSnapPage() {
 
         {/* Right Panel - Mobile Preview */}
         <div className="w-96 flex-shrink-0 px-4">
-          <div className="sticky top-0">
-            <StoryPreview
+          <div className="sticky flex h-full flex-col items-center justify-center">
+            <StoryFrame
               publisherName={snapData.publisher.name}
               storyTitle={snapData.name}
               publisherPic={previewUrls.publisherPic}
@@ -354,6 +371,8 @@ export default function CreateSnapPage() {
               ctaType={snapData.cta.type}
               currentSlide={1}
               totalSlides={4}
+              showProgressBar={true}
+              isEditMode={false}
             />
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import { Image } from 'lucide-react'
+import PropertyControl from './PropertyControl'
+import { propertyControlsConfig } from './propertyControlsConfig'
 
 export default function PropertyPanelImage({
   element,
@@ -18,36 +18,29 @@ export default function PropertyPanelImage({
         Image Properties
       </h3>
       <div className="space-y-3">
-        <div>
-          <Label className="text-xs">Opacity</Label>
-          <Slider
-            value={[element.style?.opacity || 100]}
-            max={100}
-            min={0}
-            step={1}
-            className="mt-2"
-            onValueChange={(value) =>
+        {/* Plug-and-play property controls */}
+        {propertyControlsConfig.image.map((ctrl) => (
+          <PropertyControl
+            key={ctrl.key}
+            label={ctrl.label}
+            value={element.style?.[ctrl.key] ?? ctrl.default}
+            min={ctrl.min}
+            max={ctrl.max}
+            step={ctrl.step}
+            defaultValue={ctrl.default}
+            icon={ctrl.icon}
+            onChange={(val) =>
               onElementUpdate?.(element.id, {
-                style: { opacity: value[0] },
+                style: { [ctrl.key]: val },
+              })
+            }
+            onReset={() =>
+              onElementUpdate?.(element.id, {
+                style: { [ctrl.key]: ctrl.default },
               })
             }
           />
-        </div>
-        <div>
-          <Label className="text-xs">Rotation</Label>
-          <Slider
-            value={[element.style?.rotation || 0]}
-            max={360}
-            min={-360}
-            step={1}
-            className="mt-2"
-            onValueChange={(value) =>
-              onElementUpdate?.(element.id, {
-                style: { rotation: value[0] },
-              })
-            }
-          />
-        </div>
+        ))}
         {/* Set as Background Button */}
         <div>
           <Button

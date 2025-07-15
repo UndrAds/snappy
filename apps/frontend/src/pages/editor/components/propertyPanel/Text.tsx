@@ -9,6 +9,8 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Type } from 'lucide-react'
+import PropertyControl from './PropertyControl'
+import { propertyControlsConfig } from './propertyControlsConfig'
 
 const textColors = [
   { name: 'Red', value: '#ef4444', bgClass: 'bg-red-500' },
@@ -28,6 +30,7 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
         Text Properties
       </h3>
       <div className="space-y-3">
+        {/* Text-specific controls */}
         <div>
           <Label className="text-xs">Text Content</Label>
           <Input
@@ -115,6 +118,29 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
             ))}
           </div>
         </div>
+        {/* Plug-and-play property controls */}
+        {propertyControlsConfig.text.map((ctrl) => (
+          <PropertyControl
+            key={ctrl.key}
+            label={ctrl.label}
+            value={element.style?.[ctrl.key] ?? ctrl.default}
+            min={ctrl.min}
+            max={ctrl.max}
+            step={ctrl.step}
+            defaultValue={ctrl.default}
+            icon={ctrl.icon}
+            onChange={(val) =>
+              onElementUpdate?.(element.id, {
+                style: { [ctrl.key]: val },
+              })
+            }
+            onReset={() =>
+              onElementUpdate?.(element.id, {
+                style: { [ctrl.key]: ctrl.default },
+              })
+            }
+          />
+        ))}
       </div>
     </div>
   )

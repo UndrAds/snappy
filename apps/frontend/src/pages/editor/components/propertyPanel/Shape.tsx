@@ -1,6 +1,7 @@
 import { Label } from '@/components/ui/label'
-import { Slider } from '@/components/ui/slider'
 import { Palette } from 'lucide-react'
+import PropertyControl from './PropertyControl'
+import { propertyControlsConfig } from './propertyControlsConfig'
 
 const shapeColors = [
   { name: 'Red', value: '#ef4444', bgClass: 'bg-red-500' },
@@ -13,6 +14,7 @@ const shapeColors = [
 
 export default function PropertyPanelShape({ element, onElementUpdate }: any) {
   if (!element) return null
+
   return (
     <div className="space-y-4">
       <h3 className="flex items-center text-sm font-semibold">
@@ -20,6 +22,7 @@ export default function PropertyPanelShape({ element, onElementUpdate }: any) {
         Shape Properties
       </h3>
       <div className="space-y-3">
+        {/* Shape-specific controls */}
         <div>
           <Label className="text-xs">Background Color</Label>
           <div className="mt-1 flex space-x-2">
@@ -37,22 +40,30 @@ export default function PropertyPanelShape({ element, onElementUpdate }: any) {
             ))}
           </div>
         </div>
-        <div>
-          <Label className="text-xs">Opacity</Label>
-          <Slider
-            value={[element.style?.opacity || 100]}
-            max={100}
-            min={0}
-            step={1}
-            className="mt-2"
-            onValueChange={(value) =>
+        {/* Plug-and-play property controls */}
+        {propertyControlsConfig.shape.map((ctrl) => (
+          <PropertyControl
+            key={ctrl.key}
+            label={ctrl.label}
+            value={element.style?.[ctrl.key] ?? ctrl.default}
+            min={ctrl.min}
+            max={ctrl.max}
+            step={ctrl.step}
+            defaultValue={ctrl.default}
+            icon={ctrl.icon}
+            onChange={(val) =>
               onElementUpdate?.(element.id, {
-                style: { opacity: value[0] },
+                style: { [ctrl.key]: val },
+              })
+            }
+            onReset={() =>
+              onElementUpdate?.(element.id, {
+                style: { [ctrl.key]: ctrl.default },
               })
             }
           />
-        </div>
+        ))}
       </div>
     </div>
   )
-} 
+}

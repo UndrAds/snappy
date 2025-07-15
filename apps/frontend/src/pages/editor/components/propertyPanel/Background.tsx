@@ -10,8 +10,9 @@ import { Slider } from '@/components/ui/slider'
 import BackgroundColorGradientPicker from '../ColorPicker'
 import MediaSourcePicker from '../MediaSourcePicker'
 import MediaSkin from '../MediaSkin'
-import { RotateCcw, ZoomIn, Droplet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import PropertyControl from './PropertyControl'
+import { propertyControlsConfig } from './propertyControlsConfig'
 
 export default function PropertyPanelBackground({
   background,
@@ -130,96 +131,31 @@ export default function PropertyPanelBackground({
                 })
               }
             />
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">Opacity</Label>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                title="Reset Opacity"
-                onClick={() =>
+            {/* Plug-and-play property controls */}
+            {propertyControlsConfig.background.map((ctrl) => (
+              <PropertyControl
+                key={ctrl.key}
+                label={ctrl.label}
+                value={background[ctrl.key] ?? ctrl.default}
+                min={ctrl.min}
+                max={ctrl.max}
+                step={ctrl.step}
+                defaultValue={ctrl.default}
+                icon={ctrl.icon}
+                onChange={(val) =>
                   onBackgroundUpdate?.({
                     ...background,
-                    opacity: 100,
+                    [ctrl.key]: val,
                   })
                 }
-              >
-                <Droplet className="h-4 w-4" />
-              </Button>
-            </div>
-            <Slider
-              value={[background.opacity ?? 100]}
-              max={100}
-              min={0}
-              step={1}
-              className="mt-2"
-              onValueChange={(value) =>
-                onBackgroundUpdate?.({
-                  ...background,
-                  opacity: value[0],
-                })
-              }
-            />
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">Rotation</Label>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                title="Reset Rotation"
-                onClick={() =>
+                onReset={() =>
                   onBackgroundUpdate?.({
                     ...background,
-                    rotation: 0,
+                    [ctrl.key]: ctrl.default,
                   })
                 }
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </div>
-            <Slider
-              value={[background.rotation ?? 0]}
-              max={360}
-              min={-360}
-              step={1}
-              className="mt-2"
-              onValueChange={(value) =>
-                onBackgroundUpdate?.({
-                  ...background,
-                  rotation: value[0],
-                })
-              }
-            />
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">Zoom</Label>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                title="Reset Zoom"
-                onClick={() =>
-                  onBackgroundUpdate?.({
-                    ...background,
-                    zoom: 100,
-                  })
-                }
-              >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-            </div>
-            <Slider
-              value={[background.zoom ?? 100]}
-              max={300}
-              min={10}
-              step={1}
-              className="mt-2"
-              onValueChange={(value) =>
-                onBackgroundUpdate?.({
-                  ...background,
-                  zoom: value[0],
-                })
-              }
-            />
+              />
+            ))}
             {/* Filter Picker */}
             <div>
               <Label className="text-xs">Filter</Label>

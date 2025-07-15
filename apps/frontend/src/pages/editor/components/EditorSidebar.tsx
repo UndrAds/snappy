@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import MediaSourceModal from './media/MediaSourceModal'
 
 interface EditorSidebarProps {
   onAddFrame: () => void
@@ -37,6 +38,7 @@ export default function EditorSidebar({
   selectedFrameId,
 }: EditorSidebarProps) {
   const [activeTab, setActiveTab] = useState('frames')
+  const [mediaModalOpen, setMediaModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleAddElement = (type: 'text' | 'shape' | 'image') => {
@@ -112,6 +114,39 @@ export default function EditorSidebar({
 
       handleFileUpload(file)
     }
+  }
+
+  const handleMediaSourceSelect = (media: {
+    url: string
+    type: 'image' | 'video'
+    source: string
+  }) => {
+    if (media.type === 'image') {
+      onAddElement({
+        id: Date.now().toString(),
+        type: 'image',
+        x: 50,
+        y: 50,
+        width: 200,
+        height: 200,
+        mediaUrl: media.url,
+        style: {
+          opacity: 100,
+          rotation: 0,
+          brightness: 50,
+          contrast: 50,
+          saturation: 50,
+          sharpness: 50,
+          highlights: 50,
+          filter: 'none',
+        },
+      })
+      toast.success('Image added from online source!')
+    } else if (media.type === 'video') {
+      // Video support can be added here
+      toast.info('Video support coming soon!')
+    }
+    setMediaModalOpen(false)
   }
 
   return (
@@ -295,6 +330,14 @@ export default function EditorSidebar({
                   onChange={handleFileSelect}
                   className="hidden"
                 />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setMediaModalOpen(true)}
+                >
+                  <Image className="mr-2 h-4 w-4" />
+                  Add from Online Source
+                </Button>
               </div>
 
               <div className="space-y-3">
@@ -309,6 +352,13 @@ export default function EditorSidebar({
                 </div>
               </div>
             </div>
+            {mediaModalOpen && (
+              <MediaSourceModal
+                open={mediaModalOpen}
+                onClose={() => setMediaModalOpen(false)}
+                onSelect={handleMediaSourceSelect}
+              />
+            )}
           </TabsContent>
         </div>
       </Tabs>

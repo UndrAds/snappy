@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Type, Image, Shapes } from 'lucide-react'
+import { Type, Image } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
 
@@ -69,7 +69,7 @@ export default function EditorCanvas({
   currentSlide,
   totalSlides,
 }: EditorCanvasProps) {
-  const handleAddElement = (type: 'text' | 'image' | 'shape') => {
+  const handleAddElement = (type: 'text' | 'image') => {
     const newElement: CanvasElement = {
       id: Date.now().toString(),
       type,
@@ -140,6 +140,7 @@ export default function EditorCanvas({
         <div className="mt-4 flex justify-center space-x-2">
           <Button
             size="sm"
+            variant="ghost"
             onClick={() => handleAddElement('text')}
             className="flex items-center space-x-2"
           >
@@ -148,19 +149,12 @@ export default function EditorCanvas({
           </Button>
           <Button
             size="sm"
+            variant="ghost"
             onClick={() => handleAddElement('image')}
             className="flex items-center space-x-2"
           >
             <Image className="h-4 w-4" />
             <span>Add Image</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => handleAddElement('shape')}
-            className="flex items-center space-x-2"
-          >
-            <Shapes className="h-4 w-4" />
-            <span>Add Shape</span>
           </Button>
         </div>
       </div>

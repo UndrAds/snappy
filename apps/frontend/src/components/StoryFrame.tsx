@@ -89,8 +89,9 @@ export default function StoryFrame({
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
-  const handleElementClick = (elementId: string) => {
+  const handleElementClick = (elementId: string, e?: React.MouseEvent) => {
     if (!isEditMode) return
+    e?.stopPropagation()
     onElementSelect?.(elementId)
   }
 
@@ -174,7 +175,7 @@ export default function StoryFrame({
       <div
         key={element.id}
         style={style}
-        onClick={() => handleElementClick(element.id)}
+        onClick={(e) => handleElementClick(element.id, e)}
         onDoubleClick={() => handleElementDoubleClick(element)}
         onMouseDown={isEditMode ? (e) => handleMouseDown(e) : undefined}
         className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all`}
@@ -287,7 +288,6 @@ export default function StoryFrame({
         className="h-full w-full overflow-hidden bg-black"
         style={getBackgroundStyle()}
         ref={canvasRef}
-        onClick={isEditMode ? handleCanvasClick : undefined}
         onMouseMove={isEditMode ? handleMouseMove : undefined}
         onMouseUp={isEditMode ? handleMouseUp : undefined}
       >
@@ -359,7 +359,10 @@ export default function StoryFrame({
         )}
 
         {/* Main Content Area */}
-        <div className="flex h-full w-full items-center justify-center">
+        <div
+          className="flex h-full w-full items-center justify-center"
+          onClick={isEditMode ? handleCanvasClick : undefined}
+        >
           {isEditMode ? (
             // Editor mode: Render canvas elements
             <>{elements.map(renderElement)}</>

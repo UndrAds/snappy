@@ -5,7 +5,6 @@ import EditorLayout from './EditorLayout'
 import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
 import PropertyPanel from './components/propertyPanel'
-import { Button } from '@/components/ui/button'
 
 interface CanvasElement {
   id: string
@@ -279,16 +278,6 @@ export default function EditorPage() {
         onAddElement={addElement}
       />
 
-      {/* Select Background Button */}
-      <div className="mb-2 flex justify-center">
-        <Button
-          variant={selectedElementId === 'background' ? 'default' : 'outline'}
-          onClick={() => setSelectedElementId('background')}
-        >
-          Select Background
-        </Button>
-      </div>
-
       <EditorCanvas
         elements={selectedFrame?.elements || []}
         background={selectedFrame?.background}
@@ -310,12 +299,7 @@ export default function EditorPage() {
           selectedElementId === 'background'
             ? undefined
             : selectedElement
-              ? {
-                  type: selectedElement.type,
-                  id: selectedElement.id,
-                  style: selectedElement.style,
-                  mediaUrl: selectedElement.mediaUrl,
-                }
+              ? { ...selectedElement }
               : undefined
         }
         background={selectedFrame?.background}

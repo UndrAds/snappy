@@ -21,11 +21,6 @@ interface CanvasElement {
     backgroundColor?: string
     opacity?: number
     rotation?: number
-    brightness?: number
-    contrast?: number
-    saturation?: number
-    sharpness?: number
-    highlights?: number
     filter?: string
   }
 }
@@ -51,6 +46,8 @@ interface StoryFrameProps {
     rotation?: number
     zoom?: number
     filter?: string
+    offsetX?: number
+    offsetY?: number
   }
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
@@ -171,7 +168,6 @@ export default function StoryFrame({
         isSelected && isEditMode
           ? '2px solid #3b82f6'
           : '1px solid transparent',
-      filter: `brightness(${element.style.brightness}%) contrast(${element.style.contrast}%) saturate(${element.style.saturation}%)`,
     }
 
     return (
@@ -253,10 +249,9 @@ export default function StoryFrame({
       return {}
     let style: React.CSSProperties = {
       position: 'absolute',
-      inset: 0,
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
+      left: '50%',
+      top: '50%',
+      objectFit: 'contain',
       zIndex: 0,
       pointerEvents: 'none',
     }
@@ -264,15 +259,12 @@ export default function StoryFrame({
     if (background.opacity !== undefined) {
       style.opacity = background.opacity / 100
     }
-    // Rotation and Zoom (scale)
-    let transform = ''
-    if (background.rotation !== undefined) {
-      transform += `rotate(${background.rotation}deg) `
-    }
-    if (background.zoom !== undefined) {
-      transform += `scale(${background.zoom / 100}) `
-    }
-    if (transform) style.transform = transform.trim()
+    // Transform: center, pan, rotate, zoom
+    const x = background.offsetX || 0
+    const y = background.offsetY || 0
+    const rotation = background.rotation || 0
+    const zoom = background.zoom || 100
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom / 100})`
     // Filter/Skins
     if (background.filter) {
       const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)

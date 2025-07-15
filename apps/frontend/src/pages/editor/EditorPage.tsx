@@ -45,6 +45,8 @@ interface StoryFrame {
     rotation?: number
     zoom?: number
     filter?: string
+    offsetX?: number
+    offsetY?: number
     // Add more as needed
   }
 }
@@ -100,7 +102,16 @@ export default function EditorPage() {
       order: frames.length + 1,
       elements: [],
       hasContent: false,
-      background: frames[0]?.background, // Use the same background as the first frame
+      background: {
+        type: 'color',
+        value: 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+        opacity: 100,
+        rotation: 0,
+        zoom: 100,
+        filter: 'None',
+        offsetX: 0,
+        offsetY: 0,
+      },
     }
     setFrames((prev) => [...prev, newFrame])
     setSelectedFrameId(newFrame.id)
@@ -205,6 +216,8 @@ export default function EditorPage() {
     rotation?: number
     zoom?: number
     filter?: string
+    offsetX?: number
+    offsetY?: number
     // Add more as needed
   }) => {
     setFrames((prev) =>

@@ -69,6 +69,67 @@ export default function PropertyPanelBackground({
                 }
               />
             </div>
+            {/* Pan Controls */}
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Pan X</Label>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                title="Reset X"
+                onClick={() =>
+                  onBackgroundUpdate?.({
+                    ...background,
+                    offsetX: 0,
+                  })
+                }
+              >
+                <span className="text-xs">0</span>
+              </Button>
+            </div>
+            <Slider
+              value={[background.offsetX ?? 0]}
+              max={200}
+              min={-200}
+              step={1}
+              className="mt-2"
+              onValueChange={(value) =>
+                onBackgroundUpdate?.({
+                  ...background,
+                  offsetX: value[0],
+                })
+              }
+            />
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Pan Y</Label>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                title="Reset Y"
+                onClick={() =>
+                  onBackgroundUpdate?.({
+                    ...background,
+                    offsetY: 0,
+                  })
+                }
+              >
+                <span className="text-xs">0</span>
+              </Button>
+            </div>
+            <Slider
+              value={[background.offsetY ?? 0]}
+              max={200}
+              min={-200}
+              step={1}
+              className="mt-2"
+              onValueChange={(value) =>
+                onBackgroundUpdate?.({
+                  ...background,
+                  offsetY: value[0],
+                })
+              }
+            />
             <div className="flex items-center gap-2">
               <Label className="text-xs">Opacity</Label>
               <Button

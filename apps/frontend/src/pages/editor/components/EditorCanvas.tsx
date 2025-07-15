@@ -46,6 +46,7 @@ interface EditorCanvasProps {
     value: string
   }
   onElementSelect: (elementId: string) => void
+  onBackgroundSelect?: () => void
   onElementUpdate: (elementId: string, updates: Partial<CanvasElement>) => void
   onElementAdd: (element: CanvasElement) => void
   onElementRemove: (elementId: string) => void
@@ -59,6 +60,7 @@ export default function EditorCanvas({
   elements,
   background,
   onElementSelect,
+  onBackgroundSelect,
   onElementUpdate,
   onElementAdd,
   onElementRemove,
@@ -121,6 +123,7 @@ export default function EditorCanvas({
           onElementSelect={onElementSelect}
           onElementUpdate={onElementUpdate}
           onElementRemove={onElementRemove}
+          onBackgroundSelect={onBackgroundSelect}
           storyTitle={storyData?.storyTitle}
           publisherName={storyData?.publisherName}
           publisherPic={storyData?.publisherPic}

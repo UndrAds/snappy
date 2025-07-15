@@ -4,7 +4,8 @@ import { useLocation } from 'react-router-dom'
 import EditorLayout from './EditorLayout'
 import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
-import PropertyPanel from './components/PropertyPanel'
+import PropertyPanel from './components/propertyPanel'
+import { Button } from '@/components/ui/button'
 
 interface CanvasElement {
   id: string
@@ -40,6 +41,11 @@ interface StoryFrame {
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
+    opacity?: number
+    rotation?: number
+    zoom?: number
+    filter?: string
+    // Add more as needed
   }
 }
 
@@ -195,6 +201,11 @@ export default function EditorPage() {
   const updateBackground = (background: {
     type: 'color' | 'image' | 'video'
     value: string
+    opacity?: number
+    rotation?: number
+    zoom?: number
+    filter?: string
+    // Add more as needed
   }) => {
     setFrames((prev) =>
       prev.map((frame) =>
@@ -255,11 +266,22 @@ export default function EditorPage() {
         onAddElement={addElement}
       />
 
+      {/* Select Background Button */}
+      <div className="mb-2 flex justify-center">
+        <Button
+          variant={selectedElementId === 'background' ? 'default' : 'outline'}
+          onClick={() => setSelectedElementId('background')}
+        >
+          Select Background
+        </Button>
+      </div>
+
       <EditorCanvas
         elements={selectedFrame?.elements || []}
         background={selectedFrame?.background}
         selectedElementId={selectedElementId}
         onElementSelect={setSelectedElementId}
+        onBackgroundSelect={() => setSelectedElementId('background')}
         onElementUpdate={updateElement}
         onElementAdd={addElement}
         onElementRemove={removeElement}
@@ -272,17 +294,21 @@ export default function EditorPage() {
 
       <PropertyPanel
         selectedElement={
-          selectedElement
-            ? {
-                type: selectedElement.type,
-                id: selectedElement.id,
-                style: selectedElement.style,
-              }
-            : undefined
+          selectedElementId === 'background'
+            ? undefined
+            : selectedElement
+              ? {
+                  type: selectedElement.type,
+                  id: selectedElement.id,
+                  style: selectedElement.style,
+                  mediaUrl: selectedElement.mediaUrl,
+                }
+              : undefined
         }
         background={selectedFrame?.background}
         onElementUpdate={updateElement}
         onBackgroundUpdate={updateBackground}
+        onElementRemove={removeElement}
       />
     </EditorLayout>
   )

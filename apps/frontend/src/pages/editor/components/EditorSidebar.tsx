@@ -310,6 +310,7 @@ export default function EditorSidebar({
           </TabsContent>
 
           {/* Media Tab */}
+
           <TabsContent value="media" className="m-0 h-full">
             <div className="space-y-4 p-4">
               <h3 className="text-sm font-semibold">Media Library</h3>
@@ -338,18 +339,6 @@ export default function EditorSidebar({
                   <Image className="mr-2 h-4 w-4" />
                   Add from Online Source
                 </Button>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-medium text-muted-foreground">
-                  RECENT
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="aspect-square rounded-lg bg-gray-200"></div>
-                  <div className="aspect-square rounded-lg bg-gray-200"></div>
-                  <div className="aspect-square rounded-lg bg-gray-200"></div>
-                  <div className="aspect-square rounded-lg bg-gray-200"></div>
-                </div>
               </div>
             </div>
             {mediaModalOpen && (

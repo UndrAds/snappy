@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Image, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { IMAGE_FILTERS } from '@/lib/skins'
 
 interface CanvasElement {
   id: string
@@ -46,11 +47,16 @@ interface StoryFrameProps {
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
+    opacity?: number
+    rotation?: number
+    zoom?: number
+    filter?: string
   }
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
   onElementUpdate?: (elementId: string, updates: Partial<CanvasElement>) => void
   onElementRemove?: (elementId: string) => void
+  onBackgroundSelect?: () => void
 
   // Edit mode display options
   showPublisherInfo?: boolean
@@ -76,6 +82,7 @@ export default function StoryFrame({
   onElementSelect,
   onElementUpdate,
   onElementRemove,
+  onBackgroundSelect,
 
   // Edit mode display options
   showPublisherInfo = false,
@@ -92,9 +99,9 @@ export default function StoryFrame({
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!isEditMode) return
-    // If clicking on the canvas background, deselect
+    // If clicking on the canvas background, select background
     if (e.target === e.currentTarget) {
-      onElementSelect?.('')
+      onBackgroundSelect?.()
     }
   }
 
@@ -215,16 +222,14 @@ export default function StoryFrame({
     )
   }
 
-  // Determine background style
+  // Scalable background style logic
   const getBackgroundStyle = () => {
     if (isEditMode && background) {
       if (background.type === 'color') {
         return { background: background.value }
       } else if (background.type === 'image') {
-        return {
-          backgroundImage: `url(${background.value})`,
-          backgroundSize: 'cover',
-        }
+        // Only apply image tweaks to image backgrounds
+        return {}
       }
     } else if (mainContent) {
       return { backgroundImage: `url(${mainContent})`, backgroundSize: 'cover' }
@@ -235,6 +240,47 @@ export default function StoryFrame({
       }
     }
     return {}
+  }
+
+  // For image backgrounds, render an absolutely positioned <img> with all tweaks
+  const getBackgroundImageStyle = () => {
+    if (
+      !isEditMode ||
+      !background ||
+      background.type !== 'image' ||
+      !background.value
+    )
+      return {}
+    let style: React.CSSProperties = {
+      position: 'absolute',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      zIndex: 0,
+      pointerEvents: 'none',
+    }
+    // Opacity
+    if (background.opacity !== undefined) {
+      style.opacity = background.opacity / 100
+    }
+    // Rotation and Zoom (scale)
+    let transform = ''
+    if (background.rotation !== undefined) {
+      transform += `rotate(${background.rotation}deg) `
+    }
+    if (background.zoom !== undefined) {
+      transform += `scale(${background.zoom / 100}) `
+    }
+    if (transform) style.transform = transform.trim()
+    // Filter/Skins
+    if (background.filter) {
+      const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)
+      if (filterObj) {
+        style.filter = filterObj.css
+      }
+    }
+    return style
   }
 
   // Determine if we should show publisher info and CTA
@@ -253,6 +299,14 @@ export default function StoryFrame({
         onMouseMove={isEditMode ? handleMouseMove : undefined}
         onMouseUp={isEditMode ? handleMouseUp : undefined}
       >
+        {/* Render background image with all tweaks if type is image */}
+        {isEditMode && background?.type === 'image' && background.value && (
+          <img
+            src={background.value}
+            alt="Background"
+            style={getBackgroundImageStyle()}
+          />
+        )}
         {/* Story Progress Bar - Show in preview mode or when currentSlide/totalSlides are provided in edit mode */}
         {((!isEditMode && showProgressBar) ||
           (isEditMode && currentSlide && totalSlides)) && (

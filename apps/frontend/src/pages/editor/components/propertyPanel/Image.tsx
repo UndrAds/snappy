@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Image } from 'lucide-react'
 import PropertyControl from './PropertyControl'
-import { propertyControlsConfig } from './propertyControlsConfig'
+import { propertyControlsConfig } from './config'
 
 export default function PropertyPanelImage({
   element,

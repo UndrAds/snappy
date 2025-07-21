@@ -10,7 +10,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Type } from 'lucide-react'
 import PropertyControl from './PropertyControl'
-import { propertyControlsConfig } from './propertyControlsConfig'
+import { propertyControlsConfig } from './config'
 
 const textColors = [
   { name: 'Red', value: '#ef4444', bgClass: 'bg-red-500' },

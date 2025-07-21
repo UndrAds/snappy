@@ -1,7 +1,7 @@
 import { Label } from '@/components/ui/label'
 import { Palette } from 'lucide-react'
 import PropertyControl from './PropertyControl'
-import { propertyControlsConfig } from './propertyControlsConfig'
+import { propertyControlsConfig } from './config'
 
 const shapeColors = [
   { name: 'Red', value: '#ef4444', bgClass: 'bg-red-500' },

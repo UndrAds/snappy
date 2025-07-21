@@ -12,7 +12,7 @@ import MediaSourcePicker from '../MediaSourcePicker'
 import MediaSkin from '../MediaSkin'
 import { Button } from '@/components/ui/button'
 import PropertyControl from './PropertyControl'
-import { propertyControlsConfig } from './propertyControlsConfig'
+import { propertyControlsConfig } from './config'
 
 export default function PropertyPanelBackground({
   background,

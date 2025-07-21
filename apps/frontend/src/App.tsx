@@ -9,6 +9,7 @@ import CreateSnapPage from '@/pages/CreateSnapPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import EditorPage from '@/pages/editor/EditorPage'
+import PreviewPage from '@/pages/editor/PreviewPage'
 import { useAuth } from '@/hooks/useAuth'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
@@ -47,6 +48,7 @@ function App() {
           <Route path="editor" element={<EditorPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/editor/preview" element={<PreviewPage />} />
         </Routes>
         <Toaster />
       </div>

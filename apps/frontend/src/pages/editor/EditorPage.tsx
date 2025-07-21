@@ -60,9 +60,26 @@ interface StoryData {
   ctaValue: string
 }
 
+declare global {
+  interface Window {
+    previewData?: any
+  }
+}
+
 export default function EditorPage() {
   const location = useLocation()
-  const storyData = location.state?.storyData as StoryData | undefined
+  // Change storyData to be stateful so it can be updated if needed
+  const [storyDataState, _setStoryDataState] = useState<StoryData>(
+    location.state?.storyData || {
+      storyTitle: '',
+      publisherName: '',
+      publisherPic: '',
+      thumbnail: '',
+      background: '',
+      ctaType: null,
+      ctaValue: '',
+    }
+  )
   const fromCreate = location.state?.fromCreate || false
 
   const [frames, setFrames] = useState<StoryFrame[]>([
@@ -71,10 +88,10 @@ export default function EditorPage() {
       order: 1,
       elements: [],
       hasContent: false,
-      background: storyData?.background
+      background: storyDataState?.background
         ? {
             type: 'image' as const,
-            value: storyData.background,
+            value: storyDataState.background,
           }
         : {
             type: 'color' as const,
@@ -88,12 +105,12 @@ export default function EditorPage() {
 
   // Show welcome message if coming from create page
   useEffect(() => {
-    if (fromCreate && storyData) {
+    if (fromCreate && storyDataState) {
       toast.success(
-        `Welcome to the editor! You can now customize your story "${storyData.storyTitle}"`
+        `Welcome to the editor! You can now customize your story "${storyDataState.storyTitle}"`
       )
     }
-  }, [fromCreate, storyData])
+  }, [fromCreate, storyDataState])
 
   const addNewFrame = () => {
     const newFrame: StoryFrame = {
@@ -244,7 +261,13 @@ export default function EditorPage() {
   }
 
   const handlePreview = () => {
-    toast.info('Preview functionality coming soon!')
+    const previewWindow = window.open('/editor/preview', '_blank')
+    if (previewWindow) {
+      previewWindow.previewData = {
+        storyData: storyDataState,
+        frames,
+      }
+    }
   }
 
   const handleExport = () => {
@@ -263,7 +286,7 @@ export default function EditorPage() {
       onRedo={handleRedo}
       onPreview={handlePreview}
       onExport={handleExport}
-      storyTitle={storyData?.storyTitle}
+      storyTitle={storyDataState?.storyTitle}
     >
       <EditorSidebar
         frames={frames}
@@ -287,7 +310,7 @@ export default function EditorPage() {
         onElementUpdate={updateElement}
         onElementAdd={addElement}
         onElementRemove={removeElement}
-        storyData={storyData}
+        storyData={storyDataState}
         currentSlide={
           frames.findIndex((frame) => frame.id === selectedFrameId) + 1
         }

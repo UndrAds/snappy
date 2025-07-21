@@ -65,7 +65,6 @@ export default function StoryFrame({
   publisherName,
   storyTitle,
   publisherPic,
-  mainContent,
   ctaType,
   currentSlide = 1,
   totalSlides = 4,
@@ -221,40 +220,33 @@ export default function StoryFrame({
 
   // Scalable background style logic
   const getBackgroundStyle = () => {
-    if (isEditMode && background) {
+    if (background) {
       if (background.type === 'color') {
         return { background: background.value }
       } else if (background.type === 'image') {
-        // Only apply image tweaks to image backgrounds
+        // Don't set background here, handled by <img>
         return {}
       }
-    } else if (mainContent) {
-      return { backgroundImage: `url(${mainContent})`, backgroundSize: 'cover' }
-    } else {
-      return {
-        background:
-          'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-      }
     }
-    return {}
+    return {
+      background: 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+    }
   }
 
   // For image backgrounds, render an absolutely positioned <img> with all tweaks
   const getBackgroundImageStyle = () => {
-    if (
-      !isEditMode ||
-      !background ||
-      background.type !== 'image' ||
-      !background.value
-    )
+    if (!background || background.type !== 'image' || !background.value)
       return {}
     let style: React.CSSProperties = {
       position: 'absolute',
       left: '50%',
       top: '50%',
-      objectFit: 'contain',
+      objectFit: 'cover',
+      width: '100%',
+      height: '100%',
       zIndex: 0,
       pointerEvents: 'none',
+      transform: 'translate(-50%, -50%)',
     }
     // Opacity
     if (background.opacity !== undefined) {
@@ -265,7 +257,7 @@ export default function StoryFrame({
     const y = background.offsetY || 0
     const rotation = background.rotation || 0
     const zoom = background.zoom || 100
-    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom / 100})`
+    style.transform += ` translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom / 100})`
     // Filter/Skins
     if (background.filter) {
       const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)
@@ -292,7 +284,7 @@ export default function StoryFrame({
         onMouseUp={isEditMode ? handleMouseUp : undefined}
       >
         {/* Render background image with all tweaks if type is image */}
-        {isEditMode && background?.type === 'image' && background.value && (
+        {background?.type === 'image' && background.value && (
           <img
             src={background.value}
             alt="Background"
@@ -363,16 +355,8 @@ export default function StoryFrame({
           className="flex h-full w-full items-center justify-center"
           onClick={isEditMode ? handleCanvasClick : undefined}
         >
-          {isEditMode ? (
-            // Editor mode: Render canvas elements
+          {(elements && elements.length > 0) || background ? (
             <>{elements.map(renderElement)}</>
-          ) : // Preview mode: Show content or placeholder
-          mainContent ? (
-            <img
-              src={mainContent}
-              alt="Story content"
-              className="h-full w-full object-cover"
-            />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <div className="text-center text-white">

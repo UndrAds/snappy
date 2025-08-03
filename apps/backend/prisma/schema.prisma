@@ -18,20 +18,88 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  posts Post[]
+  // Relations
+  stories Story[]
 
   @@map("users")
 }
 
-model Post {
+model Story {
+  id          String   @id @default(cuid())
+  title       String
+  uniqueId    String   @unique // Combination of title + random hash
+  publisherName String
+  publisherPic String? // URL to uploaded image
+  largeThumbnail String? // URL to uploaded image
+  smallThumbnail String? // URL to uploaded image
+  ctaType     String? // 'redirect' | 'form' | 'promo' | 'sell'
+  ctaValue    String?
+  status      String   @default("draft") // 'draft' | 'published' | 'archived'
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frames  StoryFrame[]
+
+  @@map("stories")
+}
+
+model StoryFrame {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  order     Int      // Frame order within the story
+  hasContent Boolean @default(false)
+  storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("posts")
+  // Relations
+  story      Story           @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  elements   StoryElement[]
+  background StoryBackground?
+
+  @@map("story_frames")
+}
+
+model StoryElement {
+  id       String @id @default(cuid())
+  type     String // 'text' | 'image' | 'shape'
+  x        Float
+  y        Float
+  width    Float
+  height   Float
+  content  String? // For text elements
+  mediaUrl String? // For image elements
+  frameId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Style properties stored as JSON
+  style Json?
+
+  // Relations
+  frame StoryFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("story_elements")
+}
+
+model StoryBackground {
+  id       String @id @default(cuid())
+  type     String // 'color' | 'image' | 'video'
+  value    String
+  opacity  Float?
+  rotation Float?
+  zoom     Float?
+  filter   String?
+  offsetX  Float?
+  offsetY  Float?
+  frameId  String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  frame StoryFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("story_backgrounds")
 } 

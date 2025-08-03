@@ -33,7 +33,155 @@ export interface ApiResponse<T = any> {
   };
 }
 
-// Post types
+// Story types
+export interface Story {
+  id: string;
+  title: string;
+  uniqueId: string;
+  publisherName: string;
+  publisherPic?: string;
+  largeThumbnail?: string;
+  smallThumbnail?: string;
+  ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
+  ctaValue?: string;
+  status: 'draft' | 'published' | 'archived';
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  frames?: StoryFrame[];
+}
+
+export interface CreateStoryRequest {
+  title: string;
+  publisherName: string;
+  publisherPic?: string;
+  largeThumbnail?: string;
+  smallThumbnail?: string;
+  ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
+  ctaValue?: string;
+}
+
+export interface UpdateStoryRequest {
+  title?: string;
+  publisherName?: string;
+  publisherPic?: string;
+  largeThumbnail?: string;
+  smallThumbnail?: string;
+  ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
+  ctaValue?: string;
+  status?: 'draft' | 'published' | 'archived';
+}
+
+export interface StoryFrame {
+  id: string;
+  order: number;
+  hasContent: boolean;
+  storyId: string;
+  createdAt: string;
+  updatedAt: string;
+  elements?: StoryElement[];
+  background?: StoryBackground;
+}
+
+export interface StoryElement {
+  id: string;
+  type: 'text' | 'image' | 'shape';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  content?: string;
+  mediaUrl?: string;
+  frameId: string;
+  createdAt: string;
+  updatedAt: string;
+  style?: {
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: string;
+    color?: string;
+    backgroundColor?: string;
+    opacity?: number;
+    rotation?: number;
+    brightness?: number;
+    contrast?: number;
+    saturation?: number;
+    sharpness?: number;
+    highlights?: number;
+    filter?: string;
+  };
+}
+
+export interface StoryBackground {
+  id: string;
+  type: 'color' | 'image' | 'video';
+  value: string;
+  opacity?: number;
+  rotation?: number;
+  zoom?: number;
+  filter?: string;
+  offsetX?: number;
+  offsetY?: number;
+  frameId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStoryFrameRequest {
+  order: number;
+  hasContent?: boolean;
+}
+
+export interface UpdateStoryFrameRequest {
+  order?: number;
+  hasContent?: boolean;
+}
+
+export interface CreateStoryElementRequest {
+  type: 'text' | 'image' | 'shape';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  content?: string;
+  mediaUrl?: string;
+  style?: any;
+}
+
+export interface UpdateStoryElementRequest {
+  type?: 'text' | 'image' | 'shape';
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  content?: string;
+  mediaUrl?: string;
+  style?: any;
+}
+
+export interface CreateStoryBackgroundRequest {
+  type: 'color' | 'image' | 'video';
+  value: string;
+  opacity?: number;
+  rotation?: number;
+  zoom?: number;
+  filter?: string;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+export interface UpdateStoryBackgroundRequest {
+  type?: 'color' | 'image' | 'video';
+  value?: string;
+  opacity?: number;
+  rotation?: number;
+  zoom?: number;
+  filter?: string;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+// Post types (keeping for backward compatibility)
 export interface Post {
   id: string;
   title: string;

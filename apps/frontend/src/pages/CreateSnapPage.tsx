@@ -20,6 +20,7 @@ import {
 import { Upload, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
+import { storyAPI, uploadAPI } from '@/lib/api'
 
 interface SnapData {
   name: string
@@ -72,6 +73,8 @@ export default function CreateSnapPage() {
     smallThumbnail: defaultSmallThumbnail,
   })
 
+  const [isLoading, setIsLoading] = useState(false)
+
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
       ...prev,
@@ -89,32 +92,50 @@ export default function CreateSnapPage() {
     }))
   }
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     type: 'publisherPic' | 'largeThumbnail' | 'smallThumbnail',
     file: File
   ) => {
-    const url = URL.createObjectURL(file)
-    setPreviewUrls((prev) => ({
-      ...prev,
-      [type]: url,
-    }))
+    try {
+      setIsLoading(true)
 
-    if (type === 'publisherPic') {
-      setSnapData((prev) => ({
-        ...prev,
-        publisher: {
-          ...prev.publisher,
-          profilePic: file,
-        },
-      }))
-    } else {
-      setSnapData((prev) => ({
-        ...prev,
-        thumbnails: {
-          ...prev.thumbnails,
-          [type === 'largeThumbnail' ? 'large' : 'small']: file,
-        },
-      }))
+      // Upload file to backend
+      const response = await uploadAPI.uploadSingle(file)
+
+      if (response.success && response.data) {
+        const url = response.data.url
+        setPreviewUrls((prev) => ({
+          ...prev,
+          [type]: url,
+        }))
+
+        if (type === 'publisherPic') {
+          setSnapData((prev) => ({
+            ...prev,
+            publisher: {
+              ...prev.publisher,
+              profilePic: file,
+            },
+          }))
+        } else {
+          setSnapData((prev) => ({
+            ...prev,
+            thumbnails: {
+              ...prev.thumbnails,
+              [type === 'largeThumbnail' ? 'large' : 'small']: file,
+            },
+          }))
+        }
+
+        toast.success('File uploaded successfully!')
+      } else {
+        toast.error('Failed to upload file')
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error('Failed to upload file')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -128,7 +149,7 @@ export default function CreateSnapPage() {
     }))
   }
 
-  const handleSaveAndEdit = () => {
+  const handleSaveAndEdit = async () => {
     if (!snapData.name.trim()) {
       toast.error('Please enter a snap name')
       return
@@ -159,26 +180,51 @@ export default function CreateSnapPage() {
       return
     }
 
-    // Prepare the data to pass to editor
-    const editorData = {
-      storyTitle: snapData.name,
-      publisherName: snapData.publisher.name,
-      publisherPic: previewUrls.publisherPic,
-      thumbnail: previewUrls.largeThumbnail, // This is the thumbnail for preview
-      background: previewUrls.largeThumbnail, // This becomes the background of the story
-      ctaType: snapData.cta.type,
-      ctaValue: snapData.cta.value,
+    try {
+      setIsLoading(true)
+
+      // Create story in backend
+      const storyResponse = await storyAPI.createStory({
+        title: snapData.name,
+        publisherName: snapData.publisher.name,
+        publisherPic: previewUrls.publisherPic,
+        largeThumbnail: previewUrls.largeThumbnail,
+        smallThumbnail: previewUrls.smallThumbnail,
+        ctaType: snapData.cta.type,
+        ctaValue: snapData.cta.value,
+      })
+
+      if (storyResponse.success && storyResponse.data) {
+        // Prepare the data to pass to editor
+        const editorData = {
+          storyTitle: snapData.name,
+          publisherName: snapData.publisher.name,
+          publisherPic: previewUrls.publisherPic,
+          thumbnail: previewUrls.largeThumbnail, // This is the thumbnail for preview
+          background: previewUrls.largeThumbnail, // This becomes the background of the story
+          ctaType: snapData.cta.type,
+          ctaValue: snapData.cta.value,
+        }
+
+        // Navigate to editor with the data
+        navigate('/editor', {
+          state: {
+            storyData: editorData,
+            storyId: storyResponse.data.id,
+            fromCreate: true,
+          },
+        })
+
+        toast.success('Snap saved successfully! Moving to edit mode...')
+      } else {
+        toast.error('Failed to create story')
+      }
+    } catch (error) {
+      console.error('Create story error:', error)
+      toast.error('Failed to create story')
+    } finally {
+      setIsLoading(false)
     }
-
-    // Navigate to editor with the data
-    navigate('/editor', {
-      state: {
-        storyData: editorData,
-        fromCreate: true,
-      },
-    })
-
-    toast.success('Snap saved successfully! Moving to edit mode...')
   }
 
   const FileUpload = ({
@@ -205,9 +251,10 @@ export default function CreateSnapPage() {
               ?.click()
           }
           className="flex items-center space-x-2"
+          disabled={isLoading}
         >
           <Upload className="h-4 w-4" />
-          <span>Upload</span>
+          <span>{isLoading ? 'Uploading...' : 'Upload'}</span>
         </Button>
         {previewUrl && (
           <div className="flex items-center space-x-2">
@@ -402,9 +449,10 @@ export default function CreateSnapPage() {
           <Button
             onClick={handleSaveAndEdit}
             className="flex items-center space-x-2"
+            disabled={isLoading}
           >
             <Save className="h-4 w-4" />
-            <span>Save & Edit</span>
+            <span>{isLoading ? 'Saving...' : 'Save & Edit'}</span>
           </Button>
         </div>
       </div>

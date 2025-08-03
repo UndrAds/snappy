@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
@@ -10,6 +11,8 @@ import { config } from './config/config';
 import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import storyRoutes from './routes/stories';
+import uploadRoutes from './routes/uploads';
 
 const app = express();
 const PORT = config.PORT;
@@ -37,6 +40,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static file serving for uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Logging middleware
 if (config.NODE_ENV === 'development') {
   app.use(morgan('dev'));
@@ -54,6 +60,8 @@ app.get('/health', (_, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // 404 handler
 app.use(notFound);

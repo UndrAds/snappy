@@ -13,6 +13,7 @@ interface EditorLayoutProps {
   canUndo?: boolean
   canRedo?: boolean
   storyTitle?: string
+  isSaving?: boolean
 }
 
 export default function EditorLayout({
@@ -25,6 +26,7 @@ export default function EditorLayout({
   canUndo = false,
   canRedo = false,
   storyTitle,
+  isSaving = false,
 }: EditorLayoutProps) {
   const navigate = useNavigate()
 
@@ -81,9 +83,13 @@ export default function EditorLayout({
             <Code2 className="h-4 w-4" />
             <span className="ml-2">Embed</span>
           </Button>
-          <Button onClick={onSave} className="flex items-center space-x-2">
+          <Button
+            onClick={onSave}
+            className="flex items-center space-x-2"
+            disabled={isSaving}
+          >
             <Save className="h-4 w-4" />
-            <span>Save</span>
+            <span>{isSaving ? 'Saving...' : 'Save'}</span>
           </Button>
         </div>
       </div>

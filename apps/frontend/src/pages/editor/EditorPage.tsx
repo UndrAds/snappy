@@ -5,6 +5,7 @@ import EditorLayout from './EditorLayout'
 import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
 import PropertyPanel from './components/propertyPanel'
+import EmbedModal from './components/EmbedModal'
 
 interface CanvasElement {
   id: string
@@ -102,6 +103,7 @@ export default function EditorPage() {
   ])
   const [selectedFrameId, setSelectedFrameId] = useState<string>('1')
   const [selectedElementId, setSelectedElementId] = useState<string>('')
+  const [embedOpen, setEmbedOpen] = useState(false)
 
   // Show welcome message if coming from create page
   useEffect(() => {
@@ -270,8 +272,8 @@ export default function EditorPage() {
     }
   }
 
-  const handleExport = () => {
-    toast.info('Export functionality coming soon!')
+  const handleEmbed = () => {
+    setEmbedOpen(true)
   }
 
   const selectedFrame = frames.find((frame) => frame.id === selectedFrameId)
@@ -285,7 +287,7 @@ export default function EditorPage() {
       onUndo={handleUndo}
       onRedo={handleRedo}
       onPreview={handlePreview}
-      onExport={handleExport}
+      onEmbed={handleEmbed}
       storyTitle={storyDataState?.storyTitle}
     >
       <EditorSidebar
@@ -329,6 +331,12 @@ export default function EditorPage() {
         onElementUpdate={updateElement}
         onBackgroundUpdate={updateBackground}
         onElementRemove={removeElement}
+      />
+      <EmbedModal
+        open={embedOpen}
+        onClose={() => setEmbedOpen(false)}
+        storyId={storyDataState?.storyTitle || 'demo'}
+        storyData={{ story: storyDataState, frames }}
       />
     </EditorLayout>
   )

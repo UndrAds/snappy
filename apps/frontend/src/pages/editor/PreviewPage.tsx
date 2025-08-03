@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import StoryFrame from '@/components/StoryFrame'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
+import EmbedModal from './components/EmbedModal'
 
 export default function PreviewPage() {
   const location = useLocation()
@@ -9,6 +10,7 @@ export default function PreviewPage() {
   const [storyData, setStoryData] = useState<any>(null)
   const [frames, setFrames] = useState<any>(null)
   const [current, setCurrent] = useState(0)
+  const [embedOpen, setEmbedOpen] = useState(false)
 
   useEffect(() => {
     if ((window as any).previewData) {
@@ -38,16 +40,28 @@ export default function PreviewPage() {
     if (current > 0) setCurrent(current - 1)
   }
   const handleClose = () => navigate(-1)
+  const handleEmbed = () => {
+    setEmbedOpen(true)
+  }
 
   const frame = frames[current]
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black">
-      <div className="absolute left-4 top-4">
+      <div className="absolute left-4 top-4 flex gap-2">
         <Button variant="ghost" onClick={handleClose}>
           Back
         </Button>
+        <Button variant="outline" onClick={handleEmbed}>
+          Embed
+        </Button>
       </div>
+      <EmbedModal
+        open={embedOpen}
+        onClose={() => setEmbedOpen(false)}
+        storyId={storyData?.storyTitle || 'demo'}
+        storyData={{ story: storyData, frames }}
+      />
       <div className="relative flex h-[700px] w-[360px] items-center justify-center">
         <StoryFrame
           publisherName={storyData.publisherName}

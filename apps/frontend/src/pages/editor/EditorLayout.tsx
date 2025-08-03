@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save, Undo, Redo, Eye, Download } from 'lucide-react'
+import { ArrowLeft, Save, Undo, Redo, Eye, Code2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 interface EditorLayoutProps {
@@ -9,7 +9,7 @@ interface EditorLayoutProps {
   onUndo?: () => void
   onRedo?: () => void
   onPreview?: () => void
-  onExport?: () => void
+  onEmbed?: () => void
   canUndo?: boolean
   canRedo?: boolean
   storyTitle?: string
@@ -21,7 +21,7 @@ export default function EditorLayout({
   onUndo,
   onRedo,
   onPreview,
-  onExport,
+  onEmbed,
   canUndo = false,
   canRedo = false,
   storyTitle,
@@ -77,9 +77,9 @@ export default function EditorLayout({
             <Eye className="h-4 w-4" />
             <span className="ml-2">Preview</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={onExport}>
-            <Download className="h-4 w-4" />
-            <span className="ml-2">Export</span>
+          <Button variant="ghost" size="sm" onClick={onEmbed}>
+            <Code2 className="h-4 w-4" />
+            <span className="ml-2">Embed</span>
           </Button>
           <Button onClick={onSave} className="flex items-center space-x-2">
             <Save className="h-4 w-4" />

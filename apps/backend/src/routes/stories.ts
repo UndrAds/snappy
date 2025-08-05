@@ -6,7 +6,14 @@ import { body, param } from 'express-validator';
 
 const router = Router();
 
-// Apply authentication middleware to all story routes
+// Public story access (no authentication required) - must be before auth middleware
+router.get(
+  '/public/:uniqueId',
+  [param('uniqueId').notEmpty().withMessage('Unique ID is required'), validateRequest],
+  StoryController.getStoryByUniqueId
+);
+
+// Apply authentication middleware to all other story routes
 router.use(authenticateToken);
 
 // Story CRUD routes
@@ -42,13 +49,6 @@ router.delete(
 
 // Save complete story from editor
 router.post('/save-complete', StoryController.saveCompleteStory);
-
-// Public story access (no authentication required)
-router.get(
-  '/public/:uniqueId',
-  [param('uniqueId').notEmpty().withMessage('Unique ID is required'), validateRequest],
-  StoryController.getStoryByUniqueId
-);
 
 // Story frame routes
 router.post(

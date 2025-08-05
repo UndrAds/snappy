@@ -207,10 +207,11 @@ export default function CreateSnapPage() {
         }
 
         // Navigate to editor with the data
-        navigate('/editor', {
+        navigate(`/editor/${storyResponse.data.uniqueId}`, {
           state: {
             storyData: editorData,
             storyId: storyResponse.data.id,
+            uniqueId: storyResponse.data.uniqueId,
             fromCreate: true,
           },
         })

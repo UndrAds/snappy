@@ -6,6 +6,7 @@ import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import DashboardHomePage from '@/pages/DashboardHomePage'
 import CreateSnapPage from '@/pages/CreateSnapPage'
+import EditStoryPage from '@/pages/EditStoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import SettingsPage from '@/pages/SettingsPage'
 import EditorPage from '@/pages/editor/EditorPage'
@@ -42,11 +43,13 @@ function App() {
           >
             <Route index element={<DashboardHomePage />} />
             <Route path="create" element={<CreateSnapPage />} />
+            <Route path="edit/:uniqueId" element={<EditStoryPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="profile" element={<SettingsPage />} />
           </Route>
           <Route path="editor" element={<EditorPage />} />
+          <Route path="editor/:uniqueId" element={<EditorPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/editor/preview" element={<PreviewPage />} />

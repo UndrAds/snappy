@@ -59,6 +59,7 @@ export interface CreateStoryRequest {
   smallThumbnail?: string;
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
+  uniqueId?: string; // Optional: allow providing a specific unique ID
 }
 
 export interface UpdateStoryRequest {
@@ -70,6 +71,7 @@ export interface UpdateStoryRequest {
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
   status?: 'draft' | 'published' | 'archived';
+  uniqueId?: string; // Optional: allow updating the unique ID
 }
 
 export interface StoryFrame {

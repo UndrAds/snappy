@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   Card,
   CardContent,
@@ -6,194 +9,465 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, Eye, Clock, TrendingUp, Calendar } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Edit,
+  Trash2,
+  Share2,
+  Code,
+  MoreVertical,
+  Plus,
+  Calendar,
+  User,
+  Eye,
+} from 'lucide-react'
+import { storyAPI } from '@/lib/api'
+import { Story } from '@snappy/shared-types'
 
 export default function DashboardHomePage() {
+  const navigate = useNavigate()
+  const [stories, setStories] = useState<Story[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
+  const [embedDialogOpen, setEmbedDialogOpen] = useState(false)
+  const [storyToEmbed, setStoryToEmbed] = useState<Story | null>(null)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [storyToShare, setStoryToShare] = useState<Story | null>(null)
+
+  // Load user stories
+  useEffect(() => {
+    loadStories()
+  }, [])
+
+  const loadStories = async () => {
+    try {
+      setIsLoading(true)
+      const response = await storyAPI.getUserStories()
+
+      if (response.success && response.data) {
+        setStories(response.data)
+      } else {
+        toast.error('Failed to load stories')
+      }
+    } catch (error) {
+      console.error('Load stories error:', error)
+      toast.error('Failed to load stories')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEdit = (story: Story) => {
+    navigate(`/edit/${story.uniqueId}`)
+  }
+
+  const handleDelete = (story: Story) => {
+    setStoryToDelete(story)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!storyToDelete) return
+
+    try {
+      const response = await storyAPI.deleteStory(storyToDelete.id)
+
+      if (response.success) {
+        toast.success('Story deleted successfully')
+        setStories(stories.filter((s) => s.id !== storyToDelete.id))
+      } else {
+        toast.error('Failed to delete story')
+      }
+    } catch (error) {
+      console.error('Delete story error:', error)
+      toast.error('Failed to delete story')
+    } finally {
+      setDeleteDialogOpen(false)
+      setStoryToDelete(null)
+    }
+  }
+
+  const handleShare = (story: Story) => {
+    setStoryToShare(story)
+    setShareDialogOpen(true)
+  }
+
+  const handleEmbed = (story: Story) => {
+    setStoryToEmbed(story)
+    setEmbedDialogOpen(true)
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Copied to clipboard!')
+    } catch (error) {
+      toast.error('Failed to copy to clipboard')
+    }
+  }
+
+  const getCtaTypeLabel = (ctaType?: string) => {
+    switch (ctaType) {
+      case 'redirect':
+        return 'Redirect'
+      case 'form':
+        return 'Form'
+      case 'promo':
+        return 'Promo'
+      case 'sell':
+        return 'Sell'
+      default:
+        return 'None'
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'published':
+        return 'bg-green-100 text-green-800'
+      case 'draft':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'archived':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">My Stories</h1>
+            <p className="text-muted-foreground">
+              Manage and edit your web stories
+            </p>
+          </div>
+          <Button onClick={() => navigate('/create')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Story
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader>
+                <div className="h-4 w-3/4 rounded bg-gray-200"></div>
+                <div className="h-3 w-1/2 rounded bg-gray-200"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 h-32 rounded bg-gray-200"></div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full rounded bg-gray-200"></div>
+                  <div className="h-3 w-2/3 rounded bg-gray-200"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Welcome to Snappy</h2>
-        <p className="text-muted-foreground">
-          Create, manage, and analyze your web stories
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">My Stories</h1>
+          <p className="text-muted-foreground">
+            Manage and edit your web stories
+          </p>
+        </div>
+        <Button onClick={() => navigate('/create')}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Story
+        </Button>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Plus className="mr-2 h-5 w-5" />
-              Create New Story
-            </CardTitle>
-            <CardDescription>
-              Start building your next web story
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Story
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Eye className="mr-2 h-5 w-5" />
-              View Analytics
-            </CardTitle>
-            <CardDescription>Check your story performance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" className="w-full">
-              <TrendingUp className="mr-2 h-4 w-4" />
-              View Analytics
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="mr-2 h-5 w-5" />
-              Recent Stories
-            </CardTitle>
-            <CardDescription>Continue working on drafts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" className="w-full">
-              <Calendar className="mr-2 h-4 w-4" />
-              View All
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {stories.length === 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Stories</CardTitle>
-            <CardDescription>Your latest published stories</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <h4 className="font-medium">Breaking News Story</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Published 2 days ago
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">3,247 views</div>
-                  <div className="text-sm text-muted-foreground">
-                    85% completion
-                  </div>
-                </div>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <Plus className="h-8 w-8 text-muted-foreground" />
               </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <h4 className="font-medium">Tech Update Weekly</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Published 5 days ago
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">2,891 views</div>
-                  <div className="text-sm text-muted-foreground">
-                    72% completion
-                  </div>
-                </div>
+              <div>
+                <h3 className="text-lg font-semibold">No stories yet</h3>
+                <p className="text-muted-foreground">
+                  Create your first web story to get started
+                </p>
               </div>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <h4 className="font-medium">Lifestyle Tips</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Published 1 week ago
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">2,156 views</div>
-                  <div className="text-sm text-muted-foreground">
-                    68% completion
-                  </div>
-                </div>
-              </div>
+              <Button onClick={() => navigate('/create')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Your First Story
+              </Button>
             </div>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {stories.map((story) => (
+            <Card
+              key={story.id}
+              className="group transition-shadow hover:shadow-lg"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="truncate text-lg">
+                      {story.title}
+                    </CardTitle>
+                    <CardDescription className="mt-1 flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      <span className="truncate">{story.publisherName}</span>
+                    </CardDescription>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(story)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare(story)}>
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEmbed(story)}>
+                        <Code className="mr-2 h-4 w-4" />
+                        Embed
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(story)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Thumbnail */}
+                <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
+                  {story.largeThumbnail ? (
+                    <img
+                      src={story.largeThumbnail}
+                      alt={story.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <div className="text-sm text-muted-foreground">
+                        No thumbnail
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute right-2 top-2">
+                    <Badge className={getStatusColor(story.status)}>
+                      {story.status}
+                    </Badge>
+                  </div>
+                </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-            <CardDescription>Your story performance overview</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total Stories</span>
-                <span className="text-lg font-bold">24</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total Views</span>
-                <span className="text-lg font-bold">12,847</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Avg. Completion</span>
-                <span className="text-lg font-bold">78.5%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Draft Stories</span>
-                <span className="text-lg font-bold">3</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                {/* Story Details */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">CTA Type:</span>
+                    <Badge variant="outline">
+                      {getCtaTypeLabel(story.ctaType)}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Created:</span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(story.createdAt)}
+                    </span>
+                  </div>
+                  {story.frames && story.frames.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Frames:</span>
+                      <span>{story.frames.length}</span>
+                    </div>
+                  )}
+                </div>
 
-      {/* Getting Started */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Getting Started</CardTitle>
-          <CardDescription>
-            Tips to help you create amazing stories
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Plus className="h-6 w-6 text-primary" />
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleEdit(story)}
+                    className="flex-1"
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      window.open(
+                        `/api/stories/public/${story.uniqueId}`,
+                        '_blank'
+                      )
+                    }
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleShare(story)}
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEmbed(story)}
+                  >
+                    <Code className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Story</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{storyToDelete?.title}"? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Story</DialogTitle>
+            <DialogDescription>
+              Share your story with others using the link below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Story URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={`${window.location.origin}/api/stories/public/${storyToShare?.uniqueId}`}
+                  readOnly
+                />
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(
+                      `${window.location.origin}/api/stories/public/${storyToShare?.uniqueId}`
+                    )
+                  }
+                >
+                  Copy
+                </Button>
               </div>
-              <h4 className="mb-2 font-medium">Create Your First Story</h4>
-              <p className="text-sm text-muted-foreground">
-                Start by creating a new story and adding your content
-              </p>
-            </div>
-            <div className="p-4 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Eye className="h-6 w-6 text-primary" />
-              </div>
-              <h4 className="mb-2 font-medium">Track Performance</h4>
-              <p className="text-sm text-muted-foreground">
-                Monitor your story views and engagement metrics
-              </p>
-            </div>
-            <div className="p-4 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <TrendingUp className="h-6 w-6 text-primary" />
-              </div>
-              <h4 className="mb-2 font-medium">Optimize & Improve</h4>
-              <p className="text-sm text-muted-foreground">
-                Use analytics to improve your future stories
-              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
+
+      {/* Embed Dialog */}
+      <Dialog open={embedDialogOpen} onOpenChange={setEmbedDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Embed Story</DialogTitle>
+            <DialogDescription>
+              Embed this story on your website using the code below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Embed Code</Label>
+              <Textarea
+                value={`<iframe src="${window.location.origin}/api/stories/public/${storyToEmbed?.uniqueId}" width="100%" height="600" frameborder="0"></iframe>`}
+                readOnly
+                rows={4}
+                className="font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() =>
+                  copyToClipboard(
+                    `<iframe src="${window.location.origin}/api/stories/public/${storyToEmbed?.uniqueId}" width="100%" height="600" frameborder="0"></iframe>`
+                  )
+                }
+              >
+                Copy Code
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="text-sm text-muted-foreground">
+                  Story preview will appear here when embedded
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import EditorLayout from './EditorLayout'
 import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
@@ -70,8 +70,12 @@ declare global {
 
 export default function EditorPage() {
   const location = useLocation()
-  // Change storyData to be stateful so it can be updated if needed
-  const [storyDataState, _setStoryDataState] = useState<StoryData>(
+  const params = useParams()
+
+  // Get uniqueId from URL params or location state
+  const uniqueId = params.uniqueId || location.state?.uniqueId
+
+  const [storyDataState, setStoryDataState] = useState<StoryData>(
     location.state?.storyData || {
       storyTitle: '',
       publisherName: '',
@@ -91,15 +95,17 @@ export default function EditorPage() {
       order: 1,
       elements: [],
       hasContent: false,
-      background: storyDataState?.background
+      background: location.state?.storyData?.thumbnail
         ? {
             type: 'image' as const,
-            value: storyDataState.background,
+            value: location.state.storyData.thumbnail,
+            opacity: 100, // Set default opacity to 100
           }
         : {
             type: 'color' as const,
             value:
               'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+            opacity: 100, // Set default opacity to 100
           },
     },
   ])
@@ -108,6 +114,130 @@ export default function EditorPage() {
   const [selectedElementId, setSelectedElementId] = useState<string>('')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [_isLoading, setIsLoading] = useState(false)
+  const [currentStoryId, setCurrentStoryId] = useState<string | undefined>(
+    storyId
+  )
+
+  // Update initial frame when coming from create page
+  useEffect(() => {
+    if (
+      fromCreate &&
+      location.state?.storyData?.thumbnail &&
+      frames.length > 0
+    ) {
+      setFrames((prev) =>
+        prev.map((frame) =>
+          frame.id === '1'
+            ? {
+                ...frame,
+                background: {
+                  type: 'image' as const,
+                  value: location.state.storyData.thumbnail,
+                  opacity: 100, // Set default opacity to 100
+                },
+              }
+            : frame
+        )
+      )
+    }
+  }, [fromCreate, location.state?.storyData?.thumbnail])
+
+  // Load story data if uniqueId is provided in URL
+  useEffect(() => {
+    const loadStory = async () => {
+      if (uniqueId && !fromCreate) {
+        try {
+          setIsLoading(true)
+          const response = await storyAPI.getStoryByUniqueId(uniqueId)
+
+          if (response.success && response.data) {
+            const story = response.data
+
+            // Set the story ID for saving
+            setCurrentStoryId(story.id)
+
+            // Update story data
+            setStoryDataState({
+              storyTitle: story.title,
+              publisherName: story.publisherName,
+              publisherPic: story.publisherPic || '',
+              thumbnail: story.largeThumbnail || '',
+              background: story.largeThumbnail || '',
+              ctaType: story.ctaType as any,
+              ctaValue: story.ctaValue || '',
+            })
+
+            // Convert database frames to editor frames
+            if (story.frames && story.frames.length > 0) {
+              const editorFrames = story.frames.map((frame: any) => ({
+                id: frame.id,
+                order: frame.order,
+                elements: frame.elements || [],
+                hasContent: frame.hasContent,
+                background: frame.background
+                  ? {
+                      type: frame.background.type as
+                        | 'color'
+                        | 'image'
+                        | 'video',
+                      value: frame.background.value,
+                      opacity: frame.background.opacity ?? 100, // Use 100 as default if not set
+                      rotation: frame.background.rotation,
+                      zoom: frame.background.zoom,
+                      filter: frame.background.filter,
+                      offsetX: frame.background.offsetX,
+                      offsetY: frame.background.offsetY,
+                    }
+                  : {
+                      type: 'color' as const,
+                      value:
+                        'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+                      opacity: 100, // Set default opacity to 100
+                    },
+              }))
+
+              setFrames(editorFrames)
+              setSelectedFrameId(editorFrames[0]?.id || '1')
+            } else {
+              // If no frames exist, create a default frame with the story's background
+              const defaultFrame: StoryFrame = {
+                id: '1',
+                order: 1,
+                elements: [],
+                hasContent: false,
+                background: story.largeThumbnail
+                  ? {
+                      type: 'image' as const,
+                      value: story.largeThumbnail,
+                      opacity: 100, // Set default opacity to 100
+                    }
+                  : {
+                      type: 'color' as const,
+                      value:
+                        'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+                      opacity: 100, // Set default opacity to 100
+                    },
+              }
+              setFrames([defaultFrame])
+              setSelectedFrameId('1')
+            }
+
+            toast.success(`Loaded story: ${story.title}`)
+          } else {
+            toast.error('Story not found')
+          }
+        } catch (error) {
+          console.error('Load story error:', error)
+          toast.error('Failed to load story')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    loadStory()
+  }, [uniqueId, fromCreate])
 
   // Show welcome message if coming from create page
   useEffect(() => {
@@ -127,6 +257,7 @@ export default function EditorPage() {
       background: {
         type: 'color',
         value: 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+        opacity: 100, // Set default opacity to 100
       },
     }
     setFrames((prev) => [...prev, newFrame])
@@ -241,7 +372,8 @@ export default function EditorPage() {
       // Prepare story data for backend
       const storyData = {
         story: {
-          id: storyId, // Include story ID if it exists
+          id: currentStoryId, // Use currentStoryId instead of storyId
+          uniqueId: uniqueId, // Include unique ID for identification
           title: storyDataState.storyTitle,
           publisherName: storyDataState.publisherName,
           publisherPic: storyDataState.publisherPic,
@@ -255,6 +387,16 @@ export default function EditorPage() {
           order: index + 1, // Ensure proper ordering
         })),
       }
+
+      // Debug: Log the data being sent
+      console.log('Saving story data:', JSON.stringify(storyData, null, 2))
+      console.log(
+        'Frames with backgrounds:',
+        frames.map((frame) => ({
+          id: frame.id,
+          background: frame.background,
+        }))
+      )
 
       // Save to backend
       const response = await storyAPI.saveCompleteStory(storyData)
@@ -354,7 +496,7 @@ export default function EditorPage() {
       <EmbedModal
         open={embedOpen}
         onClose={() => setEmbedOpen(false)}
-        storyId={storyDataState?.storyTitle || 'demo'}
+        storyId={uniqueId || storyDataState?.storyTitle || 'demo'}
         storyData={{ story: storyDataState, frames }}
       />
     </EditorLayout>

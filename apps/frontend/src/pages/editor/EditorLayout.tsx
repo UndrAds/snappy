@@ -38,7 +38,7 @@ export default function EditorLayout({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/create')}
+            onClick={() => navigate('/')}
             className="flex items-center space-x-2"
           >
             <ArrowLeft className="h-4 w-4" />

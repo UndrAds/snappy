@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Upload, Image } from 'lucide-react'
+import { toast } from 'sonner'
+import { uploadAPI } from '@/lib/api'
 import MediaSourceModal from './media/MediaSourceModal'
 
 export default function MediaSourcePicker({
@@ -13,12 +15,31 @@ export default function MediaSourcePicker({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mediaModalOpen, setMediaModalOpen] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0]
     if (file) {
-      const url = URL.createObjectURL(file)
-      onChange?.(url)
+      try {
+        setIsUploading(true)
+
+        // Upload file to backend
+        const response = await uploadAPI.uploadSingle(file)
+
+        if (response.success && response.data) {
+          onChange?.(response.data.url)
+          toast.success('File uploaded successfully!')
+        } else {
+          toast.error('Failed to upload file')
+        }
+      } catch (error) {
+        console.error('Upload error:', error)
+        toast.error('Failed to upload file')
+      } finally {
+        setIsUploading(false)
+      }
     }
   }
 
@@ -35,9 +56,15 @@ export default function MediaSourcePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-        <Upload className="mr-2 h-4 w-4" /> Upload{' '}
-        {type === 'image' ? 'Image' : 'Video'}
+      <Button
+        variant="outline"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isUploading}
+      >
+        <Upload className="mr-2 h-4 w-4" />
+        {isUploading
+          ? 'Uploading...'
+          : `Upload ${type === 'image' ? 'Image' : 'Video'}`}
       </Button>
       <input
         ref={fileInputRef}

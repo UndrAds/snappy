@@ -32,7 +32,8 @@ export class StoryService {
 
   // Create a new story
   static async createStory(userId: string, data: CreateStoryRequest): Promise<Story> {
-    const uniqueId = this.generateUniqueId(data.title);
+    // Use provided uniqueId or generate a new one
+    const uniqueId = (data as any).uniqueId || this.generateUniqueId(data.title);
 
     const story = await prisma.story.create({
       data: {
@@ -353,8 +354,19 @@ export class StoryService {
     // Update or create story
     let dbStory: Story;
     if (story.id) {
+      // Update existing story
       dbStory = await this.updateStory(story.id, userId, story);
+    } else if (story.uniqueId) {
+      // Try to find story by uniqueId and update it
+      const existingStory = await this.getStoryByUniqueId(story.uniqueId);
+      if (existingStory && existingStory.userId === userId) {
+        dbStory = await this.updateStory(existingStory.id, userId, story);
+      } else {
+        // Create new story with the provided uniqueId
+        dbStory = await this.createStory(userId, story);
+      }
     } else {
+      // Create new story
       dbStory = await this.createStory(userId, story);
     }
 

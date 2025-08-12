@@ -48,7 +48,7 @@ services:
       DATABASE_URL: postgresql://snappy_user:snappy_password@postgres:5432/snappy_db
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       JWT_EXPIRES_IN: 7d
-      CORS_ORIGIN: "*"
+      CORS_ORIGIN: "http://15.236.116.84"
     ports:
       - "3000:3000"
     depends_on:
@@ -73,7 +73,7 @@ services:
       dockerfile: ./apps/frontend/Dockerfile
     container_name: snappy-frontend
     environment:
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: /api
       VITE_APP_NAME: Snappy
     expose:
       - "5173"

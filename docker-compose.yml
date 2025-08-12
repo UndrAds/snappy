@@ -73,7 +73,7 @@ services:
       dockerfile: ./apps/frontend/Dockerfile
     container_name: snappy-frontend
     environment:
-      VITE_API_URL: /api
+      VITE_API_URL: ""
       VITE_APP_NAME: Snappy
     expose:
       - "5173"

@@ -20,11 +20,22 @@ const PORT = config.PORT;
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration for API routes
 app.use(
   cors({
-    origin: config.CORS_ORIGIN,
+    origin: [config.CORS_ORIGIN, 'http://localhost:3001', 'http://localhost:5173'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })
+);
+
+// Special CORS for embed script - allow all origins for public story access
+app.use(
+  '/api/stories/public',
+  cors({
+    origin: '*',
+    credentials: false,
   })
 );
 

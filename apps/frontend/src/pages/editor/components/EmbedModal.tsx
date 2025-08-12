@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Copy } from 'lucide-react'
-import { Base64 } from 'js-base64'
 import React from 'react'
 
 const SIZE_PRESETS = {
@@ -25,12 +24,7 @@ interface EmbedModalProps {
   storyData: Record<string, unknown>
 }
 
-const EmbedModal: React.FC<EmbedModalProps> = ({
-  open,
-  onClose,
-  storyId,
-  storyData,
-}) => {
+const EmbedModal: React.FC<EmbedModalProps> = ({ open, onClose, storyId }) => {
   const [autoplay, setAutoplay] = useState(false)
   const [size, setSize] = useState<'large' | 'medium' | 'small' | 'custom'>(
     'medium'
@@ -45,9 +39,10 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   // Use public path for the script
   const scriptSrc = '/webstory-embed.js'
-  // Use plain JSON string for the data attribute
-  const storyJson = JSON.stringify(storyData)
-  const embedCode = `<div id="snappy-webstory-${storyId}" style="width:${width}px;height:${height}px;"></div>\n<script src=\"${scriptSrc}\" data-story-json=\"${storyJson.replace(/"/g, '&quot;')}\" data-autoplay=\"${autoplay}\"></script>`
+  // Get API URL from environment or use default
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+  // Generate embed code with story ID and API URL
+  const embedCode = `<div id="snappy-webstory-${storyId}" style="width:${width}px;height:${height}px;"></div>\n<script src="${scriptSrc}" data-story-id="${storyId}" data-api-url="${apiUrl}" data-autoplay="${autoplay}"></script>`
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(embedCode)
@@ -62,7 +57,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         <div className="mb-2 text-xs text-gray-500">
           Paste this code into your website where you want the story to appear.
           <br />
-          The CDN script is a placeholder and will be updated in the future.
+          The story data will be automatically fetched from our servers.
         </div>
         <div className="space-y-4">
           <div>

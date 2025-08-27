@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Upload, Save } from 'lucide-react'
+import { Upload, Save, Smartphone, Monitor } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
 import { storyAPI, uploadAPI } from '@/lib/api'
+import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
 
 interface SnapData {
   name: string
@@ -36,6 +37,8 @@ interface SnapData {
     type: 'redirect' | 'form' | 'promo' | 'sell' | null
     value: string
   }
+  format: StoryFormat
+  deviceFrame: DeviceFrame
 }
 
 export default function CreateSnapPage() {
@@ -61,6 +64,8 @@ export default function CreateSnapPage() {
       type: 'redirect' as const,
       value: 'https://example.com',
     },
+    format: 'portrait' as const,
+    deviceFrame: 'mobile' as const,
   })
 
   const [previewUrls, setPreviewUrls] = useState<{
@@ -149,6 +154,20 @@ export default function CreateSnapPage() {
     }))
   }
 
+  const handleFormatChange = (format: StoryFormat) => {
+    setSnapData((prev) => ({
+      ...prev,
+      format,
+    }))
+  }
+
+  const handleDeviceFrameChange = (deviceFrame: DeviceFrame) => {
+    setSnapData((prev) => ({
+      ...prev,
+      deviceFrame,
+    }))
+  }
+
   const handleSaveAndEdit = async () => {
     if (!snapData.name.trim()) {
       toast.error('Please enter a snap name')
@@ -192,6 +211,8 @@ export default function CreateSnapPage() {
         smallThumbnail: previewUrls.smallThumbnail,
         ctaType: snapData.cta.type,
         ctaValue: snapData.cta.value,
+        format: snapData.format,
+        deviceFrame: snapData.deviceFrame,
       })
 
       if (storyResponse.success && storyResponse.data) {
@@ -204,6 +225,8 @@ export default function CreateSnapPage() {
           background: previewUrls.largeThumbnail, // This becomes the background of the story
           ctaType: snapData.cta.type,
           ctaValue: snapData.cta.value,
+          format: snapData.format,
+          deviceFrame: snapData.deviceFrame,
         }
 
         // Navigate to editor with the data
@@ -309,6 +332,70 @@ export default function CreateSnapPage() {
                   value={snapData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Format and Device Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Story Format & Device</CardTitle>
+              <CardDescription>
+                Choose the format and device frame for your story
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="story-format">Story Format</Label>
+                  <Select
+                    value={snapData.format}
+                    onValueChange={handleFormatChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-4 w-3 rounded bg-gray-300"></div>
+                          <span>Portrait (9:16)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="landscape">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-3 w-4 rounded bg-gray-300"></div>
+                          <span>Landscape (16:9)</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="device-frame">Device Frame</Label>
+                  <Select
+                    value={snapData.deviceFrame}
+                    onValueChange={handleDeviceFrameChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select device frame" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mobile">
+                        <div className="flex items-center space-x-2">
+                          <Smartphone className="h-4 w-4" />
+                          <span>Mobile</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="video-player">
+                        <div className="flex items-center space-x-2">
+                          <Monitor className="h-4 w-4" />
+                          <span>Video Player</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -438,6 +525,8 @@ export default function CreateSnapPage() {
               totalSlides={4}
               showProgressBar={true}
               isEditMode={false}
+              format={snapData.format}
+              deviceFrame={snapData.deviceFrame}
             />
           </div>
         </div>

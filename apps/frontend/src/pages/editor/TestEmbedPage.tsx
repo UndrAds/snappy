@@ -24,27 +24,43 @@ export default function TestEmbedPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl py-10">
+    <div className="mx-auto max-w-4xl py-10">
       <h1 className="mb-4 text-2xl font-bold">Test Web Story Embed</h1>
-      <textarea
-        className="mb-4 w-full rounded border p-2 font-mono text-xs"
-        rows={5}
-        placeholder="Paste your embed code here..."
-        value={embedCode}
-        onChange={(e) => setEmbedCode(e.target.value)}
-      />
-      <Button onClick={handleRender} disabled={!embedCode} className="mb-6">
-        Insert
-      </Button>
-      <div
-        className="min-h-[400px] rounded border bg-gray-50 p-4"
-        ref={renderRef}
-      ></div>
-      {rendered && (
-        <div className="mt-2 text-xs text-gray-500">
-          If your story does not appear, check your embed code and script URL.
+      <p className="mb-6 text-gray-600">
+        Paste your embed code below to see how it will look on a real webpage.
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Embed Code Input */}
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Embed Code</h2>
+          <textarea
+            className="mb-4 w-full rounded border p-2 font-mono text-xs"
+            rows={8}
+            placeholder="Paste your embed code here..."
+            value={embedCode}
+            onChange={(e) => setEmbedCode(e.target.value)}
+          />
+          <Button onClick={handleRender} disabled={!embedCode} className="mb-6">
+            Preview
+          </Button>
         </div>
-      )}
+
+        {/* Preview */}
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Preview</h2>
+          <div
+            className="min-h-[400px] rounded border bg-gray-50 p-4"
+            ref={renderRef}
+          ></div>
+          {rendered && (
+            <div className="mt-2 text-xs text-gray-500">
+              If your story does not appear, check your embed code and script
+              URL.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

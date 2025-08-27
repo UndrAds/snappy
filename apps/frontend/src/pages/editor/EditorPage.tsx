@@ -60,6 +60,8 @@ interface StoryData {
   background?: string
   ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue: string
+  format?: 'portrait' | 'landscape'
+  deviceFrame?: 'mobile' | 'video-player'
 }
 
 declare global {
@@ -84,6 +86,8 @@ export default function EditorPage() {
       background: '',
       ctaType: null,
       ctaValue: '',
+      format: 'portrait',
+      deviceFrame: 'mobile',
     }
   )
   const fromCreate = location.state?.fromCreate || false
@@ -166,6 +170,9 @@ export default function EditorPage() {
               background: story.largeThumbnail || '',
               ctaType: story.ctaType as any,
               ctaValue: story.ctaValue || '',
+              format: (story.format as 'portrait' | 'landscape') || 'portrait',
+              deviceFrame:
+                (story.deviceFrame as 'mobile' | 'video-player') || 'mobile',
             })
 
             // Convert database frames to editor frames
@@ -381,6 +388,8 @@ export default function EditorPage() {
           smallThumbnail: storyDataState.thumbnail,
           ctaType: storyDataState.ctaType,
           ctaValue: storyDataState.ctaValue,
+          format: storyDataState.format,
+          deviceFrame: storyDataState.deviceFrame,
         },
         frames: frames.map((frame, index) => ({
           ...frame,
@@ -478,6 +487,8 @@ export default function EditorPage() {
           frames.findIndex((frame) => frame.id === selectedFrameId) + 1
         }
         totalSlides={frames.length}
+        format={storyDataState.format}
+        deviceFrame={storyDataState.deviceFrame}
       />
 
       <PropertyPanel

@@ -36,6 +36,8 @@ model Story {
   ctaType     String? // 'redirect' | 'form' | 'promo' | 'sell'
   ctaValue    String?
   status      String   @default("draft") // 'draft' | 'published' | 'archived'
+  format      String   @default("portrait") // 'portrait' | 'landscape'
+  deviceFrame String   @default("mobile") // 'mobile' | 'video-player'
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

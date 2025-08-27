@@ -33,6 +33,10 @@ export interface ApiResponse<T = any> {
   };
 }
 
+// Story format and device types
+export type StoryFormat = 'portrait' | 'landscape';
+export type DeviceFrame = 'mobile' | 'video-player';
+
 // Story types
 export interface Story {
   id: string;
@@ -45,6 +49,8 @@ export interface Story {
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
   status: 'draft' | 'published' | 'archived';
+  format: StoryFormat;
+  deviceFrame: DeviceFrame;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +65,8 @@ export interface CreateStoryRequest {
   smallThumbnail?: string;
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
+  format?: StoryFormat;
+  deviceFrame?: DeviceFrame;
   uniqueId?: string; // Optional: allow providing a specific unique ID
 }
 
@@ -71,6 +79,8 @@ export interface UpdateStoryRequest {
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
   status?: 'draft' | 'published' | 'archived';
+  format?: StoryFormat;
+  deviceFrame?: DeviceFrame;
   uniqueId?: string; // Optional: allow updating the unique ID
 }
 

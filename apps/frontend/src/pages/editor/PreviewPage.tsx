@@ -62,7 +62,7 @@ export default function PreviewPage() {
         storyId={storyData?.storyTitle || 'demo'}
         storyData={{ story: storyData, frames }}
       />
-      <div className="relative flex h-[700px] w-[360px] items-center justify-center">
+      <div className="relative flex items-center justify-center">
         <StoryFrame
           publisherName={storyData.publisherName}
           storyTitle={storyData.storyTitle}
@@ -76,6 +76,8 @@ export default function PreviewPage() {
           isEditMode={false}
           showPublisherInfo
           showCTA
+          format={storyData.format}
+          deviceFrame={storyData.deviceFrame}
         />
         <div className="pointer-events-none absolute inset-0 flex items-center justify-between">
           <div

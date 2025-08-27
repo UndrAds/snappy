@@ -17,6 +17,32 @@ import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
+// Helper function to convert Prisma story to shared types format
+function convertPrismaStoryToSharedType(prismaStory: any): Story {
+  return {
+    ...prismaStory,
+    createdAt: prismaStory.createdAt.toISOString(),
+    updatedAt: prismaStory.updatedAt.toISOString(),
+    frames: prismaStory.frames?.map((frame: any) => ({
+      ...frame,
+      createdAt: frame.createdAt.toISOString(),
+      updatedAt: frame.updatedAt.toISOString(),
+      elements: frame.elements?.map((element: any) => ({
+        ...element,
+        createdAt: element.createdAt.toISOString(),
+        updatedAt: element.updatedAt.toISOString(),
+      })),
+      background: frame.background
+        ? {
+            ...frame.background,
+            createdAt: frame.background.createdAt.toISOString(),
+            updatedAt: frame.background.updatedAt.toISOString(),
+          }
+        : undefined,
+    })),
+  } as Story;
+}
+
 export class StoryService {
   // Generate unique ID for story
   private static generateUniqueId(title: string): string {
@@ -40,11 +66,13 @@ export class StoryService {
         title: data.title,
         uniqueId,
         publisherName: data.publisherName,
-        publisherPic: data.publisherPic,
-        largeThumbnail: data.largeThumbnail,
-        smallThumbnail: data.smallThumbnail,
-        ctaType: data.ctaType,
-        ctaValue: data.ctaValue,
+        publisherPic: data.publisherPic || null,
+        largeThumbnail: data.largeThumbnail || null,
+        smallThumbnail: data.smallThumbnail || null,
+        ctaType: data.ctaType || null,
+        ctaValue: data.ctaValue || null,
+        format: data.format || 'portrait',
+        deviceFrame: data.deviceFrame || 'mobile',
         userId,
       },
       include: {
@@ -60,7 +88,7 @@ export class StoryService {
       },
     });
 
-    return story as Story;
+    return convertPrismaStoryToSharedType(story);
   }
 
   // Get story by ID
@@ -87,7 +115,7 @@ export class StoryService {
       },
     });
 
-    return story as Story | null;
+    return story ? convertPrismaStoryToSharedType(story) : null;
   }
 
   // Get story by unique ID
@@ -107,7 +135,7 @@ export class StoryService {
       },
     });
 
-    return story as Story | null;
+    return story ? convertPrismaStoryToSharedType(story) : null;
   }
 
   // Get all stories for a user
@@ -130,7 +158,7 @@ export class StoryService {
       },
     });
 
-    return stories as Story[];
+    return stories.map((story) => convertPrismaStoryToSharedType(story));
   }
 
   // Update story
@@ -158,7 +186,7 @@ export class StoryService {
       },
     });
 
-    return story as Story;
+    return convertPrismaStoryToSharedType(story);
   }
 
   // Delete story
@@ -396,8 +424,8 @@ export class StoryService {
             y: element.y,
             width: element.width,
             height: element.height,
-            content: element.content,
-            mediaUrl: element.mediaUrl,
+            content: element.content || null,
+            mediaUrl: element.mediaUrl || null,
             style: element.style,
             frameId: dbFrame.id,
           },
@@ -410,12 +438,12 @@ export class StoryService {
           data: {
             type: frame.background.type,
             value: frame.background.value,
-            opacity: frame.background.opacity,
-            rotation: frame.background.rotation,
-            zoom: frame.background.zoom,
-            filter: frame.background.filter,
-            offsetX: frame.background.offsetX,
-            offsetY: frame.background.offsetY,
+            opacity: frame.background.opacity || null,
+            rotation: frame.background.rotation || null,
+            zoom: frame.background.zoom || null,
+            filter: frame.background.filter || null,
+            offsetX: frame.background.offsetX || null,
+            offsetY: frame.background.offsetY || null,
             frameId: dbFrame.id,
           },
         });

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Image, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
+import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
 
 interface CanvasElement {
   id: string
@@ -58,6 +59,10 @@ interface StoryFrameProps {
   // Edit mode display options
   showPublisherInfo?: boolean
   showCTA?: boolean
+
+  // Format and device frame props
+  format?: StoryFormat
+  deviceFrame?: DeviceFrame
 }
 
 export default function StoryFrame({
@@ -83,6 +88,10 @@ export default function StoryFrame({
   // Edit mode display options
   showPublisherInfo = false,
   showCTA = false,
+
+  // Format and device frame props
+  format = 'portrait',
+  deviceFrame = 'mobile',
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -268,13 +277,53 @@ export default function StoryFrame({
     return style
   }
 
+  // Calculate frame dimensions based on format and device frame
+  const getFrameDimensions = () => {
+    if (format === 'portrait') {
+      if (deviceFrame === 'mobile') {
+        return {
+          width: 'w-72',
+          height: 'h-[550px]',
+          border: 'rounded-[3rem] border-8 border-gray-400',
+        }
+      } else {
+        // Video player portrait
+        return {
+          width: 'w-80',
+          height: 'h-[600px]',
+          border: 'rounded-lg border-4 border-gray-600',
+        }
+      }
+    } else {
+      // Landscape format
+      if (deviceFrame === 'mobile') {
+        return {
+          width: 'w-[400px]',
+          height: 'h-[225px]',
+          border: 'rounded-[2rem] border-6 border-gray-400',
+        }
+      } else {
+        // Video player landscape
+        return {
+          width: 'w-[480px]',
+          height: 'h-[270px]',
+          border: 'rounded-lg border-4 border-gray-600',
+        }
+      }
+    }
+  }
+
+  const frameDimensions = getFrameDimensions()
+
   // Determine if we should show publisher info and CTA
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
   const shouldShowCTA = !isEditMode || (isEditMode && showCTA)
 
   return (
-    <div className="relative mx-auto h-[550px] w-72 overflow-hidden rounded-[3rem] border-8 border-gray-400 bg-gray-200 shadow-2xl">
+    <div
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-gray-200 shadow-2xl`}
+    >
       {/* Mobile Frame Content */}
       <div
         className="h-full w-full overflow-hidden bg-black"

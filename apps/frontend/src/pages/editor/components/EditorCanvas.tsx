@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Type, Image } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
+import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
 
 interface CanvasElement {
   id: string
@@ -37,6 +38,8 @@ interface StoryData {
   background?: string
   ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue: string
+  format?: StoryFormat
+  deviceFrame?: DeviceFrame
 }
 
 interface EditorCanvasProps {
@@ -54,6 +57,8 @@ interface EditorCanvasProps {
   storyData?: StoryData
   currentSlide?: number
   totalSlides?: number
+  format?: StoryFormat
+  deviceFrame?: DeviceFrame
 }
 
 export default function EditorCanvas({
@@ -68,6 +73,8 @@ export default function EditorCanvas({
   storyData,
   currentSlide,
   totalSlides,
+  format = 'portrait',
+  deviceFrame = 'mobile',
 }: EditorCanvasProps) {
   const handleAddElement = (type: 'text' | 'image') => {
     const newElement: CanvasElement = {
@@ -134,6 +141,8 @@ export default function EditorCanvas({
           showProgressBar={true}
           currentSlide={currentSlide}
           totalSlides={totalSlides}
+          format={format}
+          deviceFrame={deviceFrame}
         />
 
         {/* Quick Add Elements - Alternative to the buttons inside the frame */}

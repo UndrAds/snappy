@@ -6,8 +6,6 @@ export default function TestEmbedPage() {
   const [rendered, setRendered] = useState(false)
   const renderRef = useRef<HTMLDivElement>(null)
 
-
-
   const handleRender = () => {
     if (renderRef.current) {
       renderRef.current.innerHTML = embedCode
@@ -24,8 +22,6 @@ export default function TestEmbedPage() {
       setRendered(true)
     }
   }
-
-
 
   return (
     <div className="mx-auto max-w-6xl py-10">

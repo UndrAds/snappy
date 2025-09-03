@@ -298,6 +298,86 @@ export default function EditorPage() {
     }
   }
 
+  const createAutomatedStory = (content: {
+    headlines: string[]
+    backgroundImage: string
+    backgroundImageAlt: string
+  }) => {
+    const newFrames: StoryFrame[] = content.headlines.map(
+      (headline, index) => ({
+        id: (index + 1).toString(),
+        order: index + 1,
+        elements: [
+          {
+            id: `text-${index + 1}`,
+            type: 'text' as const,
+            x: 150, // Position from left edge
+            y: 150, // Position from top edge
+            width: 400, // Smaller width to not cover entire frame
+            height: 80, // Compact height
+            content: headline,
+            style: {
+              fontSize: 28,
+              fontFamily: 'Arial',
+              fontWeight: 'bold',
+              color: '#ffffff',
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              opacity: 100,
+              rotation: 0,
+              brightness: 50,
+              contrast: 50,
+              saturation: 50,
+              sharpness: 50,
+              highlights: 50,
+              filter: 'none',
+            },
+          },
+          {
+            id: `frame-number-${index + 1}`,
+            type: 'text' as const,
+            x: 50, // Bottom left corner
+            y: 350, // Near bottom of frame
+            width: 100,
+            height: 40,
+            content: `Frame ${index + 1}`,
+            style: {
+              fontSize: 16,
+              fontFamily: 'Arial',
+              fontWeight: 'normal',
+              color: '#ffffff',
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              opacity: 100,
+              rotation: 0,
+              brightness: 50,
+              contrast: 50,
+              saturation: 50,
+              sharpness: 50,
+              highlights: 50,
+              filter: 'none',
+            },
+          },
+        ],
+        hasContent: true,
+        background: {
+          type: 'image' as const,
+          value: content.backgroundImage,
+          opacity: 100,
+          zoom: 1.0, // No zoom - fit to frame
+          filter: 'none', // No filter for now
+          offsetX: 0,
+          offsetY: 0,
+        },
+      })
+    )
+
+    setFrames(newFrames)
+    setSelectedFrameId('1')
+    setSelectedElementId('')
+    toast.success(
+      `Created ${content.headlines.length} story frames with automated content!`
+    )
+  }
+
   const addElement = (element: CanvasElement) => {
     setFrames((prev) =>
       prev.map((frame) =>
@@ -471,6 +551,7 @@ export default function EditorPage() {
           setSelectedElementId('')
         }}
         onAddElement={addElement}
+        onCreateAutomatedStory={createAutomatedStory}
       />
 
       <EditorCanvas

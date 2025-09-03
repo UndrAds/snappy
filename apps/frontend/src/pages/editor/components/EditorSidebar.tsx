@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Image, Type, Shapes, Plus, Trash2, Copy } from 'lucide-react'
+import { Image, Type, Shapes, Plus, Trash2, Copy, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import MediaSourcePicker from './MediaSourcePicker'
+import AutomatedStoryCreator from './AutomatedStoryCreator'
 
 interface EditorSidebarProps {
   onAddFrame: () => void
@@ -11,6 +12,11 @@ interface EditorSidebarProps {
   onDuplicateFrame: (frameId: string) => void
   onSelectFrame: (frameId: string) => void
   onAddElement: (element: any) => void
+  onCreateAutomatedStory: (content: {
+    headlines: string[]
+    backgroundImage: string
+    backgroundImageAlt: string
+  }) => void
   frames: Array<{
     id: string
     order: number
@@ -25,10 +31,12 @@ export default function EditorSidebar({
   onDuplicateFrame,
   onSelectFrame,
   onAddElement,
+  onCreateAutomatedStory,
   frames,
   selectedFrameId,
 }: EditorSidebarProps) {
   const [activeTab, setActiveTab] = useState('frames')
+  const [automatedCreatorOpen, setAutomatedCreatorOpen] = useState(false)
 
   const handleAddElement = (type: 'text' | 'shape' | 'image') => {
     const newElement = {
@@ -62,6 +70,15 @@ export default function EditorSidebar({
     )
   }
 
+  const handleAutomatedContentSelected = (content: {
+    headlines: string[]
+    backgroundImage: string
+    backgroundImageAlt: string
+  }) => {
+    onCreateAutomatedStory(content)
+    setAutomatedCreatorOpen(false)
+  }
+
   return (
     <div className="w-64 border-r bg-white">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
@@ -81,6 +98,18 @@ export default function EditorSidebar({
           {/* Frames Tab */}
           <TabsContent value="frames" className="m-0 h-full">
             <div className="space-y-4 p-4">
+              {/* Automated Story Creator */}
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setAutomatedCreatorOpen(true)}
+                  className="w-full justify-start"
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  Create from Website
+                </Button>
+              </div>
+
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Story Frames</h3>
                 <Button size="sm" onClick={onAddFrame} className="h-8 w-8 p-0">
@@ -216,6 +245,14 @@ export default function EditorSidebar({
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* Automated Story Creator Modal */}
+      {automatedCreatorOpen && (
+        <AutomatedStoryCreator
+          onContentSelected={handleAutomatedContentSelected}
+          onClose={() => setAutomatedCreatorOpen(false)}
+        />
+      )}
     </div>
   )
 }

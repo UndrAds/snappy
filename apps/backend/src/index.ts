@@ -13,6 +13,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import storyRoutes from './routes/stories';
 import uploadRoutes from './routes/uploads';
+import contentRoutes from './routes/content';
 
 const app = express();
 const PORT = config.PORT;
@@ -73,6 +74,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/content', contentRoutes);
 
 // 404 handler
 app.use(notFound);

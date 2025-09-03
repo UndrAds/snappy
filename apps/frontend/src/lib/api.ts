@@ -268,4 +268,27 @@ export const healthAPI = {
   },
 }
 
+// Content API
+export const contentAPI = {
+  // Scrape content from a website
+  scrapeWebsite: async (
+    url: string
+  ): Promise<
+    ApiResponse<{
+      headlines: string[]
+      images: Array<{
+        url: string
+        alt: string
+        width?: number
+        height?: number
+      }>
+      title: string
+      description?: string
+    }>
+  > => {
+    const response = await api.post('/api/content/scrape', { url })
+    return response.data
+  },
+}
+
 export default api

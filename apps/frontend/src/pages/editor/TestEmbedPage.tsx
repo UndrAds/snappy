@@ -1,47 +1,12 @@
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function TestEmbedPage() {
   const [embedCode, setEmbedCode] = useState('')
   const [rendered, setRendered] = useState(false)
   const renderRef = useRef<HTMLDivElement>(null)
 
-  const exampleCodes = {
-    regular: `<div id="snappy-webstory-story-1-6d022295bbb1360a" style="width:300px;height:525px;"></div>
-<script src="/webstory-embed.js" data-story-id="story-1-6d022295bbb1360a" data-api-url="http://localhost:3000" data-autoplay="false"></script>`,
 
-    floaterRight: `<script src="/webstory-embed.js" 
-  data-story-id="story-1-6d022295bbb1360a"
-  data-api-url="http://localhost:3000" 
-  data-floater="true"
-  data-direction="right"
-  data-trigger-scroll="50"
-  data-position="bottom"
-  data-size="medium"
-  data-show-close="true"
-  data-auto-hide="false"></script>`,
-
-    floaterLeft: `<script src="/webstory-embed.js" 
-  data-story-id="story-1-6d022295bbb1360a"
-  data-api-url="http://localhost:3000" 
-  data-floater="true"
-  data-direction="left"
-  data-trigger-scroll="30"
-  data-position="top"
-  data-size="small"
-  data-show-close="true"
-  data-auto-hide="true"
-  data-auto-hide-delay="5000"></script>`,
-
-    // Example for landscape story
-    landscapeStory: `<div id="snappy-webstory-story-2-landscape" style="width:480px;height:270px;"></div>
-<script src="/webstory-embed.js" data-story-id="story-2-landscape" data-api-url="http://localhost:3000" data-autoplay="false"></script>`,
-
-    // Example for video player story
-    videoPlayerStory: `<div id="snappy-webstory-story-3-video" style="width:320px;height:180px;"></div>
-<script src="/webstory-embed.js" data-story-id="story-3-video" data-api-url="http://localhost:3000" data-autoplay="false"></script>`,
-  }
 
   const handleRender = () => {
     if (renderRef.current) {
@@ -60,9 +25,7 @@ export default function TestEmbedPage() {
     }
   }
 
-  const handleExampleSelect = (code: string) => {
-    setEmbedCode(code)
-  }
+
 
   return (
     <div className="mx-auto max-w-6xl py-10">

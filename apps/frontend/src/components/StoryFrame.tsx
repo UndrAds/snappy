@@ -201,7 +201,26 @@ export default function StoryFrame({
         )}
 
         {element.type === 'text' && (
-          <div className="flex h-full w-full items-center justify-center p-2 text-center">
+          <div
+            className="flex h-full w-full items-center justify-center text-center"
+            style={{
+              backgroundColor: element.style.backgroundColor || 'transparent',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              wordWrap: 'break-word',
+              overflow: 'hidden',
+              fontSize: element.style.fontSize || 16,
+              fontFamily: element.style.fontFamily || 'Arial',
+              fontWeight: element.style.fontWeight || 'normal',
+              color: element.style.color || '#000000',
+              lineHeight: '1.2',
+              boxShadow:
+                element.style.backgroundColor &&
+                element.style.backgroundColor !== 'transparent'
+                  ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  : 'none',
+            }}
+          >
             {element.content}
           </div>
         )}
@@ -256,6 +275,8 @@ export default function StoryFrame({
       zIndex: 0,
       pointerEvents: 'none',
       transform: 'translate(-50%, -50%)',
+      minWidth: '100%',
+      minHeight: '100%',
     }
     // Opacity
     if (background.opacity !== undefined) {
@@ -265,8 +286,8 @@ export default function StoryFrame({
     const x = background.offsetX || 0
     const y = background.offsetY || 0
     const rotation = background.rotation || 0
-    const zoom = background.zoom || 100
-    style.transform += ` translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom / 100})`
+    const zoom = background.zoom || 1.0 // Default no zoom - fit to frame
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom})`
     // Filter/Skins
     if (background.filter) {
       const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)
@@ -326,7 +347,7 @@ export default function StoryFrame({
     >
       {/* Mobile Frame Content */}
       <div
-        className="h-full w-full overflow-hidden bg-black"
+        className="h-full w-full overflow-hidden"
         style={getBackgroundStyle()}
         ref={canvasRef}
         onMouseMove={isEditMode ? handleMouseMove : undefined}
@@ -334,11 +355,25 @@ export default function StoryFrame({
       >
         {/* Render background image with all tweaks if type is image */}
         {background?.type === 'image' && background.value && (
-          <img
-            src={background.value}
-            alt="Background"
-            style={getBackgroundImageStyle()}
-          />
+          <>
+            {/* Blurred background image to fill empty areas */}
+            <img
+              src={background.value}
+              alt="Background Blur"
+              style={{
+                ...getBackgroundImageStyle(),
+                filter: 'blur(20px) brightness(0.8)',
+                zIndex: -1,
+                transform: 'translate(-50%, -50%) scale(1.2)', // Slightly larger to cover edges
+              }}
+            />
+            {/* Main background image */}
+            <img
+              src={background.value}
+              alt="Background"
+              style={getBackgroundImageStyle()}
+            />
+          </>
         )}
         {/* Story Progress Bar - Show in preview mode or when currentSlide/totalSlides are provided in edit mode */}
         {((!isEditMode && showProgressBar) ||

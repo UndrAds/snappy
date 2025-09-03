@@ -8,9 +8,22 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Copy } from 'lucide-react'
 import React from 'react'
-import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
+import type {
+  StoryFormat,
+  DeviceFrame,
+  FloaterDirection,
+} from '@snappy/shared-types'
 
 interface EmbedModalProps {
   open: boolean
@@ -38,12 +51,24 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   storyId,
   storyData,
 }) => {
+  const [embedType, setEmbedType] = useState<'regular' | 'floater'>('regular')
   const [autoplay, setAutoplay] = useState(false)
   const [size, setSize] = useState<'large' | 'medium' | 'small' | 'custom'>(
     'medium'
   )
   const [customWidth, setCustomWidth] = useState(300)
   const [customHeight, setCustomHeight] = useState(525)
+
+  // Floater specific options
+  const [direction, setDirection] = useState<FloaterDirection>('right')
+  const [triggerScroll, setTriggerScroll] = useState(50)
+  const [position, setPosition] = useState<'bottom' | 'top'>('bottom')
+  const [floaterSize, setFloaterSize] = useState<'small' | 'medium' | 'large'>(
+    'medium'
+  )
+  const [showCloseButton, setShowCloseButton] = useState(true)
+  const [autoHide, setAutoHide] = useState(false)
+  const [autoHideDelay, setAutoHideDelay] = useState(5000)
 
   // Get format and device frame from story data
   const format = storyData?.story?.format || 'portrait'
@@ -92,12 +117,31 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
       ? { width: customWidth, height: customHeight }
       : SIZE_PRESETS[size]
 
-  // Use public path for the script
+  // Use single script for both regular and floater embeds
   const scriptSrc = '/webstory-embed.js'
   // Get API URL from environment or use default
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-  // Generate embed code with story ID and API URL
-  const embedCode = `<div id="snappy-webstory-${storyId}" style="width:${width}px;height:${height}px;"></div>\n<script src="${scriptSrc}" data-story-id="${storyId}" data-api-url="${apiUrl}" data-autoplay="${autoplay}"></script>`
+
+  // Generate embed code based on type
+  const generateEmbedCode = () => {
+    if (embedType === 'floater') {
+      return `<script src="${scriptSrc}" 
+  data-story-id="${storyId}" 
+  data-api-url="${apiUrl}" 
+  data-floater="true"
+  data-direction="${direction}"
+  data-trigger-scroll="${triggerScroll}"
+  data-position="${position}"
+  data-size="${floaterSize}"
+  data-show-close="${showCloseButton}"
+  data-auto-hide="${autoHide}"
+  data-auto-hide-delay="${autoHideDelay}"></script>`
+    } else {
+      return `<div id="snappy-webstory-${storyId}" style="width:${width}px;height:${height}px;"></div>\n<script src="${scriptSrc}" data-story-id="${storyId}" data-api-url="${apiUrl}" data-autoplay="${autoplay}"></script>`
+    }
+  }
+
+  const embedCode = generateEmbedCode()
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(embedCode)
@@ -105,7 +149,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Embed Web Story</DialogTitle>
         </DialogHeader>
@@ -119,63 +163,193 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
           </span>
         </div>
         <div className="space-y-4">
+          {/* Embed Type Selection */}
           <div>
-            <label className="font-medium">Autoplay</label>
-            <input
-              type="checkbox"
-              checked={autoplay}
-              onChange={(e) => setAutoplay(e.target.checked)}
-              className="ml-2"
-            />
-          </div>
-          <div>
-            <label className="font-medium">Size</label>
-            <select
-              value={size}
-              onChange={(e) =>
-                setSize(
-                  e.target.value as 'large' | 'medium' | 'small' | 'custom'
-                )
+            <Label className="font-medium">Embed Type</Label>
+            <Select
+              value={embedType}
+              onValueChange={(value: 'regular' | 'floater') =>
+                setEmbedType(value)
               }
-              className="ml-2"
             >
-              <option value="large">
-                Large ({SIZE_PRESETS.large.width}×{SIZE_PRESETS.large.height})
-              </option>
-              <option value="medium">
-                Medium ({SIZE_PRESETS.medium.width}×{SIZE_PRESETS.medium.height}
-                )
-              </option>
-              <option value="small">
-                Small ({SIZE_PRESETS.small.width}×{SIZE_PRESETS.small.height})
-              </option>
-              <option value="custom">Custom</option>
-            </select>
-            {size === 'custom' && (
-              <div className="mt-2 flex gap-2">
-                <Input
-                  type="number"
-                  min={100}
-                  value={customWidth}
-                  onChange={(e) => setCustomWidth(Number(e.target.value))}
-                  placeholder="Width (px)"
-                />
-                <Input
-                  type="number"
-                  min={100}
-                  value={customHeight}
-                  onChange={(e) => setCustomHeight(Number(e.target.value))}
-                  placeholder="Height (px)"
-                />
-              </div>
-            )}
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="regular">Regular Embed</SelectItem>
+                <SelectItem value="floater">
+                  Floater (Scroll-triggered)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {embedType === 'regular' ? (
+            // Regular embed options
+            <>
+              <div>
+                <Label className="font-medium">Autoplay</Label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <Switch checked={autoplay} onCheckedChange={setAutoplay} />
+                  <span className="text-sm">Automatically play the story</span>
+                </div>
+              </div>
+              <div>
+                <Label className="font-medium">Size</Label>
+                <Select
+                  value={size}
+                  onValueChange={(
+                    value: 'large' | 'medium' | 'small' | 'custom'
+                  ) => setSize(value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="large">
+                      Large ({SIZE_PRESETS.large.width}×
+                      {SIZE_PRESETS.large.height})
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      Medium ({SIZE_PRESETS.medium.width}×
+                      {SIZE_PRESETS.medium.height})
+                    </SelectItem>
+                    <SelectItem value="small">
+                      Small ({SIZE_PRESETS.small.width}×
+                      {SIZE_PRESETS.small.height})
+                    </SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {size === 'custom' && (
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      type="number"
+                      min={100}
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(Number(e.target.value))}
+                      placeholder="Width (px)"
+                    />
+                    <Input
+                      type="number"
+                      min={100}
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(Number(e.target.value))}
+                      placeholder="Height (px)"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            // Floater embed options
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="font-medium">Direction</Label>
+                  <Select
+                    value={direction}
+                    onValueChange={(value: FloaterDirection) =>
+                      setDirection(value)
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="right">Right</SelectItem>
+                      <SelectItem value="left">Left</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="font-medium">Position</Label>
+                  <Select
+                    value={position}
+                    onValueChange={(value: 'bottom' | 'top') =>
+                      setPosition(value)
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bottom">Bottom</SelectItem>
+                      <SelectItem value="top">Top</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-medium">Trigger Scroll (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={triggerScroll}
+                  onChange={(e) => setTriggerScroll(Number(e.target.value))}
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  The floater will appear when user scrolls this percentage of
+                  the page
+                </p>
+              </div>
+
+              <div>
+                <Label className="font-medium">Floater Size</Label>
+                <Select
+                  value={floaterSize}
+                  onValueChange={(value: 'small' | 'medium' | 'large') =>
+                    setFloaterSize(value)
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small (200×350)</SelectItem>
+                    <SelectItem value="medium">Medium (280×490)</SelectItem>
+                    <SelectItem value="large">Large (360×630)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="font-medium">Show Close Button</Label>
+                  <Switch
+                    checked={showCloseButton}
+                    onCheckedChange={setShowCloseButton}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="font-medium">Auto Hide</Label>
+                  <Switch checked={autoHide} onCheckedChange={setAutoHide} />
+                </div>
+                {autoHide && (
+                  <div>
+                    <Label className="font-medium">Auto Hide Delay (ms)</Label>
+                    <Input
+                      type="number"
+                      min={1000}
+                      value={autoHideDelay}
+                      onChange={(e) => setAutoHideDelay(Number(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           <div>
-            <label className="font-medium">Embed Code</label>
+            <Label className="font-medium">Embed Code</Label>
             <div className="relative mt-1">
               <textarea
                 className="w-full rounded border bg-gray-100 p-2 font-mono text-xs"
-                rows={4}
+                rows={embedType === 'floater' ? 8 : 4}
                 value={embedCode}
                 readOnly
               />

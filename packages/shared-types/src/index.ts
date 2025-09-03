@@ -36,6 +36,7 @@ export interface ApiResponse<T = any> {
 // Story format and device types
 export type StoryFormat = 'portrait' | 'landscape';
 export type DeviceFrame = 'mobile' | 'video-player';
+export type FloaterDirection = 'right' | 'left';
 
 // Story types
 export interface Story {
@@ -191,6 +192,17 @@ export interface UpdateStoryBackgroundRequest {
   filter?: string;
   offsetX?: number;
   offsetY?: number;
+}
+
+export interface FloaterEmbedRequest {
+  storyId: string;
+  direction: FloaterDirection;
+  triggerScroll?: number; // Percentage of page scroll to trigger floater
+  position?: 'bottom' | 'top'; // Vertical position
+  size?: 'small' | 'medium' | 'large';
+  showCloseButton?: boolean;
+  autoHide?: boolean;
+  autoHideDelay?: number; // milliseconds
 }
 
 // Post types (keeping for backward compatibility)

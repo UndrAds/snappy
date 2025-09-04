@@ -19,10 +19,38 @@ const textColors = [
   { name: 'Yellow', value: '#eab308', bgClass: 'bg-yellow-500' },
   { name: 'Purple', value: '#a855f7', bgClass: 'bg-purple-500' },
   { name: 'White', value: '#ffffff', bgClass: 'bg-white' },
+  { name: 'Black', value: '#000000', bgClass: 'bg-black' },
+]
+
+const backgroundColors = [
+  {
+    name: 'Transparent',
+    value: 'transparent',
+    bgClass: 'bg-transparent border-2 border-gray-300',
+  },
+  { name: 'Black', value: 'rgba(0, 0, 0, 0.8)', bgClass: 'bg-black' },
+  { name: 'Dark Gray', value: 'rgba(0, 0, 0, 0.6)', bgClass: 'bg-gray-800' },
+  { name: 'White', value: 'rgba(255, 255, 255, 0.9)', bgClass: 'bg-white' },
+  { name: 'Blue', value: 'rgba(59, 130, 246, 0.8)', bgClass: 'bg-blue-500' },
+  { name: 'Red', value: 'rgba(239, 68, 68, 0.8)', bgClass: 'bg-red-500' },
+  { name: 'Green', value: 'rgba(34, 197, 94, 0.8)', bgClass: 'bg-green-500' },
+  {
+    name: 'Purple',
+    value: 'rgba(168, 85, 247, 0.8)',
+    bgClass: 'bg-purple-500',
+  },
 ]
 
 export default function PropertyPanelText({ element, onElementUpdate }: any) {
   if (!element) return null
+
+  // Helper function to properly merge style updates
+  const updateStyle = (styleUpdate: any) => {
+    onElementUpdate?.(element.id, {
+      style: { ...element.style, ...styleUpdate },
+    })
+  }
+
   return (
     <div className="space-y-4">
       <h3 className="flex items-center text-sm font-semibold">
@@ -48,11 +76,7 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
           <Label className="text-xs">Font Family</Label>
           <Select
             value={element.style?.fontFamily}
-            onValueChange={(value) =>
-              onElementUpdate?.(element.id, {
-                style: { fontFamily: value },
-              })
-            }
+            onValueChange={(value) => updateStyle({ fontFamily: value })}
           >
             <SelectTrigger className="mt-1">
               <SelectValue placeholder="Select font" />
@@ -74,22 +98,14 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
             min={8}
             step={1}
             className="mt-2"
-            onValueChange={(value) =>
-              onElementUpdate?.(element.id, {
-                style: { fontSize: value[0] },
-              })
-            }
+            onValueChange={(value) => updateStyle({ fontSize: value[0] })}
           />
         </div>
         <div>
           <Label className="text-xs">Font Weight</Label>
           <Select
             value={element.style?.fontWeight}
-            onValueChange={(value) =>
-              onElementUpdate?.(element.id, {
-                style: { fontWeight: value },
-              })
-            }
+            onValueChange={(value) => updateStyle({ fontWeight: value })}
           >
             <SelectTrigger className="mt-1">
               <SelectValue placeholder="Select weight" />
@@ -108,11 +124,24 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
               <div
                 key={color.value}
                 className={`h-8 w-8 cursor-pointer rounded border ${color.bgClass} transition-transform hover:scale-110`}
-                onClick={() =>
-                  onElementUpdate?.(element.id, {
-                    style: { color: color.value },
-                  })
-                }
+                onClick={() => updateStyle({ color: color.value })}
+                title={color.name}
+              />
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Background Color</Label>
+          <div className="mt-1 grid grid-cols-4 gap-2">
+            {backgroundColors.map((color) => (
+              <div
+                key={color.value}
+                className={`h-8 w-8 cursor-pointer rounded border ${color.bgClass} transition-transform hover:scale-110 ${
+                  element.style?.backgroundColor === color.value
+                    ? 'ring-2 ring-blue-500'
+                    : ''
+                }`}
+                onClick={() => updateStyle({ backgroundColor: color.value })}
                 title={color.name}
               />
             ))}
@@ -129,16 +158,8 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
             step={ctrl.step}
             defaultValue={ctrl.default}
             icon={ctrl.icon}
-            onChange={(val) =>
-              onElementUpdate?.(element.id, {
-                style: { [ctrl.key]: val },
-              })
-            }
-            onReset={() =>
-              onElementUpdate?.(element.id, {
-                style: { [ctrl.key]: ctrl.default },
-              })
-            }
+            onChange={(val) => updateStyle({ [ctrl.key]: val })}
+            onReset={() => updateStyle({ [ctrl.key]: ctrl.default })}
           />
         ))}
       </div>

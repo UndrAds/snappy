@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import { config } from '../config/config';
-import type { CreateUserRequest, LoginRequest, AuthResponse, User } from '@snappy/shared-types';
+import type { CreateUserRequest, LoginRequest, AuthResponse } from '@snappy/shared-types';
 
 export const register = async (
   req: Request<{}, {}, CreateUserRequest>,
@@ -34,7 +34,7 @@ export const register = async (
       data: {
         email,
         password: hashedPassword,
-        name,
+        name: name || null,
       },
       select: {
         id: true,
@@ -53,7 +53,13 @@ export const register = async (
     );
 
     const response: AuthResponse = {
-      user: user as User,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name || undefined,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      } as any,
       token,
     };
 
@@ -81,10 +87,11 @@ export const login = async (
 
     if (!user) {
       // User not found
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: { message: 'User not found. Please sign up first.' },
       });
+      return;
     }
 
     // Check password
@@ -92,10 +99,11 @@ export const login = async (
 
     if (!isPasswordValid) {
       // Invalid password
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: { message: 'Invalid credentials' },
       });
+      return;
     }
 
     // Generate JWT token
@@ -109,10 +117,10 @@ export const login = async (
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.name || undefined,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
-      },
+      } as any,
       token,
     };
 
@@ -126,10 +134,11 @@ export const login = async (
       error.code === 'P2021' || // Table does not exist
       (error.message && error.message.includes('does not exist'))
     ) {
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         error: { message: 'Internal server error. Please contact support.' },
       });
+      return;
     }
     next(error);
   }

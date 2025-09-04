@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads');
 
     // Create uploads directory if it doesn't exist
@@ -15,7 +15,7 @@ const storage = multer.diskStorage({
 
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     // Generate unique filename
     const uniqueSuffix = crypto.randomBytes(16).toString('hex');
     const ext = path.extname(file.originalname);
@@ -24,7 +24,7 @@ const storage = multer.diskStorage({
 });
 
 // File filter to only allow images
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
   if (allowedMimes.includes(file.mimetype)) {
@@ -51,7 +51,7 @@ export const uploadMultiple = upload.array('images', 10);
 
 // Generate public URL for uploaded file
 export const getFileUrl = (filename: string): string => {
-  const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+  const baseUrl = process.env['API_BASE_URL'] || 'http://localhost:3000';
   return `${baseUrl}/uploads/${filename}`;
 };
 

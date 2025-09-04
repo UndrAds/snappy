@@ -11,7 +11,6 @@ import {
   UpdateStoryElementRequest,
   StoryBackground,
   CreateStoryBackgroundRequest,
-  UpdateStoryBackgroundRequest,
 } from '@snappy/shared-types';
 import crypto from 'crypto';
 
@@ -225,7 +224,7 @@ export class StoryService {
       },
     });
 
-    return frame as StoryFrame;
+    return frame as unknown as StoryFrame;
   }
 
   // Update story frame
@@ -248,7 +247,7 @@ export class StoryService {
       },
     });
 
-    return frame as StoryFrame;
+    return frame as unknown as StoryFrame;
   }
 
   // Delete story frame
@@ -286,14 +285,14 @@ export class StoryService {
         y: data.y,
         width: data.width,
         height: data.height,
-        content: data.content,
-        mediaUrl: data.mediaUrl,
+        content: data.content || null,
+        mediaUrl: data.mediaUrl || null,
         style: data.style,
         frameId,
       },
     });
 
-    return element as StoryElement;
+    return element as unknown as StoryElement;
   }
 
   // Update story element
@@ -314,7 +313,7 @@ export class StoryService {
       data,
     });
 
-    return element as StoryElement;
+    return element as unknown as StoryElement;
   }
 
   // Delete story element
@@ -358,7 +357,7 @@ export class StoryService {
       },
     });
 
-    return background as StoryBackground;
+    return background as unknown as StoryBackground;
   }
 
   // Delete story background

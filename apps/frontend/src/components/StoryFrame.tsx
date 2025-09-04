@@ -205,23 +205,42 @@ export default function StoryFrame({
             className="flex h-full w-full items-center justify-center text-center"
             style={{
               backgroundColor: element.style.backgroundColor || 'transparent',
-              borderRadius: '8px',
-              padding: '8px 12px',
+              borderRadius: '12px',
+              padding: '16px 20px',
               wordWrap: 'break-word',
               overflow: 'hidden',
               fontSize: element.style.fontSize || 16,
               fontFamily: element.style.fontFamily || 'Arial',
               fontWeight: element.style.fontWeight || 'normal',
               color: element.style.color || '#000000',
-              lineHeight: '1.2',
+              lineHeight: '1.3',
+              textAlign: 'center',
               boxShadow:
                 element.style.backgroundColor &&
                 element.style.backgroundColor !== 'transparent'
-                  ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+                  ? '0 4px 12px rgba(0, 0, 0, 0.4)'
                   : 'none',
+              border:
+                element.style.backgroundColor &&
+                element.style.backgroundColor !== 'transparent'
+                  ? '1px solid rgba(255, 255, 255, 0.1)'
+                  : 'none',
+              minHeight: 'fit-content',
+              maxHeight: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            {element.content}
+            <span
+              style={{
+                wordBreak: 'break-word',
+                hyphens: 'auto',
+                overflowWrap: 'break-word',
+              }}
+            >
+              {element.content}
+            </span>
           </div>
         )}
 

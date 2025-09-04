@@ -33,7 +33,7 @@ export class StoryController {
       const { id } = req.params;
       const userId = (req as any).user?.id;
 
-      const story = await StoryService.getStoryById(id, userId);
+      const story = await StoryService.getStoryById(id || '', userId || undefined);
 
       if (!story) {
         const response: ApiResponse = {
@@ -42,7 +42,8 @@ export class StoryController {
             message: 'Story not found',
           },
         };
-        return res.status(404).json(response);
+        res.status(404).json(response);
+        return;
       }
 
       const response: ApiResponse = {
@@ -68,7 +69,7 @@ export class StoryController {
     try {
       const { uniqueId } = req.params;
 
-      const story = await StoryService.getStoryByUniqueId(uniqueId);
+      const story = await StoryService.getStoryByUniqueId(uniqueId || '');
 
       if (!story) {
         const response: ApiResponse = {
@@ -77,7 +78,8 @@ export class StoryController {
             message: 'Story not found',
           },
         };
-        return res.status(404).json(response);
+        res.status(404).json(response);
+        return;
       }
 
       const response: ApiResponse = {
@@ -128,7 +130,7 @@ export class StoryController {
       const { id } = req.params;
       const userId = (req as any).user.id;
 
-      const story = await StoryService.updateStory(id, userId, req.body);
+      const story = await StoryService.updateStory(id || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -154,7 +156,7 @@ export class StoryController {
       const { id } = req.params;
       const userId = (req as any).user.id;
 
-      await StoryService.deleteStory(id, userId);
+      await StoryService.deleteStory(id || '', userId || '');
 
       const response: ApiResponse = {
         success: true,
@@ -206,7 +208,7 @@ export class StoryController {
       const { storyId } = req.params;
       const userId = (req as any).user.id;
 
-      const frame = await StoryService.createStoryFrame(storyId, userId, req.body);
+      const frame = await StoryService.createStoryFrame(storyId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -232,7 +234,7 @@ export class StoryController {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
 
-      const frame = await StoryService.updateStoryFrame(frameId, userId, req.body);
+      const frame = await StoryService.updateStoryFrame(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -258,7 +260,7 @@ export class StoryController {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
 
-      await StoryService.deleteStoryFrame(frameId, userId);
+      await StoryService.deleteStoryFrame(frameId || '', userId || '');
 
       const response: ApiResponse = {
         success: true,
@@ -284,7 +286,7 @@ export class StoryController {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
 
-      const element = await StoryService.createStoryElement(frameId, userId, req.body);
+      const element = await StoryService.createStoryElement(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -310,7 +312,7 @@ export class StoryController {
       const { elementId } = req.params;
       const userId = (req as any).user.id;
 
-      const element = await StoryService.updateStoryElement(elementId, userId, req.body);
+      const element = await StoryService.updateStoryElement(elementId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -336,7 +338,7 @@ export class StoryController {
       const { elementId } = req.params;
       const userId = (req as any).user.id;
 
-      await StoryService.deleteStoryElement(elementId, userId);
+      await StoryService.deleteStoryElement(elementId || '', userId || '');
 
       const response: ApiResponse = {
         success: true,
@@ -362,7 +364,7 @@ export class StoryController {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
 
-      const background = await StoryService.upsertStoryBackground(frameId, userId, req.body);
+      const background = await StoryService.upsertStoryBackground(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -388,7 +390,7 @@ export class StoryController {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
 
-      await StoryService.deleteStoryBackground(frameId, userId);
+      await StoryService.deleteStoryBackground(frameId || '', userId || '');
 
       const response: ApiResponse = {
         success: true,

@@ -14,7 +14,8 @@ export class UploadController {
               message: err.message || 'File upload failed',
             },
           };
-          return res.status(400).json(response);
+          res.status(400).json(response);
+          return;
         }
 
         if (!req.file) {
@@ -24,7 +25,8 @@ export class UploadController {
               message: 'No file uploaded',
             },
           };
-          return res.status(400).json(response);
+          res.status(400).json(response);
+          return;
         }
 
         const fileUrl = getFileUrl(req.file.filename);
@@ -64,7 +66,8 @@ export class UploadController {
               message: err.message || 'File upload failed',
             },
           };
-          return res.status(400).json(response);
+          res.status(400).json(response);
+          return;
         }
 
         if (!req.files || req.files.length === 0) {
@@ -74,7 +77,8 @@ export class UploadController {
               message: 'No files uploaded',
             },
           };
-          return res.status(400).json(response);
+          res.status(400).json(response);
+          return;
         }
 
         const files = (req.files as Express.Multer.File[]).map((file) => ({

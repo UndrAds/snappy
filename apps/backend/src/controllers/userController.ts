@@ -39,10 +39,10 @@ export const getProfile = async (
     const userResponse: User = {
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: user.name || undefined,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
-    };
+    } as any;
 
     res.status(200).json({
       success: true,
@@ -101,10 +101,10 @@ export const updateProfile = async (
     const userResponse: User = {
       id: updatedUser.id,
       email: updatedUser.email,
-      name: updatedUser.name,
+      name: updatedUser.name || undefined,
       createdAt: updatedUser.createdAt.toISOString(),
       updatedAt: updatedUser.updatedAt.toISOString(),
-    };
+    } as any;
 
     res.status(200).json({
       success: true,

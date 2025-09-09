@@ -2,12 +2,14 @@ import PropertyPanelText from './Text'
 import PropertyPanelImage from './Image'
 import PropertyPanelShape from './Shape'
 import PropertyPanelBackground from './Background'
+import PropertyPanelAdFrame from './AdFrame'
 
 const PROPERTY_PANEL_REGISTRY: any = {
   text: PropertyPanelText,
   image: PropertyPanelImage,
   shape: PropertyPanelShape,
   background: PropertyPanelBackground,
+  ad: PropertyPanelAdFrame,
 }
 
 export default function PropertyPanel({
@@ -16,6 +18,7 @@ export default function PropertyPanel({
   onElementUpdate,
   onBackgroundUpdate,
   onElementRemove,
+  onFrameUpdate,
 }: any) {
   let type =
     selectedElement?.type ||
@@ -34,6 +37,7 @@ export default function PropertyPanel({
           onElementUpdate={onElementUpdate}
           onBackgroundUpdate={onBackgroundUpdate}
           onElementRemove={onElementRemove}
+          onFrameUpdate={onFrameUpdate}
         />
       ) : (
         <div className="p-4 text-gray-400">No properties available.</div>

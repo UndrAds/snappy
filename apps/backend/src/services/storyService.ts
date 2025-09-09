@@ -409,7 +409,9 @@ export class StoryService {
       const dbFrame = await prisma.storyFrame.create({
         data: {
           order: frame.order,
+          type: frame.type || 'story',
           hasContent: frame.hasContent,
+          adConfig: frame.adConfig || null,
           storyId: dbStory.id,
         },
       });

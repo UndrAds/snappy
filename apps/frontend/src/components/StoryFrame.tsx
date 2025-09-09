@@ -4,6 +4,7 @@ import { Image, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
+import AdFrame from './AdFrame'
 
 interface CanvasElement {
   id: string
@@ -39,6 +40,7 @@ interface StoryFrameProps {
 
   // Editor mode props
   isEditMode?: boolean
+  frameType?: 'story' | 'ad'
   elements?: CanvasElement[]
   background?: {
     type: 'color' | 'image' | 'video'
@@ -49,6 +51,11 @@ interface StoryFrameProps {
     filter?: string
     offsetX?: number
     offsetY?: number
+  }
+  adConfig?: {
+    adId: string
+    adUnitPath?: string
+    size?: [number, number]
   }
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
@@ -77,8 +84,10 @@ export default function StoryFrame({
 
   // Editor mode props
   isEditMode = false,
+  frameType = 'story',
   elements = [],
   background,
+  adConfig,
   selectedElementId,
   onElementSelect,
   onElementUpdate,
@@ -458,7 +467,22 @@ export default function StoryFrame({
           className="flex h-full w-full items-center justify-center"
           onClick={isEditMode ? handleCanvasClick : undefined}
         >
-          {(elements && elements.length > 0) || background ? (
+          {frameType === 'ad' && adConfig ? (
+            <>
+              {console.log('Rendering AdFrame:', {
+                frameType,
+                adConfig,
+                isEditMode,
+              })}
+              <AdFrame
+                adId={adConfig.adId}
+                adUnitPath={adConfig.adUnitPath}
+                size={adConfig.size}
+                isEditMode={isEditMode}
+                className="h-full w-full"
+              />
+            </>
+          ) : (elements && elements.length > 0) || background ? (
             <>{elements.map(renderElement)}</>
           ) : (
             <div className="flex h-full w-full items-center justify-center">

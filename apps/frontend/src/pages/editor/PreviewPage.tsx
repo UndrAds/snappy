@@ -4,6 +4,12 @@ import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
 import EmbedModal from './components/EmbedModal'
 
+declare global {
+  interface Window {
+    googletag: any
+  }
+}
+
 export default function PreviewPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -14,15 +20,28 @@ export default function PreviewPage() {
 
   useEffect(() => {
     if ((window as any).previewData) {
+      console.log('Preview data from window:', window.previewData)
       setStoryData(window.previewData.storyData)
       setFrames(window.previewData.frames)
       // Optionally clear previewData after reading
       window.previewData = undefined
     } else if (location.state) {
+      console.log('Preview data from location state:', location.state)
       setStoryData(location.state.storyData)
       setFrames(location.state.frames)
     }
   }, [location.state])
+
+  // Load ad scripts for preview
+  useEffect(() => {
+    // Load undrads.js
+    if (!document.querySelector('script[src="/undrads.js"]')) {
+      const undradsScript = document.createElement('script')
+      undradsScript.src = '/undrads.js'
+      undradsScript.async = true
+      document.head.appendChild(undradsScript)
+    }
+  }, [])
 
   if (!storyData || !frames) {
     return (
@@ -45,6 +64,7 @@ export default function PreviewPage() {
   }
 
   const frame = frames[current]
+  console.log('Current frame in preview:', frame)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black">
@@ -71,8 +91,10 @@ export default function PreviewPage() {
           currentSlide={current + 1}
           totalSlides={frames.length}
           showProgressBar
+          frameType={frame.type}
           elements={frame.elements}
           background={frame.background}
+          adConfig={frame.adConfig}
           isEditMode={false}
           showPublisherInfo
           showCTA

@@ -44,9 +44,15 @@ interface StoryData {
 
 interface EditorCanvasProps {
   elements: CanvasElement[]
+  frameType?: 'story' | 'ad'
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
+  }
+  adConfig?: {
+    adId: string
+    adUnitPath?: string
+    size?: [number, number]
   }
   onElementSelect: (elementId: string) => void
   onBackgroundSelect?: () => void
@@ -63,7 +69,9 @@ interface EditorCanvasProps {
 
 export default function EditorCanvas({
   elements,
+  frameType = 'story',
   background,
+  adConfig,
   onElementSelect,
   onBackgroundSelect,
   onElementUpdate,
@@ -124,8 +132,10 @@ export default function EditorCanvas({
         {/* Story Frame */}
         <StoryFrame
           isEditMode={true}
+          frameType={frameType}
           elements={elements}
           background={background}
+          adConfig={adConfig}
           selectedElementId={selectedElementId}
           onElementSelect={onElementSelect}
           onElementUpdate={onElementUpdate}

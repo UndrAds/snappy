@@ -37,6 +37,7 @@ interface CanvasElement {
 interface StoryFrame {
   id: string
   order: number
+  type: 'story' | 'ad'
   elements: CanvasElement[]
   hasContent: boolean
   background?: {
@@ -49,6 +50,11 @@ interface StoryFrame {
     offsetX?: number
     offsetY?: number
     // Add more as needed
+  }
+  adConfig?: {
+    adId: string
+    adUnitPath?: string
+    size?: [number, number]
   }
 }
 
@@ -97,6 +103,7 @@ export default function EditorPage() {
     {
       id: '1',
       order: 1,
+      type: 'story',
       elements: [],
       hasContent: false,
       background: location.state?.storyData?.thumbnail
@@ -180,8 +187,10 @@ export default function EditorPage() {
               const editorFrames = story.frames.map((frame: any) => ({
                 id: frame.id,
                 order: frame.order,
+                type: frame.type || 'story',
                 elements: frame.elements || [],
                 hasContent: frame.hasContent,
+                adConfig: frame.adConfig,
                 background: frame.background
                   ? {
                       type: frame.background.type as
@@ -211,6 +220,7 @@ export default function EditorPage() {
               const defaultFrame: StoryFrame = {
                 id: '1',
                 order: 1,
+                type: 'story',
                 elements: [],
                 hasContent: false,
                 background: story.largeThumbnail
@@ -255,22 +265,35 @@ export default function EditorPage() {
     }
   }, [fromCreate, storyDataState])
 
-  const addNewFrame = () => {
+  const addNewFrame = (frameType: 'story' | 'ad' = 'story') => {
     const newFrame: StoryFrame = {
       id: Date.now().toString(),
       order: frames.length + 1,
+      type: frameType,
       elements: [],
       hasContent: false,
-      background: {
-        type: 'color',
-        value: 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-        opacity: 100, // Set default opacity to 100
-      },
+      background:
+        frameType === 'story'
+          ? {
+              type: 'color',
+              value:
+                'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+              opacity: 100, // Set default opacity to 100
+            }
+          : undefined,
+      adConfig:
+        frameType === 'ad'
+          ? {
+              adId: 'UNDR/1234/mobile/300X250/mobile-ad-1',
+              adUnitPath: 'UNDR/1234/mobile/300X250/mobile-ad-1',
+              size: [300, 250],
+            }
+          : undefined,
     }
     setFrames((prev) => [...prev, newFrame])
     setSelectedFrameId(newFrame.id)
     setSelectedElementId('')
-    toast.success('New frame added!')
+    toast.success(`New ${frameType} frame added!`)
   }
 
   const removeFrame = (frameId: string) => {
@@ -290,11 +313,18 @@ export default function EditorPage() {
         ...frameToDuplicate,
         id: Date.now().toString(),
         order: frames.length + 1,
+        adConfig:
+          frameToDuplicate.type === 'ad'
+            ? {
+                ...frameToDuplicate.adConfig,
+                adId: `ad-${Date.now()}`,
+              }
+            : frameToDuplicate.adConfig,
       }
       setFrames((prev) => [...prev, newFrame])
       setSelectedFrameId(newFrame.id)
       setSelectedElementId('')
-      toast.success('Frame duplicated!')
+      toast.success(`${frameToDuplicate.type} frame duplicated!`)
     }
   }
 
@@ -307,6 +337,7 @@ export default function EditorPage() {
       (headline, index) => ({
         id: (index + 1).toString(),
         order: index + 1,
+        type: 'story' as const,
         elements: [
           {
             id: `text-${index + 1}`,
@@ -480,9 +511,11 @@ export default function EditorPage() {
       // Debug: Log the data being sent
       console.log('Saving story data:', JSON.stringify(storyData, null, 2))
       console.log(
-        'Frames with backgrounds:',
+        'Frames with types and ad configs:',
         frames.map((frame) => ({
           id: frame.id,
+          type: frame.type,
+          adConfig: frame.adConfig,
           background: frame.background,
         }))
       )
@@ -556,7 +589,9 @@ export default function EditorPage() {
 
       <EditorCanvas
         elements={selectedFrame?.elements || []}
+        frameType={selectedFrame?.type}
         background={selectedFrame?.background}
+        adConfig={selectedFrame?.adConfig}
         selectedElementId={selectedElementId}
         onElementSelect={setSelectedElementId}
         onBackgroundSelect={() => setSelectedElementId('background')}
@@ -578,12 +613,25 @@ export default function EditorPage() {
             ? undefined
             : selectedElement
               ? { ...selectedElement }
-              : undefined
+              : selectedFrame?.type === 'ad'
+                ? {
+                    id: selectedFrame.id,
+                    type: 'ad',
+                    adConfig: selectedFrame.adConfig,
+                  }
+                : undefined
         }
         background={selectedFrame?.background}
         onElementUpdate={updateElement}
         onBackgroundUpdate={updateBackground}
         onElementRemove={removeElement}
+        onFrameUpdate={(frameId: string, updates: any) => {
+          setFrames((prev) =>
+            prev.map((frame) =>
+              frame.id === frameId ? { ...frame, ...updates } : frame
+            )
+          )
+        }}
       />
       <EmbedModal
         open={embedOpen}

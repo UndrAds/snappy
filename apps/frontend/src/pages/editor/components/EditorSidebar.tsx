@@ -1,13 +1,29 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Image, Type, Shapes, Plus, Trash2, Copy, Globe } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Image,
+  Type,
+  Shapes,
+  Plus,
+  Trash2,
+  Copy,
+  Globe,
+  ChevronDown,
+  Megaphone,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import MediaSourcePicker from './MediaSourcePicker'
 import AutomatedStoryCreator from './AutomatedStoryCreator'
 
 interface EditorSidebarProps {
-  onAddFrame: () => void
+  onAddFrame: (frameType: 'story' | 'ad') => void
   onRemoveFrame: (frameId: string) => void
   onDuplicateFrame: (frameId: string) => void
   onSelectFrame: (frameId: string) => void
@@ -20,6 +36,7 @@ interface EditorSidebarProps {
   frames: Array<{
     id: string
     order: number
+    type: 'story' | 'ad'
     hasContent: boolean
   }>
   selectedFrameId: string
@@ -112,9 +129,23 @@ export default function EditorSidebar({
 
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Story Frames</h3>
-                <Button size="sm" onClick={onAddFrame} className="h-8 w-8 p-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="h-8 w-8 p-0">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onAddFrame('story')}>
+                      <Image className="mr-2 h-4 w-4" />
+                      Add Story Frame
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAddFrame('ad')}>
+                      <Megaphone className="mr-2 h-4 w-4" />
+                      Add Ad Frame
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="space-y-2">
@@ -131,16 +162,25 @@ export default function EditorSidebar({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white">
-                          {frame.hasContent ? (
+                          {frame.type === 'ad' ? (
+                            <Megaphone className="h-6 w-6 text-orange-600" />
+                          ) : frame.hasContent ? (
                             <Image className="h-6 w-6 text-gray-600" />
                           ) : (
                             <div className="text-xs text-gray-400">Empty</div>
                           )}
                         </div>
                         <div>
-                          <div className="font-medium">Frame {frame.order}</div>
+                          <div className="font-medium">
+                            {frame.type === 'ad' ? 'Ad Frame' : 'Story Frame'}{' '}
+                            {frame.order}
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            {frame.hasContent ? 'Has content' : 'Empty frame'}
+                            {frame.type === 'ad'
+                              ? 'Advertisement slot'
+                              : frame.hasContent
+                                ? 'Has content'
+                                : 'Empty frame'}
                           </div>
                         </div>
                       </div>

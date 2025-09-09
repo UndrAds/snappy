@@ -52,10 +52,14 @@ model Story {
 model StoryFrame {
   id        String   @id @default(cuid())
   order     Int      // Frame order within the story
+  type      String   @default("story") // 'story' | 'ad'
   hasContent Boolean @default(false)
   storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Ad configuration stored as JSON
+  adConfig  Json?
 
   // Relations
   story      Story           @relation(fields: [storyId], references: [id], onDelete: Cascade)

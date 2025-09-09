@@ -88,10 +88,16 @@ export interface UpdateStoryRequest {
 export interface StoryFrame {
   id: string;
   order: number;
+  type: 'story' | 'ad';
   hasContent: boolean;
   storyId: string;
   createdAt: string;
   updatedAt: string;
+  adConfig?: {
+    adId: string;
+    adUnitPath?: string;
+    size?: [number, number];
+  };
   elements?: StoryElement[];
   background?: StoryBackground;
 }

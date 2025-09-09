@@ -330,17 +330,39 @@ export default function EditorPage() {
 
   const createAutomatedStory = (content: {
     headlines: string[]
-    backgroundImage: string
-    backgroundImageAlt: string
+    images: Array<{
+      url: string
+      alt: string
+    }>
   }) => {
-    const newFrames: StoryFrame[] = content.headlines.map(
-      (headline, index) => ({
-        id: (index + 1).toString(),
-        order: index + 1,
+    // Get the current maximum order to append new frames
+    const maxOrder =
+      frames.length > 0 ? Math.max(...frames.map((f) => f.order)) : 0
+
+    // Create frames by matching headlines with images
+    const newFrames: StoryFrame[] = []
+    const maxItems = Math.max(content.headlines.length, content.images.length)
+
+    for (let i = 0; i < maxItems; i++) {
+      const headline =
+        content.headlines[i] ||
+        content.headlines[content.headlines.length - 1] ||
+        'Untitled'
+      const image =
+        content.images[i] || content.images[content.images.length - 1]
+
+      if (!image) continue // Skip if no image available
+
+      const frameId = `auto-${Date.now()}-${i}`
+      const frameOrder = maxOrder + i + 1
+
+      newFrames.push({
+        id: frameId,
+        order: frameOrder,
         type: 'story' as const,
         elements: [
           {
-            id: `text-${index + 1}`,
+            id: `text-${frameId}`,
             type: 'text' as const,
             x: 150, // Position from left edge
             y: 150, // Position from top edge
@@ -364,13 +386,13 @@ export default function EditorPage() {
             },
           },
           {
-            id: `frame-number-${index + 1}`,
+            id: `frame-number-${frameId}`,
             type: 'text' as const,
             x: 50, // Bottom left corner
             y: 350, // Near bottom of frame
             width: 100,
             height: 40,
-            content: `Frame ${index + 1}`,
+            content: `Frame ${frameOrder}`,
             style: {
               fontSize: 16,
               fontFamily: 'Arial',
@@ -391,7 +413,7 @@ export default function EditorPage() {
         hasContent: true,
         background: {
           type: 'image' as const,
-          value: content.backgroundImage,
+          value: image.url,
           opacity: 100,
           zoom: 1.0, // No zoom - fit to frame
           filter: 'none', // No filter for now
@@ -399,13 +421,19 @@ export default function EditorPage() {
           offsetY: 0,
         },
       })
-    )
+    }
 
-    setFrames(newFrames)
-    setSelectedFrameId('1')
+    // Append new frames to existing frames instead of replacing them
+    setFrames((prevFrames) => [...prevFrames, ...newFrames])
+
+    // Select the first new frame
+    if (newFrames.length > 0) {
+      setSelectedFrameId(newFrames[0].id)
+    }
     setSelectedElementId('')
+
     toast.success(
-      `Created ${content.headlines.length} story frames with automated content!`
+      `Added ${newFrames.length} new story frames with automated content!`
     )
   }
 

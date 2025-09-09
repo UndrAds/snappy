@@ -30,8 +30,10 @@ interface EditorSidebarProps {
   onAddElement: (element: any) => void
   onCreateAutomatedStory: (content: {
     headlines: string[]
-    backgroundImage: string
-    backgroundImageAlt: string
+    images: Array<{
+      url: string
+      alt: string
+    }>
   }) => void
   frames: Array<{
     id: string

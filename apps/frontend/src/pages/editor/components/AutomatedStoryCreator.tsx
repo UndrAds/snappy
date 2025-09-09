@@ -22,8 +22,10 @@ interface ScrapedContent {
 
 interface SelectedContent {
   headlines: string[]
-  backgroundImage: string
-  backgroundImageAlt: string
+  images: Array<{
+    url: string
+    alt: string
+  }>
 }
 
 interface AutomatedStoryCreatorProps {
@@ -41,10 +43,12 @@ export default function AutomatedStoryCreator({
     null
   )
   const [selectedHeadlines, setSelectedHeadlines] = useState<string[]>([])
-  const [selectedBackgroundImage, setSelectedBackgroundImage] =
-    useState<string>('')
-  const [selectedBackgroundImageAlt, setSelectedBackgroundImageAlt] =
-    useState('')
+  const [selectedImages, setSelectedImages] = useState<
+    Array<{
+      url: string
+      alt: string
+    }>
+  >([])
 
   const handleScrape = async () => {
     if (!url.trim()) {
@@ -80,9 +84,17 @@ export default function AutomatedStoryCreator({
     )
   }
 
-  const handleBackgroundImageSelect = (imageUrl: string, alt: string) => {
-    setSelectedBackgroundImage(imageUrl)
-    setSelectedBackgroundImageAlt(alt)
+  const handleImageToggle = (imageUrl: string, alt: string) => {
+    setSelectedImages((prev) => {
+      const existingIndex = prev.findIndex((img) => img.url === imageUrl)
+      if (existingIndex >= 0) {
+        // Remove if already selected
+        return prev.filter((_, index) => index !== existingIndex)
+      } else {
+        // Add if not selected
+        return [...prev, { url: imageUrl, alt }]
+      }
+    })
   }
 
   const handleCreateStory = () => {
@@ -91,19 +103,19 @@ export default function AutomatedStoryCreator({
       return
     }
 
-    if (!selectedBackgroundImage) {
-      toast.error('Please select a background image')
+    if (selectedImages.length === 0) {
+      toast.error('Please select at least one image')
       return
     }
 
     onContentSelected({
       headlines: selectedHeadlines,
-      backgroundImage: selectedBackgroundImage,
-      backgroundImageAlt: selectedBackgroundImageAlt,
+      images: selectedImages,
     })
   }
 
-  const canCreateStory = selectedHeadlines.length > 0 && selectedBackgroundImage
+  const canCreateStory =
+    selectedHeadlines.length > 0 && selectedImages.length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -239,55 +251,62 @@ export default function AutomatedStoryCreator({
                 <TabsContent value="images" className="mt-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Select Background Image</CardTitle>
+                      <CardTitle>Select Images for Story Frames</CardTitle>
                       <p className="text-sm text-gray-600">
-                        Choose one image to use as the background for all story
-                        frames. The image will have motion effects applied.
+                        Choose images to use as backgrounds for your story
+                        frames. Each selected image will be matched with
+                        headlines to create frames.
                       </p>
                     </CardHeader>
                     <CardContent>
                       <div className="grid max-h-64 grid-cols-2 gap-4 overflow-y-auto md:grid-cols-3">
-                        {scrapedContent.images.map((image, index) => (
-                          <div
-                            key={index}
-                            className={`relative cursor-pointer rounded-lg border transition-all hover:scale-105 ${
-                              selectedBackgroundImage === image.url
-                                ? 'border-blue-500 ring-2 ring-blue-500'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() =>
-                              handleBackgroundImageSelect(image.url, image.alt)
-                            }
-                          >
-                            <img
-                              src={image.url}
-                              alt={image.alt}
-                              className="h-32 w-full rounded-lg object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.style.display = 'none'
-                              }}
-                            />
-                            {selectedBackgroundImage === image.url && (
-                              <div className="absolute right-2 top-2">
-                                <Badge className="bg-blue-600 text-white">
-                                  <Check className="mr-1 h-3 w-3" />
-                                  Selected
-                                </Badge>
+                        {scrapedContent.images.map((image, index) => {
+                          const isSelected = selectedImages.some(
+                            (img) => img.url === image.url
+                          )
+                          return (
+                            <div
+                              key={index}
+                              className={`relative cursor-pointer rounded-lg border transition-all hover:scale-105 ${
+                                isSelected
+                                  ? 'border-blue-500 ring-2 ring-blue-500'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                              onClick={() =>
+                                handleImageToggle(image.url, image.alt)
+                              }
+                            >
+                              <img
+                                src={image.url}
+                                alt={image.alt}
+                                className="h-32 w-full rounded-lg object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                }}
+                              />
+                              {isSelected && (
+                                <div className="absolute right-2 top-2">
+                                  <Badge className="bg-blue-600 text-white">
+                                    <Check className="mr-1 h-3 w-3" />
+                                    Selected
+                                  </Badge>
+                                </div>
+                              )}
+                              <div className="p-2">
+                                <p className="truncate text-xs text-gray-600">
+                                  {image.alt || 'No description'}
+                                </p>
                               </div>
-                            )}
-                            <div className="p-2">
-                              <p className="truncate text-xs text-gray-600">
-                                {image.alt || 'No description'}
-                              </p>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
-                      {selectedBackgroundImage && (
+                      {selectedImages.length > 0 && (
                         <div className="mt-4 rounded-lg bg-green-50 p-3">
                           <p className="text-sm font-medium text-green-800">
-                            Background image selected
+                            Selected: {selectedImages.length} image
+                            {selectedImages.length !== 1 ? 's' : ''}
                           </p>
                         </div>
                       )}
@@ -304,7 +323,12 @@ export default function AutomatedStoryCreator({
                   className="min-w-[150px]"
                 >
                   <Play className="mr-2 h-4 w-4" />
-                  Create Story ({selectedHeadlines.length} frames)
+                  Create Story (
+                  {Math.max(
+                    selectedHeadlines.length,
+                    selectedImages.length
+                  )}{' '}
+                  frames)
                 </Button>
               </div>
             </div>

@@ -611,6 +611,28 @@ export default function EditorPage() {
           setSelectedFrameId(frameId)
           setSelectedElementId('')
         }}
+        onReorderFrames={(reorderedIds) => {
+          // Reorder frames by id list and reassign order
+          setFrames((prev) => {
+            const byId: Record<string, StoryFrame> = Object.fromEntries(
+              prev.map((f) => [f.id, f])
+            )
+            const reordered: StoryFrame[] = []
+            reorderedIds.forEach((id, idx) => {
+              const original = byId[id]
+              if (original) {
+                reordered.push({ ...original, order: idx + 1 })
+              }
+            })
+            // Append any frames not included (safety)
+            prev.forEach((f) => {
+              if (!reordered.find((r) => r.id === f.id)) {
+                reordered.push({ ...f, order: reordered.length + 1 })
+              }
+            })
+            return reordered
+          })
+        }}
         onAddElement={addElement}
         onCreateAutomatedStory={createAutomatedStory}
       />

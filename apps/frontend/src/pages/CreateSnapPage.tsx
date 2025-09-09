@@ -61,8 +61,8 @@ export default function CreateSnapPage() {
       small: null,
     },
     cta: {
-      type: 'redirect' as const,
-      value: 'https://example.com',
+      type: null,
+      value: '',
     },
     format: 'portrait' as const,
     deviceFrame: 'mobile' as const,
@@ -148,8 +148,11 @@ export default function CreateSnapPage() {
     setSnapData((prev) => ({
       ...prev,
       cta: {
-        type: type as 'redirect' | 'form' | 'promo' | 'sell' | null,
-        value,
+        type:
+          type === 'none'
+            ? null
+            : (type as 'redirect' | 'form' | 'promo' | 'sell' | null),
+        value: type === 'none' ? '' : value,
       },
     }))
   }
@@ -190,11 +193,7 @@ export default function CreateSnapPage() {
       toast.error('Please upload a small thumbnail')
       return
     }
-    if (!snapData.cta.type) {
-      toast.error('Please select a CTA type')
-      return
-    }
-    if (!snapData.cta.value.trim()) {
+    if (snapData.cta.type && !snapData.cta.value.trim()) {
       toast.error('Please enter a CTA value')
       return
     }
@@ -209,8 +208,8 @@ export default function CreateSnapPage() {
         publisherPic: previewUrls.publisherPic,
         largeThumbnail: previewUrls.largeThumbnail,
         smallThumbnail: previewUrls.smallThumbnail,
-        ctaType: snapData.cta.type,
-        ctaValue: snapData.cta.value,
+        ctaType: snapData.cta.type || undefined,
+        ctaValue: snapData.cta.value || undefined,
         format: snapData.format,
         deviceFrame: snapData.deviceFrame,
       })
@@ -223,8 +222,8 @@ export default function CreateSnapPage() {
           publisherPic: previewUrls.publisherPic,
           thumbnail: previewUrls.largeThumbnail, // This is the thumbnail for preview
           background: previewUrls.largeThumbnail, // This becomes the background of the story
-          ctaType: snapData.cta.type,
-          ctaValue: snapData.cta.value,
+          ctaType: snapData.cta.type || undefined,
+          ctaValue: snapData.cta.value || undefined,
           format: snapData.format,
           deviceFrame: snapData.deviceFrame,
         }
@@ -466,7 +465,7 @@ export default function CreateSnapPage() {
               <div className="space-y-2">
                 <Label htmlFor="cta-type">CTA Type</Label>
                 <Select
-                  value={snapData.cta.type || ''}
+                  value={snapData.cta.type || 'none'}
                   onValueChange={(value) =>
                     handleCtaChange(value, snapData.cta.value)
                   }
@@ -475,6 +474,7 @@ export default function CreateSnapPage() {
                     <SelectValue placeholder="Select CTA type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">No CTA</SelectItem>
                     <SelectItem value="redirect">Redirect to URL</SelectItem>
                     <SelectItem value="form">Open a Form</SelectItem>
                     <SelectItem value="promo">Give a Promo Code</SelectItem>
@@ -521,6 +521,7 @@ export default function CreateSnapPage() {
               publisherPic={previewUrls.publisherPic}
               mainContent={previewUrls.largeThumbnail}
               ctaType={snapData.cta.type}
+              ctaValue={snapData.cta.value}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

@@ -118,8 +118,8 @@ export default function EditStoryPage() {
         publisherPic: story.publisherPic,
         largeThumbnail: story.largeThumbnail,
         smallThumbnail: story.smallThumbnail,
-        ctaType: story.ctaType,
-        ctaValue: story.ctaValue,
+        ctaType: story.ctaType || undefined,
+        ctaValue: story.ctaValue || undefined,
       })
 
       if (response.success) {
@@ -317,13 +317,19 @@ export default function EditStoryPage() {
               <div className="space-y-2">
                 <Label htmlFor="cta-type">CTA Type</Label>
                 <Select
-                  value={story.ctaType || ''}
-                  onValueChange={(value) => handleInputChange('ctaType', value)}
+                  value={story.ctaType || 'none'}
+                  onValueChange={(value) =>
+                    handleInputChange(
+                      'ctaType',
+                      value === 'none' ? null : value
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select CTA type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">No CTA</SelectItem>
                     <SelectItem value="redirect">Redirect to URL</SelectItem>
                     <SelectItem value="form">Open a Form</SelectItem>
                     <SelectItem value="promo">Give a Promo Code</SelectItem>
@@ -370,6 +376,7 @@ export default function EditStoryPage() {
               publisherPic={story.publisherPic}
               mainContent={story.largeThumbnail}
               ctaType={story.ctaType}
+              ctaValue={story.ctaValue}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

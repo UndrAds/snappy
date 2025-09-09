@@ -34,6 +34,7 @@ interface StoryFrameProps {
   publisherPic?: string
   mainContent?: string
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell' | null
+  ctaValue?: string
   currentSlide?: number
   totalSlides?: number
   showProgressBar?: boolean
@@ -78,6 +79,7 @@ export default function StoryFrame({
   storyTitle,
   publisherPic,
   ctaType,
+  ctaValue,
   currentSlide = 1,
   totalSlides = 4,
   showProgressBar = true,
@@ -367,7 +369,7 @@ export default function StoryFrame({
   // Determine if we should show publisher info and CTA
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
-  const shouldShowCTA = !isEditMode || (isEditMode && showCTA)
+  const shouldShowCTA = (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
 
   return (
     <div
@@ -502,14 +504,26 @@ export default function StoryFrame({
         {/* Bottom CTA - Show in preview mode or when showCTA is true in edit mode */}
         {shouldShowCTA && ctaType && (
           <div className="absolute bottom-8 left-4 right-4 z-10">
-            <div className="rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm">
-              <div className="text-sm font-semibold text-black">
-                {ctaType === 'redirect' && 'Visit Link'}
-                {ctaType === 'form' && 'Fill Form'}
-                {ctaType === 'promo' && 'Get Promo'}
-                {ctaType === 'sell' && 'Buy Now'}
+            {ctaType === 'redirect' && ctaValue ? (
+              <a
+                href={ctaValue}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm hover:bg-white transition-colors cursor-pointer"
+              >
+                <div className="text-sm font-semibold text-black">
+                  Visit Link
+                </div>
+              </a>
+            ) : (
+              <div className="rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm">
+                <div className="text-sm font-semibold text-black">
+                  {ctaType === 'form' && 'Fill Form'}
+                  {ctaType === 'promo' && 'Get Promo'}
+                  {ctaType === 'sell' && 'Buy Now'}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

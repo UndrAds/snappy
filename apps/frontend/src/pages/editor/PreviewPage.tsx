@@ -88,6 +88,7 @@ export default function PreviewPage() {
           storyTitle={storyData.storyTitle}
           publisherPic={storyData.publisherPic}
           ctaType={storyData.ctaType}
+          ctaValue={storyData.ctaValue}
           currentSlide={current + 1}
           totalSlides={frames.length}
           showProgressBar

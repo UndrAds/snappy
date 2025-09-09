@@ -146,6 +146,7 @@ export default function EditorCanvas({
           publisherPic={storyData?.publisherPic}
           mainContent={storyData?.thumbnail} // Use thumbnail as main content for preview
           ctaType={storyData?.ctaType}
+          ctaValue={storyData?.ctaValue}
           showPublisherInfo={true}
           showCTA={true}
           showProgressBar={true}

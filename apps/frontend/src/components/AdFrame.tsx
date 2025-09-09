@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { googleAdsManager } from '@/utils/googleAds'
 
 interface AdFrameProps {
   adId: string
@@ -6,12 +7,6 @@ interface AdFrameProps {
   size?: [number, number]
   isEditMode?: boolean
   className?: string
-}
-
-declare global {
-  interface Window {
-    googletag: any
-  }
 }
 
 export default function AdFrame({
@@ -26,12 +21,39 @@ export default function AdFrame({
   useEffect(() => {
     console.log('AdFrame useEffect:', {
       adId,
+      adUnitPath,
       isEditMode,
       adContainerRef: adContainerRef.current,
     })
+
     if (isEditMode) {
       // In edit mode, just show a placeholder
       return
+    }
+
+    // Create ad slot using the manager
+    const createAd = async () => {
+      if (!adContainerRef.current) return
+
+      try {
+        await googleAdsManager.createSlot(
+          adId,
+          adUnitPath,
+          size,
+          adContainerRef.current
+        )
+      } catch (error) {
+        console.error('Error creating ad slot:', error)
+      }
+    }
+
+    createAd()
+
+    // Cleanup function
+    return () => {
+      if (!isEditMode) {
+        googleAdsManager.destroySlot(adId)
+      }
     }
   }, [adId, adUnitPath, size, isEditMode])
 
@@ -57,14 +79,11 @@ export default function AdFrame({
   return (
     <div
       ref={adContainerRef}
+      id={adId}
       className={`flex items-center justify-center bg-black ${className}`}
       style={{ width: '100%', height: '100%' }}
     >
-      <ins
-        className="undrads ua-display"
-        data-ad-id={adId}
-        style={{ width: '100%', height: '100%', display: 'block' }}
-      />
+      {/* Google Ad Manager ad will be rendered here by GPT */}
     </div>
   )
 }

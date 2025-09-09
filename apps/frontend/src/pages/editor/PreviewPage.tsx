@@ -32,14 +32,14 @@ export default function PreviewPage() {
     }
   }, [location.state])
 
-  // Load ad scripts for preview
+  // Load Google Publisher Tag for preview
   useEffect(() => {
-    // Load undrads.js
-    if (!document.querySelector('script[src="/undrads.js"]')) {
-      const undradsScript = document.createElement('script')
-      undradsScript.src = '/undrads.js'
-      undradsScript.async = true
-      document.head.appendChild(undradsScript)
+    // Load Google Publisher Tag
+    if (!document.querySelector('script[src*="gpt.js"]')) {
+      const gptScript = document.createElement('script')
+      gptScript.src = 'https://securepubads.g.doubleclick.net/tag/js/gpt.js'
+      gptScript.async = true
+      document.head.appendChild(gptScript)
     }
   }, [])
 

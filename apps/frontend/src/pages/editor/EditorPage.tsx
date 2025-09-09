@@ -284,8 +284,8 @@ export default function EditorPage() {
       adConfig:
         frameType === 'ad'
           ? {
-              adId: 'UNDR/1234/mobile/300X250/mobile-ad-1',
-              adUnitPath: 'UNDR/1234/mobile/300X250/mobile-ad-1',
+              adId: '/6355419/Travel/Europe/France/Paris',
+              adUnitPath: '/6355419/Travel/Europe/France/Paris',
               size: [300, 250],
             }
           : undefined,

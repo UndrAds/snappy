@@ -379,41 +379,17 @@ export default function EditorPage() {
           {
             id: `text-${frameId}`,
             type: 'text' as const,
-            x: 150, // Position from left edge
-            y: 150, // Position from top edge
-            width: 400, // Smaller width to not cover entire frame
-            height: 80, // Compact height
+            x: 50, // Position from left edge - more margin
+            y: 100, // Position from top edge - more margin
+            width: 500, // Wider to accommodate longer text
+            height: 200, // Taller to accommodate wrapped text
             content: headline,
             style: {
-              fontSize: 28,
+              fontSize: 24, // Slightly smaller default font size
               fontFamily: 'Arial',
               fontWeight: 'bold',
               color: '#ffffff',
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              opacity: 100,
-              rotation: 0,
-              brightness: 50,
-              contrast: 50,
-              saturation: 50,
-              sharpness: 50,
-              highlights: 50,
-              filter: 'none',
-            },
-          },
-          {
-            id: `frame-number-${frameId}`,
-            type: 'text' as const,
-            x: 50, // Bottom left corner
-            y: 350, // Near bottom of frame
-            width: 100,
-            height: 40,
-            content: `Frame ${frameOrder}`,
-            style: {
-              fontSize: 16,
-              fontFamily: 'Arial',
-              fontWeight: 'normal',
-              color: '#ffffff',
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
               opacity: 100,
               rotation: 0,
               brightness: 50,

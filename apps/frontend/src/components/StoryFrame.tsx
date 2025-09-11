@@ -108,6 +108,16 @@ export default function StoryFrame({
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
+  // Resize state
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null)
+  const [resizeStart, setResizeStart] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  })
+
   const handleElementClick = (elementId: string, e?: React.MouseEvent) => {
     if (!isEditMode) return
     e?.stopPropagation()
@@ -139,26 +149,104 @@ export default function StoryFrame({
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isEditMode || !isDragging || !selectedElementId || !onElementUpdate)
-      return
+    if (!isEditMode) return
 
-    const deltaX = e.clientX - dragStart.x
-    const deltaY = e.clientY - dragStart.y
+    if (isResizing) {
+      handleResizeMove(e)
+    } else if (isDragging && selectedElementId && onElementUpdate) {
+      const deltaX = e.clientX - dragStart.x
+      const deltaY = e.clientY - dragStart.y
 
-    const selectedElement = elements.find((el) => el.id === selectedElementId)
-    if (selectedElement) {
-      onElementUpdate(selectedElementId, {
-        x: selectedElement.x + deltaX,
-        y: selectedElement.y + deltaY,
-      })
+      const selectedElement = elements.find((el) => el.id === selectedElementId)
+      if (selectedElement) {
+        onElementUpdate(selectedElementId, {
+          x: selectedElement.x + deltaX,
+          y: selectedElement.y + deltaY,
+        })
+      }
+
+      setDragStart({ x: e.clientX, y: e.clientY })
     }
-
-    setDragStart({ x: e.clientX, y: e.clientY })
   }
 
   const handleMouseUp = () => {
     if (!isEditMode) return
     setIsDragging(false)
+    setIsResizing(false)
+    setResizeHandle(null)
+  }
+
+  // Resize handlers
+  const handleResizeStart = (handle: string, e: React.MouseEvent) => {
+    if (!isEditMode || !selectedElementId) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const selectedElement = elements.find((el) => el.id === selectedElementId)
+    if (!selectedElement) return
+
+    setIsResizing(true)
+    setResizeHandle(handle)
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: selectedElement.width,
+      height: selectedElement.height,
+    })
+  }
+
+  const handleResizeMove = (e: React.MouseEvent) => {
+    if (
+      !isEditMode ||
+      !isResizing ||
+      !selectedElementId ||
+      !onElementUpdate ||
+      !resizeHandle
+    )
+      return
+
+    const deltaX = e.clientX - resizeStart.x
+    const deltaY = e.clientY - resizeStart.y
+
+    let newWidth = resizeStart.width
+    let newHeight = resizeStart.height
+
+    // Calculate new dimensions based on resize handle
+    switch (resizeHandle) {
+      case 'nw': // Top-left corner
+        newWidth = Math.max(50, resizeStart.width - deltaX)
+        newHeight = Math.max(50, resizeStart.height - deltaY)
+        break
+      case 'ne': // Top-right corner
+        newWidth = Math.max(50, resizeStart.width + deltaX)
+        newHeight = Math.max(50, resizeStart.height - deltaY)
+        break
+      case 'sw': // Bottom-left corner
+        newWidth = Math.max(50, resizeStart.width - deltaX)
+        newHeight = Math.max(50, resizeStart.height + deltaY)
+        break
+      case 'se': // Bottom-right corner
+        newWidth = Math.max(50, resizeStart.width + deltaX)
+        newHeight = Math.max(50, resizeStart.height + deltaY)
+        break
+      case 'n': // Top edge
+        newHeight = Math.max(50, resizeStart.height - deltaY)
+        break
+      case 's': // Bottom edge
+        newHeight = Math.max(50, resizeStart.height + deltaY)
+        break
+      case 'w': // Left edge
+        newWidth = Math.max(50, resizeStart.width - deltaX)
+        break
+      case 'e': // Right edge
+        newWidth = Math.max(50, resizeStart.width + deltaX)
+        break
+    }
+
+    onElementUpdate(selectedElementId, {
+      width: newWidth,
+      height: newHeight,
+    })
   }
 
   const handleDeleteElement = (elementId: string, e: React.MouseEvent) => {
@@ -211,6 +299,47 @@ export default function StoryFrame({
           </Button>
         )}
 
+        {/* Resize Handles - Only in edit mode and when selected */}
+        {isSelected && isEditMode && (
+          <>
+            {/* Corner handles */}
+            <div
+              className="absolute -left-1 -top-1 h-3 w-3 cursor-nw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('nw', e)}
+            />
+            <div
+              className="absolute -right-1 -top-1 h-3 w-3 cursor-ne-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('ne', e)}
+            />
+            <div
+              className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('sw', e)}
+            />
+            <div
+              className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('se', e)}
+            />
+
+            {/* Edge handles */}
+            <div
+              className="absolute -top-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-n-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('n', e)}
+            />
+            <div
+              className="absolute -bottom-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-s-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('s', e)}
+            />
+            <div
+              className="absolute -left-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-w-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('w', e)}
+            />
+            <div
+              className="absolute -right-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-e-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              onMouseDown={(e) => handleResizeStart('e', e)}
+            />
+          </>
+        )}
+
         {element.type === 'text' && (
           <div
             className="flex h-full w-full items-center justify-center text-center"
@@ -224,7 +353,7 @@ export default function StoryFrame({
               fontFamily: element.style.fontFamily || 'Arial',
               fontWeight: element.style.fontWeight || 'normal',
               color: element.style.color || '#000000',
-              lineHeight: '1.3',
+              lineHeight: '1.2',
               textAlign: 'center',
               boxShadow:
                 element.style.backgroundColor &&
@@ -241,6 +370,9 @@ export default function StoryFrame({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
+              hyphens: 'auto',
             }}
           >
             <span
@@ -248,6 +380,9 @@ export default function StoryFrame({
                 wordBreak: 'break-word',
                 hyphens: 'auto',
                 overflowWrap: 'break-word',
+                maxWidth: '100%',
+                display: 'block',
+                width: '100%',
               }}
             >
               {element.content}
@@ -369,7 +504,8 @@ export default function StoryFrame({
   // Determine if we should show publisher info and CTA
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
-  const shouldShowCTA = (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
+  const shouldShowCTA =
+    (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
 
   return (
     <div
@@ -509,7 +645,7 @@ export default function StoryFrame({
                 href={ctaValue}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm hover:bg-white transition-colors cursor-pointer"
+                className="block cursor-pointer rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm transition-colors hover:bg-white"
               >
                 <div className="text-sm font-semibold text-black">
                   Visit Link

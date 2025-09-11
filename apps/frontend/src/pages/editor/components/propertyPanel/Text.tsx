@@ -71,6 +71,32 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
               })
             }
           />
+          {/* Text Preview */}
+          {element.content && (
+            <div className="mt-2 rounded border bg-gray-50 p-2">
+              <Label className="text-xs text-gray-600">Preview:</Label>
+              <div
+                className="mt-1 text-center"
+                style={{
+                  fontSize: Math.min(element.style?.fontSize || 16, 14),
+                  fontFamily: element.style?.fontFamily || 'Arial',
+                  fontWeight: element.style?.fontWeight || 'normal',
+                  color: element.style?.color || '#000000',
+                  backgroundColor:
+                    element.style?.backgroundColor || 'transparent',
+                  borderRadius: '6px',
+                  padding: '8px',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  hyphens: 'auto',
+                  lineHeight: '1.2',
+                  maxWidth: '100%',
+                }}
+              >
+                {element.content}
+              </div>
+            </div>
+          )}
         </div>
         <div>
           <Label className="text-xs">Font Family</Label>
@@ -92,14 +118,19 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
         </div>
         <div>
           <Label className="text-xs">Font Size</Label>
-          <Slider
-            value={[element.style?.fontSize || 16]}
-            max={72}
-            min={8}
-            step={1}
-            className="mt-2"
-            onValueChange={(value) => updateStyle({ fontSize: value[0] })}
-          />
+          <div className="mt-1 flex items-center gap-2">
+            <Slider
+              value={[element.style?.fontSize || 16]}
+              max={72}
+              min={8}
+              step={1}
+              className="flex-1"
+              onValueChange={(value) => updateStyle({ fontSize: value[0] })}
+            />
+            <span className="min-w-[30px] text-center text-xs text-gray-500">
+              {element.style?.fontSize || 16}px
+            </span>
+          </div>
         </div>
         <div>
           <Label className="text-xs">Font Weight</Label>

@@ -1,27 +1,8 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
+import { S3Service } from './s3Service';
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads');
-
-    // Create uploads directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    // Generate unique filename
-    const uniqueSuffix = crypto.randomBytes(16).toString('hex');
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-  },
-});
+// Configure multer to store files in memory for S3 upload
+const storage = multer.memoryStorage();
 
 // File filter to only allow images
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -49,35 +30,36 @@ export const uploadSingle = upload.single('image');
 // Upload middleware for multiple files
 export const uploadMultiple = upload.array('images', 10);
 
-// Generate public URL for uploaded file
-export const getFileUrl = (filename: string): string => {
-  const baseUrl = process.env['API_BASE_URL'] || 'http://localhost:3000';
-  return `${baseUrl}/uploads/${filename}`;
+// Upload file to S3 and return URL
+export const uploadFileToS3 = async (
+  file: Express.Multer.File,
+  folder: string = 'uploads'
+): Promise<{ key: string; url: string }> => {
+  return await S3Service.uploadFile(file, folder);
 };
 
-// Delete file from filesystem
-export const deleteFile = (filename: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const filePath = path.join(__dirname, '../../uploads', filename);
-
-    fs.unlink(filePath, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
+// Upload multiple files to S3
+export const uploadMultipleFilesToS3 = async (
+  files: Express.Multer.File[],
+  folder: string = 'uploads'
+): Promise<Array<{ key: string; url: string }>> => {
+  return await S3Service.uploadMultipleFiles(files, folder);
 };
 
-// Extract filename from URL
-export const extractFilenameFromUrl = (url: string): string | null => {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    const filename = pathname.split('/').pop();
-    return filename || null;
-  } catch (error) {
-    return null;
+// Delete file from S3
+export const deleteFileFromS3 = async (url: string): Promise<void> => {
+  const key = S3Service.extractKeyFromUrl(url);
+  if (key) {
+    await S3Service.deleteFile(key);
   }
+};
+
+// Extract S3 key from URL
+export const extractKeyFromUrl = (url: string): string | null => {
+  return S3Service.extractKeyFromUrl(url);
+};
+
+// Check if URL is an S3 URL
+export const isS3Url = (url: string): boolean => {
+  return S3Service.isS3Url(url);
 };

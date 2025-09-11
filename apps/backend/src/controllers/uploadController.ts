@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
-import { uploadSingle, uploadMultiple, getFileUrl } from '../services/uploadService';
+import {
+  uploadSingle,
+  uploadMultiple,
+  uploadFileToS3,
+  uploadMultipleFilesToS3,
+} from '../services/uploadService';
 import { ApiResponse } from '@snappy/shared-types';
 
 export class UploadController {
@@ -29,15 +34,16 @@ export class UploadController {
           return;
         }
 
-        const fileUrl = getFileUrl(req.file.filename);
+        // Upload to S3
+        const { key, url } = await uploadFileToS3(req.file);
 
         const response: ApiResponse = {
           success: true,
           data: {
-            filename: req.file.filename,
+            filename: key,
             originalName: req.file.originalname,
             size: req.file.size,
-            url: fileUrl,
+            url: url,
           },
         };
 
@@ -81,12 +87,18 @@ export class UploadController {
           return;
         }
 
-        const files = (req.files as Express.Multer.File[]).map((file) => ({
-          filename: file.filename,
-          originalName: file.originalname,
-          size: file.size,
-          url: getFileUrl(file.filename),
-        }));
+        // Upload all files to S3
+        const uploadResults = await uploadMultipleFilesToS3(req.files as Express.Multer.File[]);
+
+        const files = uploadResults.map((result, index) => {
+          const file = (req.files as Express.Multer.File[])[index];
+          return {
+            filename: result.key,
+            originalName: file?.originalname || 'unknown',
+            size: file?.size || 0,
+            url: result.url,
+          };
+        });
 
         const response: ApiResponse = {
           success: true,

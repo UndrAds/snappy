@@ -121,7 +121,9 @@ export interface StoryElement {
     fontWeight?: string;
     color?: string;
     backgroundColor?: string;
-    opacity?: number;
+    opacity?: number; // Overall element opacity (for backward compatibility)
+    textOpacity?: number; // Text color opacity
+    backgroundOpacity?: number; // Background color opacity
     rotation?: number;
     brightness?: number;
     contrast?: number;

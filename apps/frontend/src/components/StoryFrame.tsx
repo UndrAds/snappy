@@ -21,7 +21,9 @@ interface CanvasElement {
     fontWeight?: string
     color?: string
     backgroundColor?: string
-    opacity?: number
+    opacity?: number // Overall element opacity (for backward compatibility)
+    textOpacity?: number // Text color opacity
+    backgroundOpacity?: number // Background color opacity
     rotation?: number
     filter?: string
   }
@@ -256,6 +258,52 @@ export default function StoryFrame({
     toast.success('Element deleted!')
   }
 
+  // Helper function to apply opacity to a color
+  const applyOpacityToColor = (
+    color: string,
+    opacity: number = 100
+  ): string => {
+    if (!color) return 'transparent'
+
+    // If opacity is 0, return transparent regardless of color
+    if (opacity === 0) return 'transparent'
+
+    // If color is transparent, return transparent (no opacity to apply)
+    if (color === 'transparent') return color
+
+    // If color is already rgba, extract the RGB values and apply new opacity
+    if (color.startsWith('rgba(')) {
+      const rgbaMatch = color.match(
+        /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/
+      )
+      if (rgbaMatch) {
+        const [, r, g, b] = rgbaMatch
+        return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
+      }
+    }
+
+    // If color is hex, convert to rgba
+    if (color.startsWith('#')) {
+      const hex = color.replace('#', '')
+      const r = parseInt(hex.substr(0, 2), 16)
+      const g = parseInt(hex.substr(2, 2), 16)
+      const b = parseInt(hex.substr(4, 2), 16)
+      return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
+    }
+
+    // If color is rgb, convert to rgba
+    if (color.startsWith('rgb(')) {
+      const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+      if (rgbMatch) {
+        const [, r, g, b] = rgbMatch
+        return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
+      }
+    }
+
+    // Fallback: return original color
+    return color
+  }
+
   const renderElement = (element: CanvasElement) => {
     const isSelected = selectedElementId === element.id
     const style = {
@@ -344,7 +392,10 @@ export default function StoryFrame({
           <div
             className="flex h-full w-full items-center justify-center text-center"
             style={{
-              backgroundColor: element.style.backgroundColor || 'transparent',
+              backgroundColor: applyOpacityToColor(
+                element.style.backgroundColor || 'transparent',
+                element.style.backgroundOpacity || 100
+              ),
               borderRadius: '12px',
               padding: '16px 20px',
               wordWrap: 'break-word',
@@ -352,7 +403,10 @@ export default function StoryFrame({
               fontSize: element.style.fontSize || 16,
               fontFamily: element.style.fontFamily || 'Arial',
               fontWeight: element.style.fontWeight || 'normal',
-              color: element.style.color || '#000000',
+              color: applyOpacityToColor(
+                element.style.color || '#000000',
+                element.style.textOpacity || element.style.opacity || 100
+              ),
               lineHeight: '1.2',
               textAlign: 'center',
               boxShadow:

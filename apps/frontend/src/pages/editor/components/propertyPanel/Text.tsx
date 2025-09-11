@@ -8,7 +8,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
-import { Type } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Type, RotateCcw } from 'lucide-react'
 import PropertyControl from './PropertyControl'
 import { propertyControlsConfig } from './config'
 
@@ -82,8 +83,45 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
                   fontFamily: element.style?.fontFamily || 'Arial',
                   fontWeight: element.style?.fontWeight || 'normal',
                   color: element.style?.color || '#000000',
-                  backgroundColor:
-                    element.style?.backgroundColor || 'transparent',
+                  backgroundColor: (() => {
+                    const bgColor =
+                      element.style?.backgroundColor || 'transparent'
+                    const bgOpacity = element.style?.backgroundOpacity || 100
+
+                    // If opacity is 0, return transparent
+                    if (bgOpacity === 0) return 'transparent'
+
+                    if (!bgColor || bgColor === 'transparent')
+                      return 'transparent'
+
+                    // Apply opacity to background color for preview
+                    if (bgColor.startsWith('rgba(')) {
+                      const rgbaMatch = bgColor.match(
+                        /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/
+                      )
+                      if (rgbaMatch) {
+                        const [, r, g, b] = rgbaMatch
+                        return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
+                      }
+                    }
+                    if (bgColor.startsWith('#')) {
+                      const hex = bgColor.replace('#', '')
+                      const r = parseInt(hex.substr(0, 2), 16)
+                      const g = parseInt(hex.substr(2, 2), 16)
+                      const b = parseInt(hex.substr(4, 2), 16)
+                      return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
+                    }
+                    if (bgColor.startsWith('rgb(')) {
+                      const rgbMatch = bgColor.match(
+                        /rgb\((\d+),\s*(\d+),\s*(\d+)\)/
+                      )
+                      if (rgbMatch) {
+                        const [, r, g, b] = rgbMatch
+                        return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
+                      }
+                    }
+                    return bgColor
+                  })(),
                   borderRadius: '6px',
                   padding: '8px',
                   wordBreak: 'break-word',
@@ -91,6 +129,10 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
                   hyphens: 'auto',
                   lineHeight: '1.2',
                   maxWidth: '100%',
+                  opacity:
+                    (element.style?.textOpacity ??
+                      element.style?.opacity ??
+                      100) / 100,
                 }}
               >
                 {element.content}
@@ -178,21 +220,80 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
             ))}
           </div>
         </div>
-        {/* Plug-and-play property controls */}
-        {propertyControlsConfig.text.map((ctrl) => (
-          <PropertyControl
-            key={ctrl.key}
-            label={ctrl.label}
-            value={element.style?.[ctrl.key] ?? ctrl.default}
-            min={ctrl.min}
-            max={ctrl.max}
-            step={ctrl.step}
-            defaultValue={ctrl.default}
-            icon={ctrl.icon}
-            onChange={(val) => updateStyle({ [ctrl.key]: val })}
-            onReset={() => updateStyle({ [ctrl.key]: ctrl.default })}
-          />
-        ))}
+
+        {/* Text Opacity Control */}
+        <div>
+          <Label className="text-xs">Text Opacity</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <Slider
+              value={[
+                element.style?.textOpacity ?? element.style?.opacity ?? 100,
+              ]}
+              max={100}
+              min={0}
+              step={1}
+              className="flex-1"
+              onValueChange={(value) => updateStyle({ textOpacity: value[0] })}
+            />
+            <span className="min-w-[30px] text-center text-xs text-gray-500">
+              {element.style?.textOpacity ?? element.style?.opacity ?? 100}%
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => updateStyle({ textOpacity: 100 })}
+              className="h-8 w-8 p-0"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Background Opacity Control */}
+        <div>
+          <Label className="text-xs">Background Opacity</Label>
+          <div className="mt-1 flex items-center gap-2">
+            <Slider
+              value={[element.style?.backgroundOpacity ?? 100]}
+              max={100}
+              min={0}
+              step={1}
+              className="flex-1"
+              onValueChange={(value) =>
+                updateStyle({ backgroundOpacity: value[0] })
+              }
+            />
+            <span className="min-w-[30px] text-center text-xs text-gray-500">
+              {element.style?.backgroundOpacity ?? 100}%
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => updateStyle({ backgroundOpacity: 100 })}
+              className="h-8 w-8 p-0"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Other property controls (excluding opacity since we have separate controls now) */}
+        {propertyControlsConfig.text
+          .filter((ctrl) => ctrl.key !== 'opacity')
+          .map((ctrl) => (
+            <PropertyControl
+              key={ctrl.key}
+              label={ctrl.label}
+              value={element.style?.[ctrl.key] ?? ctrl.default}
+              min={ctrl.min}
+              max={ctrl.max}
+              step={ctrl.step}
+              defaultValue={ctrl.default}
+              icon={ctrl.icon}
+              onChange={(val) => updateStyle({ [ctrl.key]: val })}
+              onReset={() => updateStyle({ [ctrl.key]: ctrl.default })}
+            />
+          ))}
       </div>
     </div>
   )

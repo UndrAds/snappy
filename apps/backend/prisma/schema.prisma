@@ -54,6 +54,7 @@ model StoryFrame {
   order     Int      // Frame order within the story
   type      String   @default("story") // 'story' | 'ad'
   hasContent Boolean @default(false)
+  name      String?  // Custom frame name
   storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

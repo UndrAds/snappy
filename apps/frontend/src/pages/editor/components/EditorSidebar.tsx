@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu,
@@ -16,6 +17,9 @@ import {
   Copy,
   Globe,
   Megaphone,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import MediaSourcePicker from './MediaSourcePicker'
@@ -27,6 +31,7 @@ interface EditorSidebarProps {
   onDuplicateFrame: (frameId: string) => void
   onSelectFrame: (frameId: string) => void
   onReorderFrames: (reorderedIds: string[]) => void
+  onRenameFrame: (frameId: string, newName: string) => void
   onAddElement: (element: any) => void
   onCreateAutomatedStory: (content: {
     headlines: string[]
@@ -40,6 +45,7 @@ interface EditorSidebarProps {
     order: number
     type: 'story' | 'ad'
     hasContent: boolean
+    name?: string
   }>
   selectedFrameId: string
 }
@@ -50,6 +56,7 @@ export default function EditorSidebar({
   onDuplicateFrame,
   onSelectFrame,
   onReorderFrames,
+  onRenameFrame,
   onAddElement,
   onCreateAutomatedStory,
   frames,
@@ -58,6 +65,8 @@ export default function EditorSidebar({
   const [activeTab, setActiveTab] = useState('frames')
   const [automatedCreatorOpen, setAutomatedCreatorOpen] = useState(false)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [editingFrameId, setEditingFrameId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
 
   const handleAddElement = (type: 'text' | 'shape' | 'image') => {
     const newElement = {
@@ -129,6 +138,29 @@ export default function EditorSidebar({
 
     onReorderFrames(updated.map((f) => f.id))
     setDraggingId(null)
+  }
+
+  const handleStartRename = (frameId: string, currentName: string) => {
+    setEditingFrameId(frameId)
+    setEditingName(currentName)
+  }
+
+  const handleSaveRename = () => {
+    if (editingFrameId && editingName.trim()) {
+      onRenameFrame(editingFrameId, editingName.trim())
+      setEditingFrameId(null)
+      setEditingName('')
+    }
+  }
+
+  const handleCancelRename = () => {
+    setEditingFrameId(null)
+    setEditingName('')
+  }
+
+  const getFrameDisplayName = (frame: any) => {
+    if (frame.name) return frame.name
+    return `${frame.type === 'ad' ? 'Ad Frame' : 'Story Frame'} ${frame.order}`
   }
 
   return (
@@ -210,22 +242,72 @@ export default function EditorSidebar({
                               <div className="text-xs text-gray-400">Empty</div>
                             )}
                           </div>
-                          <div>
-                            <div className="font-medium">
-                              {frame.type === 'ad' ? 'Ad Frame' : 'Story Frame'}{' '}
-                              {frame.order}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {frame.type === 'ad'
-                                ? 'Advertisement slot'
-                                : frame.hasContent
-                                  ? 'Has content'
-                                  : 'Empty frame'}
-                            </div>
+                          <div className="flex-1">
+                            {editingFrameId === frame.id ? (
+                              <div className="flex items-center space-x-1">
+                                <Input
+                                  value={editingName}
+                                  onChange={(e) =>
+                                    setEditingName(e.target.value)
+                                  }
+                                  className="h-6 text-sm"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveRename()
+                                    if (e.key === 'Escape') handleCancelRename()
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleSaveRename}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleCancelRename}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="font-medium">
+                                  {getFrameDisplayName(frame)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {frame.type === 'ad'
+                                    ? 'Advertisement slot'
+                                    : frame.hasContent
+                                      ? 'Has content'
+                                      : 'Empty frame'}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex space-x-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="flex flex-col space-y-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          {editingFrameId !== frame.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStartRename(
+                                  frame.id,
+                                  getFrameDisplayName(frame)
+                                )
+                              }}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

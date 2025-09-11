@@ -90,6 +90,7 @@ export interface StoryFrame {
   order: number;
   type: 'story' | 'ad';
   hasContent: boolean;
+  name?: string;
   storyId: string;
   createdAt: string;
   updatedAt: string;

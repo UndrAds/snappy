@@ -40,6 +40,7 @@ interface StoryFrame {
   type: 'story' | 'ad'
   elements: CanvasElement[]
   hasContent: boolean
+  name?: string
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
@@ -184,12 +185,14 @@ export default function EditorPage() {
 
             // Convert database frames to editor frames
             if (story.frames && story.frames.length > 0) {
+              console.log('Loaded frames from backend:', story.frames)
               const editorFrames = story.frames.map((frame: any) => ({
                 id: frame.id,
                 order: frame.order,
                 type: frame.type || 'story',
                 elements: frame.elements || [],
                 hasContent: frame.hasContent,
+                name: frame.name,
                 adConfig: frame.adConfig,
                 background: frame.background
                   ? {
@@ -313,6 +316,9 @@ export default function EditorPage() {
         ...frameToDuplicate,
         id: Date.now().toString(),
         order: frames.length + 1,
+        name: frameToDuplicate.name
+          ? `${frameToDuplicate.name} (Copy)`
+          : undefined,
         adConfig:
           frameToDuplicate.type === 'ad'
             ? {
@@ -326,6 +332,15 @@ export default function EditorPage() {
       setSelectedElementId('')
       toast.success(`${frameToDuplicate.type} frame duplicated!`)
     }
+  }
+
+  const renameFrame = (frameId: string, newName: string) => {
+    setFrames((prev) =>
+      prev.map((frame) =>
+        frame.id === frameId ? { ...frame, name: newName } : frame
+      )
+    )
+    toast.success('Frame renamed!')
   }
 
   const createAutomatedStory = (content: {
@@ -439,15 +454,29 @@ export default function EditorPage() {
 
   const addElement = (element: CanvasElement) => {
     setFrames((prev) =>
-      prev.map((frame) =>
-        frame.id === selectedFrameId
-          ? {
-              ...frame,
-              elements: [...frame.elements, element],
-              hasContent: true,
+      prev.map((frame) => {
+        if (frame.id === selectedFrameId) {
+          const updatedFrame = {
+            ...frame,
+            elements: [...frame.elements, element],
+            hasContent: true,
+          }
+
+          // Auto-name frame if it's a text element and frame doesn't have a custom name
+          if (element.type === 'text' && element.content && !frame.name) {
+            const textContent = element.content.trim()
+            if (textContent && textContent !== 'Double click to edit') {
+              updatedFrame.name =
+                textContent.length > 30
+                  ? textContent.substring(0, 30) + '...'
+                  : textContent
             }
-          : frame
-      )
+          }
+
+          return updatedFrame
+        }
+        return frame
+      })
     )
   }
 
@@ -456,16 +485,30 @@ export default function EditorPage() {
     updates: Partial<CanvasElement>
   ) => {
     setFrames((prev) =>
-      prev.map((frame) =>
-        frame.id === selectedFrameId
-          ? {
-              ...frame,
-              elements: frame.elements.map((element) =>
-                element.id === elementId ? { ...element, ...updates } : element
-              ),
+      prev.map((frame) => {
+        if (frame.id === selectedFrameId) {
+          const updatedFrame = {
+            ...frame,
+            elements: frame.elements.map((element) =>
+              element.id === elementId ? { ...element, ...updates } : element
+            ),
+          }
+
+          // Auto-name frame if text content is updated and frame doesn't have a custom name
+          if (updates.content && updates.type === 'text' && !frame.name) {
+            const textContent = updates.content.trim()
+            if (textContent && textContent !== 'Double click to edit') {
+              updatedFrame.name =
+                textContent.length > 30
+                  ? textContent.substring(0, 30) + '...'
+                  : textContent
             }
-          : frame
-      )
+          }
+
+          return updatedFrame
+        }
+        return frame
+      })
     )
   }
 
@@ -539,9 +582,10 @@ export default function EditorPage() {
       // Debug: Log the data being sent
       console.log('Saving story data:', JSON.stringify(storyData, null, 2))
       console.log(
-        'Frames with types and ad configs:',
+        'Frames with types, names, and ad configs:',
         frames.map((frame) => ({
           id: frame.id,
+          name: frame.name,
           type: frame.type,
           adConfig: frame.adConfig,
           background: frame.background,
@@ -607,6 +651,7 @@ export default function EditorPage() {
         onAddFrame={addNewFrame}
         onRemoveFrame={removeFrame}
         onDuplicateFrame={duplicateFrame}
+        onRenameFrame={renameFrame}
         onSelectFrame={(frameId) => {
           setSelectedFrameId(frameId)
           setSelectedElementId('')

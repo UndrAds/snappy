@@ -377,6 +377,10 @@ export class StoryService {
   // Save complete story with frames, elements, and backgrounds
   static async saveCompleteStory(userId: string, storyData: any): Promise<Story> {
     const { story, frames } = storyData;
+    console.log(
+      'Backend received frames:',
+      frames.map((f: any) => ({ id: f.id, name: f.name, type: f.type }))
+    );
 
     // Update or create story
     let dbStory: Story;
@@ -406,15 +410,18 @@ export class StoryService {
 
     // Create frames with elements and backgrounds
     for (const frame of frames) {
+      console.log('Creating frame with name:', frame.name);
       const dbFrame = await prisma.storyFrame.create({
         data: {
           order: frame.order,
           type: frame.type || 'story',
           hasContent: frame.hasContent,
+          name: frame.name || null,
           adConfig: frame.adConfig || null,
           storyId: dbStory.id,
         },
       });
+      console.log('Created frame:', { id: dbFrame.id, name: dbFrame.name });
 
       // Create elements
       for (const element of frame.elements || []) {

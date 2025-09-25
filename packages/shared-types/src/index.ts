@@ -91,6 +91,7 @@ export interface StoryFrame {
   type: 'story' | 'ad';
   hasContent: boolean;
   name?: string;
+  link?: string; // Optional link URL for the frame
   storyId: string;
   createdAt: string;
   updatedAt: string;
@@ -152,11 +153,15 @@ export interface StoryBackground {
 export interface CreateStoryFrameRequest {
   order: number;
   hasContent?: boolean;
+  name?: string;
+  link?: string;
 }
 
 export interface UpdateStoryFrameRequest {
   order?: number;
   hasContent?: boolean;
+  name?: string;
+  link?: string;
 }
 
 export interface CreateStoryElementRequest {

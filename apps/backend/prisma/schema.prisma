@@ -55,6 +55,7 @@ model StoryFrame {
   type      String   @default("story") // 'story' | 'ad'
   hasContent Boolean @default(false)
   name      String?  // Custom frame name
+  link      String?  // Optional link URL for the frame
   storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

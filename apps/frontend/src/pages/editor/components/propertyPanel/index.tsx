@@ -3,6 +3,7 @@ import PropertyPanelImage from './Image'
 import PropertyPanelShape from './Shape'
 import PropertyPanelBackground from './Background'
 import PropertyPanelAdFrame from './AdFrame'
+import PropertyPanelFrame from './Frame'
 
 const PROPERTY_PANEL_REGISTRY: any = {
   text: PropertyPanelText,
@@ -10,6 +11,7 @@ const PROPERTY_PANEL_REGISTRY: any = {
   shape: PropertyPanelShape,
   background: PropertyPanelBackground,
   ad: PropertyPanelAdFrame,
+  frame: PropertyPanelFrame,
 }
 
 export default function PropertyPanel({

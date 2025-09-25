@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button'
-import { Trash2, Image, Video } from 'lucide-react'
+import { Trash2, Image, Video, Link } from 'lucide-react'
 
 interface StoryFrame {
   id: string
   mediaUrl?: string
   mediaType?: 'image' | 'video'
   order: number
+  name?: string
+  link?: string
 }
 
 interface FrameSelectorProps {
@@ -29,9 +31,12 @@ export default function FrameSelector({
           className={`relative cursor-pointer rounded-lg border-2 border-dashed p-3 transition-all hover:border-gray-400 ${
             selectedFrameId === frame.id
               ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-300 bg-gray-50'
+              : frame.link
+                ? 'border-green-300 bg-green-50'
+                : 'border-gray-300 bg-gray-50'
           }`}
           onClick={() => onFrameSelect(frame.id)}
+          title={frame.link ? `Click to open: ${frame.link}` : undefined}
         >
           {/* Frame Content */}
           <div className="flex items-center justify-between">
@@ -48,7 +53,19 @@ export default function FrameSelector({
                 )}
               </div>
               <div>
-                <div className="font-medium">Frame {frame.order}</div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">
+                    {frame.name || `Frame ${frame.order}`}
+                  </span>
+                  {frame.link && (
+                    <div className="flex items-center space-x-1 rounded-full bg-blue-100 px-1.5 py-0.5">
+                      <Link className="h-3 w-3 text-blue-600" />
+                      <span className="text-xs font-medium text-blue-600">
+                        Link
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {frame.mediaUrl
                     ? `${frame.mediaType === 'image' ? 'Image' : 'Video'} uploaded`

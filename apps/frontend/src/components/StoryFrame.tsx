@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image, X } from 'lucide-react'
+import { Image, X, Link } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -60,6 +60,7 @@ interface StoryFrameProps {
     adUnitPath?: string
     size?: [number, number]
   }
+  link?: string // Optional link URL for the frame
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
   onElementUpdate?: (elementId: string, updates: Partial<CanvasElement>) => void
@@ -92,6 +93,7 @@ export default function StoryFrame({
   elements = [],
   background,
   adConfig,
+  link,
   selectedElementId,
   onElementSelect,
   onElementUpdate,
@@ -561,9 +563,27 @@ export default function StoryFrame({
   const shouldShowCTA =
     (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
 
+  // Handle frame click for links
+  const handleFrameClick = (e: React.MouseEvent) => {
+    // Only handle clicks when not in edit mode and link exists
+    if (!isEditMode && link) {
+      e.preventDefault()
+      window.open(link, '_blank', 'noopener,noreferrer')
+    }
+  }
+
   return (
     <div
-      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-gray-200 shadow-2xl`}
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-gray-200 shadow-2xl transition-all duration-200 ${
+        !isEditMode && link
+          ? 'hover:shadow-3xl cursor-pointer hover:shadow-blue-500/20'
+          : ''
+      } ${
+        link && !isEditMode
+          ? 'ring-2 ring-blue-400/30 ring-offset-2 ring-offset-transparent'
+          : ''
+      }`}
+      onClick={handleFrameClick}
     >
       {/* Mobile Frame Content */}
       <div
@@ -717,6 +737,34 @@ export default function StoryFrame({
           </div>
         )}
       </div>
+
+      {/* Link Indicator Overlay - Show when frame has a link */}
+      {link && (
+        <div className="absolute right-3 top-16 z-50">
+          <div className="flex items-center space-x-1 rounded-full bg-blue-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+            <Link className="h-3 w-3" />
+            <span className="text-xs font-medium">Link</span>
+          </div>
+        </div>
+      )}
+
+      {/* Clickable Frame Indicator - Show when in edit mode and frame has link */}
+      {isEditMode && link && (
+        <div className="absolute bottom-16 left-3 z-50">
+          <div className="rounded-full bg-green-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+            <span className="text-xs font-medium">Clickable</span>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Mode Link Hint - Show subtle hint in preview mode */}
+      {!isEditMode && link && (
+        <div className="absolute bottom-3 right-3 z-50">
+          <div className="rounded-full bg-white/20 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+            <span className="text-xs font-medium">Click to open</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

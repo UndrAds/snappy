@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Megaphone } from 'lucide-react'
 
 interface AdFrameProps {
@@ -23,7 +22,6 @@ const DEFAULT_AD_CODE = '/6355419/Travel/Europe/France/Paris'
 
 export default function PropertyPanelAdFrame({
   element,
-  onElementUpdate,
   onFrameUpdate,
 }: AdFrameProps) {
   const [adCode, setAdCode] = useState(

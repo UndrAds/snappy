@@ -216,6 +216,8 @@ export class StoryService {
       data: {
         order: data.order,
         hasContent: data.hasContent || false,
+        name: data.name || null,
+        link: data.link || null,
         storyId,
       },
       include: {
@@ -417,6 +419,7 @@ export class StoryService {
           type: frame.type || 'story',
           hasContent: frame.hasContent,
           name: frame.name || null,
+          link: frame.link || null,
           adConfig: frame.adConfig || null,
           storyId: dbStory.id,
         },

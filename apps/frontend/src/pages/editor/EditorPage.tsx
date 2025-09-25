@@ -41,6 +41,7 @@ interface StoryFrame {
   elements: CanvasElement[]
   hasContent: boolean
   name?: string
+  link?: string // Optional link URL for the frame
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
@@ -663,6 +664,7 @@ export default function EditorPage() {
         frameType={selectedFrame?.type}
         background={selectedFrame?.background}
         adConfig={selectedFrame?.adConfig}
+        link={selectedFrame?.link}
         selectedElementId={selectedElementId}
         onElementSelect={setSelectedElementId}
         onBackgroundSelect={() => setSelectedElementId('background')}
@@ -690,7 +692,15 @@ export default function EditorPage() {
                     type: 'ad',
                     adConfig: selectedFrame.adConfig,
                   }
-                : undefined
+                : selectedFrame && !selectedElement
+                  ? {
+                      id: selectedFrame.id,
+                      type: 'frame',
+                      name: selectedFrame.name,
+                      link: selectedFrame.link,
+                      frameType: selectedFrame.type,
+                    }
+                  : undefined
         }
         background={selectedFrame?.background}
         onElementUpdate={updateElement}

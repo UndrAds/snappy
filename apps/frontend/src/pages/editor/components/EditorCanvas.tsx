@@ -54,6 +54,7 @@ interface EditorCanvasProps {
     adUnitPath?: string
     size?: [number, number]
   }
+  link?: string // Optional link URL for the frame
   onElementSelect: (elementId: string) => void
   onBackgroundSelect?: () => void
   onElementUpdate: (elementId: string, updates: Partial<CanvasElement>) => void
@@ -72,6 +73,7 @@ export default function EditorCanvas({
   frameType = 'story',
   background,
   adConfig,
+  link,
   onElementSelect,
   onBackgroundSelect,
   onElementUpdate,
@@ -136,6 +138,7 @@ export default function EditorCanvas({
           elements={elements}
           background={background}
           adConfig={adConfig}
+          link={link}
           selectedElementId={selectedElementId}
           onElementSelect={onElementSelect}
           onElementUpdate={onElementUpdate}

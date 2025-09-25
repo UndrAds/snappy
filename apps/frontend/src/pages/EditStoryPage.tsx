@@ -321,7 +321,7 @@ export default function EditStoryPage() {
                   onValueChange={(value) =>
                     handleInputChange(
                       'ctaType',
-                      value === 'none' ? null : value
+                      value === 'none' ? null : (value as any)
                     )
                   }
                 >

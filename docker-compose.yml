@@ -43,7 +43,7 @@ services:
       dockerfile: ./apps/backend/Dockerfile
     container_name: snappy-backend
     env_file:
-      - .env
+      - ./apps/backend/.env
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -75,7 +75,7 @@ services:
       dockerfile: ./apps/frontend/Dockerfile
     container_name: snappy-frontend
     env_file:
-      - .env
+      - ./apps/frontend/.env
     expose:
       - "5173"
     depends_on:

@@ -120,6 +120,7 @@ export default function EditStoryPage() {
         smallThumbnail: story.smallThumbnail,
         ctaType: story.ctaType || undefined,
         ctaValue: story.ctaValue || undefined,
+        ctaText: story.ctaText || undefined,
       })
 
       if (response.success) {
@@ -363,6 +364,30 @@ export default function EditStoryPage() {
                   />
                 </div>
               )}
+              {story.ctaType && (
+                <div className="space-y-2">
+                  <Label htmlFor="cta-text">CTA Button Text</Label>
+                  <Input
+                    id="cta-text"
+                    placeholder={
+                      story.ctaType === 'redirect'
+                        ? 'Visit Link'
+                        : story.ctaType === 'form'
+                          ? 'Fill Form'
+                          : story.ctaType === 'promo'
+                            ? 'Get Promo'
+                            : 'Buy Now'
+                    }
+                    value={story.ctaText || ''}
+                    onChange={(e) =>
+                      handleInputChange('ctaText', e.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use default text
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -377,6 +402,7 @@ export default function EditStoryPage() {
               mainContent={story.largeThumbnail}
               ctaType={story.ctaType}
               ctaValue={story.ctaValue}
+              ctaText={story.ctaText}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

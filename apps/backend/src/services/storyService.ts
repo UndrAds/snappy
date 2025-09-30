@@ -70,6 +70,7 @@ export class StoryService {
         smallThumbnail: data.smallThumbnail || null,
         ctaType: data.ctaType || null,
         ctaValue: data.ctaValue || null,
+        ctaText: data.ctaText || null,
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         userId,
@@ -218,6 +219,7 @@ export class StoryService {
         hasContent: data.hasContent || false,
         name: data.name || null,
         link: data.link || null,
+        linkText: data.linkText || null,
         storyId,
       },
       include: {
@@ -420,6 +422,7 @@ export class StoryService {
           hasContent: frame.hasContent,
           name: frame.name || null,
           link: frame.link || null,
+          linkText: frame.linkText || null,
           adConfig: frame.adConfig || null,
           storyId: dbStory.id,
         },

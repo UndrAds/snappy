@@ -10,11 +10,12 @@ interface FramePropertyPanelProps {
     id: string
     name?: string
     link?: string
+    linkText?: string
     frameType: 'story' | 'ad'
   }
   onFrameUpdate: (
     frameId: string,
-    updates: { name?: string; link?: string }
+    updates: { name?: string; link?: string; linkText?: string }
   ) => void
 }
 
@@ -24,9 +25,10 @@ export default function FramePropertyPanel({
 }: FramePropertyPanelProps) {
   const [name, setName] = useState(element.name || '')
   const [link, setLink] = useState(element.link || '')
+  const [linkText, setLinkText] = useState(element.linkText || '')
 
   const handleSave = () => {
-    onFrameUpdate(element.id, { name, link })
+    onFrameUpdate(element.id, { name, link, linkText })
     toast.success('Frame properties updated!')
   }
 
@@ -94,12 +96,28 @@ export default function FramePropertyPanel({
         <p className="text-xs text-muted-foreground">
           Add a link that users can click when viewing this frame
         </p>
-        {link && !isValidUrl(link) && (
-          <p className="text-xs text-red-500">
-            Please enter a valid URL (e.g., https://example.com)
-          </p>
-        )}
       </div>
+
+      {/* Frame Link Text */}
+      {link && (
+        <div className="space-y-2">
+          <Label htmlFor="frame-link-text">Link Text</Label>
+          <Input
+            id="frame-link-text"
+            placeholder="Link"
+            value={linkText}
+            onChange={(e) => setLinkText(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Custom text to display on the link indicator (defaults to "Link")
+          </p>
+        </div>
+      )}
+      {link && !isValidUrl(link) && (
+        <p className="text-xs text-red-500">
+          Please enter a valid URL (e.g., https://example.com)
+        </p>
+      )}
 
       {/* Frame Type Display */}
       <div className="space-y-2">

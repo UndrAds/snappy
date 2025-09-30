@@ -49,6 +49,7 @@ export interface Story {
   smallThumbnail?: string;
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
+  ctaText?: string;
   status: 'draft' | 'published' | 'archived';
   format: StoryFormat;
   deviceFrame: DeviceFrame;
@@ -66,6 +67,7 @@ export interface CreateStoryRequest {
   smallThumbnail?: string;
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
+  ctaText?: string;
   format?: StoryFormat;
   deviceFrame?: DeviceFrame;
   uniqueId?: string; // Optional: allow providing a specific unique ID
@@ -79,6 +81,7 @@ export interface UpdateStoryRequest {
   smallThumbnail?: string;
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell';
   ctaValue?: string;
+  ctaText?: string;
   status?: 'draft' | 'published' | 'archived';
   format?: StoryFormat;
   deviceFrame?: DeviceFrame;
@@ -92,6 +95,7 @@ export interface StoryFrame {
   hasContent: boolean;
   name?: string;
   link?: string; // Optional link URL for the frame
+  linkText?: string; // Custom link text (defaults to "Link")
   storyId: string;
   createdAt: string;
   updatedAt: string;
@@ -155,6 +159,7 @@ export interface CreateStoryFrameRequest {
   hasContent?: boolean;
   name?: string;
   link?: string;
+  linkText?: string;
 }
 
 export interface UpdateStoryFrameRequest {
@@ -162,6 +167,7 @@ export interface UpdateStoryFrameRequest {
   hasContent?: boolean;
   name?: string;
   link?: string;
+  linkText?: string;
 }
 
 export interface CreateStoryElementRequest {

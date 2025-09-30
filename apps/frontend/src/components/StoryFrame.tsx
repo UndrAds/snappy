@@ -37,6 +37,7 @@ interface StoryFrameProps {
   mainContent?: string
   ctaType?: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue?: string
+  ctaText?: string
   currentSlide?: number
   totalSlides?: number
   showProgressBar?: boolean
@@ -61,6 +62,7 @@ interface StoryFrameProps {
     size?: [number, number]
   }
   link?: string // Optional link URL for the frame
+  linkText?: string // Optional link label for the frame link indicator
   selectedElementId?: string
   onElementSelect?: (elementId: string) => void
   onElementUpdate?: (elementId: string, updates: Partial<CanvasElement>) => void
@@ -83,6 +85,7 @@ export default function StoryFrame({
   publisherPic,
   ctaType,
   ctaValue,
+  ctaText,
   currentSlide = 1,
   totalSlides = 4,
   showProgressBar = true,
@@ -94,6 +97,7 @@ export default function StoryFrame({
   background,
   adConfig,
   link,
+  linkText,
   selectedElementId,
   onElementSelect,
   onElementUpdate,
@@ -722,15 +726,19 @@ export default function StoryFrame({
                 className="block cursor-pointer rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm transition-colors hover:bg-white"
               >
                 <div className="text-sm font-semibold text-black">
-                  Visit Link
+                  {ctaText && ctaText.trim() ? ctaText : 'Visit Link'}
                 </div>
               </a>
             ) : (
               <div className="rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm">
                 <div className="text-sm font-semibold text-black">
-                  {ctaType === 'form' && 'Fill Form'}
-                  {ctaType === 'promo' && 'Get Promo'}
-                  {ctaType === 'sell' && 'Buy Now'}
+                  {ctaText && ctaText.trim()
+                    ? ctaText
+                    : ctaType === 'form'
+                      ? 'Fill Form'
+                      : ctaType === 'promo'
+                        ? 'Get Promo'
+                        : 'Buy Now'}
                 </div>
               </div>
             )}
@@ -743,7 +751,9 @@ export default function StoryFrame({
         <div className="absolute right-3 top-16 z-50">
           <div className="flex items-center space-x-1 rounded-full bg-blue-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
             <Link className="h-3 w-3" />
-            <span className="text-xs font-medium">Link</span>
+            <span className="text-xs font-medium">
+              {linkText && linkText.trim() ? linkText : 'Link'}
+            </span>
           </div>
         </div>
       )}

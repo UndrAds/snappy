@@ -36,6 +36,7 @@ interface SnapData {
   cta: {
     type: 'redirect' | 'form' | 'promo' | 'sell' | null
     value: string
+    text: string
   }
   format: StoryFormat
   deviceFrame: DeviceFrame
@@ -63,6 +64,7 @@ export default function CreateSnapPage() {
     cta: {
       type: null,
       value: '',
+      text: '',
     },
     format: 'portrait' as const,
     deviceFrame: 'mobile' as const,
@@ -153,6 +155,17 @@ export default function CreateSnapPage() {
             ? null
             : (type as 'redirect' | 'form' | 'promo' | 'sell' | null),
         value: type === 'none' ? '' : value,
+        text: prev.cta.text, // Preserve existing text
+      },
+    }))
+  }
+
+  const handleCtaTextChange = (text: string) => {
+    setSnapData((prev) => ({
+      ...prev,
+      cta: {
+        ...prev.cta,
+        text,
       },
     }))
   }
@@ -210,6 +223,7 @@ export default function CreateSnapPage() {
         smallThumbnail: previewUrls.smallThumbnail,
         ctaType: snapData.cta.type || undefined,
         ctaValue: snapData.cta.value || undefined,
+        ctaText: snapData.cta.text || undefined,
         format: snapData.format,
         deviceFrame: snapData.deviceFrame,
       })
@@ -224,6 +238,7 @@ export default function CreateSnapPage() {
           background: previewUrls.largeThumbnail, // This becomes the background of the story
           ctaType: snapData.cta.type || undefined,
           ctaValue: snapData.cta.value || undefined,
+          ctaText: snapData.cta.text || undefined,
           format: snapData.format,
           deviceFrame: snapData.deviceFrame,
         }
@@ -508,6 +523,28 @@ export default function CreateSnapPage() {
                   />
                 </div>
               )}
+              {snapData.cta.type && (
+                <div className="space-y-2">
+                  <Label htmlFor="cta-text">CTA Button Text</Label>
+                  <Input
+                    id="cta-text"
+                    placeholder={
+                      snapData.cta.type === 'redirect'
+                        ? 'Visit Link'
+                        : snapData.cta.type === 'form'
+                          ? 'Fill Form'
+                          : snapData.cta.type === 'promo'
+                            ? 'Get Promo'
+                            : 'Buy Now'
+                    }
+                    value={snapData.cta.text}
+                    onChange={(e) => handleCtaTextChange(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use default text
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -522,6 +559,7 @@ export default function CreateSnapPage() {
               mainContent={previewUrls.largeThumbnail}
               ctaType={snapData.cta.type}
               ctaValue={snapData.cta.value}
+              ctaText={snapData.cta.text}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

@@ -35,6 +35,7 @@ model Story {
   smallThumbnail String? // URL to uploaded image
   ctaType     String? // 'redirect' | 'form' | 'promo' | 'sell'
   ctaValue    String?
+  ctaText     String? // Custom CTA button text
   status      String   @default("draft") // 'draft' | 'published' | 'archived'
   format      String   @default("portrait") // 'portrait' | 'landscape'
   deviceFrame String   @default("mobile") // 'mobile' | 'video-player'
@@ -56,6 +57,7 @@ model StoryFrame {
   hasContent Boolean @default(false)
   name      String?  // Custom frame name
   link      String?  // Optional link URL for the frame
+  linkText  String?  // Custom link text (defaults to "Link")
   storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

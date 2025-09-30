@@ -38,6 +38,7 @@ interface StoryData {
   background?: string
   ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
   ctaValue: string
+  ctaText?: string
   format?: StoryFormat
   deviceFrame?: DeviceFrame
 }
@@ -55,6 +56,7 @@ interface EditorCanvasProps {
     size?: [number, number]
   }
   link?: string // Optional link URL for the frame
+  linkText?: string // Optional link label for the frame
   onElementSelect: (elementId: string) => void
   onBackgroundSelect?: () => void
   onElementUpdate: (elementId: string, updates: Partial<CanvasElement>) => void
@@ -74,6 +76,7 @@ export default function EditorCanvas({
   background,
   adConfig,
   link,
+  linkText,
   onElementSelect,
   onBackgroundSelect,
   onElementUpdate,
@@ -139,6 +142,7 @@ export default function EditorCanvas({
           background={background}
           adConfig={adConfig}
           link={link}
+          linkText={linkText}
           selectedElementId={selectedElementId}
           onElementSelect={onElementSelect}
           onElementUpdate={onElementUpdate}
@@ -150,6 +154,7 @@ export default function EditorCanvas({
           mainContent={storyData?.thumbnail} // Use thumbnail as main content for preview
           ctaType={storyData?.ctaType}
           ctaValue={storyData?.ctaValue}
+          ctaText={storyData?.ctaText}
           showPublisherInfo={true}
           showCTA={true}
           showProgressBar={true}

@@ -94,6 +94,7 @@ services:
       - "80:80"
     volumes:
       - ./uploads:/opt/snappy/uploads:ro
+      - ./apps/frontend/public:/usr/share/nginx/html:ro
     depends_on:
       - frontend
       - backend

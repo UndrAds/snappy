@@ -117,8 +117,10 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
       ? { width: customWidth, height: customHeight }
       : SIZE_PRESETS[size]
 
-  // Use single script for both regular and floater embeds
-  const scriptSrc = '/webstory-embed.js'
+  // Get the base URL for external embedding
+  const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
+  // Use absolute URL for embed script (needed for external websites)
+  const scriptSrc = `${baseUrl}/webstory-embed.js`
   // Get API URL from environment or use relative URL
   const apiUrl = import.meta.env.VITE_API_URL || ''
 

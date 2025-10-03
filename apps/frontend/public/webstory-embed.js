@@ -26,9 +26,8 @@
     var container = script.previousElementSibling
     if (!container || !storyId) return
 
-    // Get the API base URL from the script tag or use a default
-    var apiBaseUrl =
-      script.getAttribute('data-api-url') || 'http://localhost:3000'
+    // Get the API base URL from the script tag or use relative URL
+    var apiBaseUrl = script.getAttribute('data-api-url') || ''
 
     // Fetch and render story
     fetchAndRenderStory(storyId, apiBaseUrl, container, autoplay, false)
@@ -46,8 +45,7 @@
     var autoHideDelay = parseInt(
       script.getAttribute('data-auto-hide-delay') || '5000'
     )
-    var apiBaseUrl =
-      script.getAttribute('data-api-url') || 'http://localhost:3000'
+    var apiBaseUrl = script.getAttribute('data-api-url') || ''
 
     if (!storyId) return
 

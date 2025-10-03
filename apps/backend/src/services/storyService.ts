@@ -158,7 +158,7 @@ export class StoryService {
       },
     });
 
-    return stories.map((story) => convertPrismaStoryToSharedType(story));
+    return stories.map((story: any) => convertPrismaStoryToSharedType(story));
   }
 
   // Update story

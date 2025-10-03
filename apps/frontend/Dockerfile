@@ -16,7 +16,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Build shared-types package first
+WORKDIR /app/packages/shared-types
+RUN npm run build
+
+# Build the frontend application
 WORKDIR /app/apps/frontend
 RUN npm run build
 

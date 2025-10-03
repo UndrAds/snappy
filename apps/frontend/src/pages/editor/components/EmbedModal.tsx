@@ -121,8 +121,8 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
   // Use absolute URL for embed script (needed for external websites)
   const scriptSrc = `${baseUrl}/webstory-embed.js`
-  // Get API URL from environment or use relative URL
-  const apiUrl = import.meta.env.VITE_API_URL || ''
+  // For external embedding, use the full API URL (not relative)
+  const apiUrl = import.meta.env.VITE_API_URL || baseUrl
 
   // Generate embed code based on type
   const generateEmbedCode = () => {

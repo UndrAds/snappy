@@ -18,11 +18,10 @@ import type {
   CreateStoryBackgroundRequest,
 } from '@snappy/shared-types'
 
-// In development, use relative URLs to leverage Vite's proxy
-// In production, use the full API URL
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? '' : 'http://localhost:3000')
+// Use relative URLs in both development and production
+// In development, Vite proxy handles the routing
+// In production, nginx handles the routing
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
   baseURL: API_BASE_URL,

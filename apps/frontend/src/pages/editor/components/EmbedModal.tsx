@@ -119,8 +119,8 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   // Use single script for both regular and floater embeds
   const scriptSrc = '/webstory-embed.js'
-  // Get API URL from environment or use default
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+  // Get API URL from environment or use relative URL
+  const apiUrl = import.meta.env.VITE_API_URL || ''
 
   // Generate embed code based on type
   const generateEmbedCode = () => {

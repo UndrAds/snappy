@@ -102,7 +102,7 @@ export default function DashboardLayout() {
                   !sidebarOpen && 'justify-center'
                 } ${
                   isActive
-                    ? 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
+                    ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}
                 onClick={() => handleMenuClick(item.path)}
@@ -122,7 +122,7 @@ export default function DashboardLayout() {
               !sidebarOpen && 'justify-center'
             } ${
               location.pathname === '/settings'
-                ? 'bg-blue-500 text-white shadow-sm hover:bg-blue-600'
+                ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
                 : 'hover:bg-accent hover:text-accent-foreground'
             }`}
             onClick={() => handleMenuClick('/settings')}

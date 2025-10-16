@@ -141,13 +141,13 @@ export default function DashboardHomePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'published':
-        return 'bg-green-100 text-green-800'
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
       case 'draft':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
       case 'archived':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
     }
   }
 
@@ -178,14 +178,14 @@ export default function DashboardHomePage() {
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
-                <div className="h-4 w-3/4 rounded bg-gray-200"></div>
-                <div className="h-3 w-1/2 rounded bg-gray-200"></div>
+                <div className="h-4 w-3/4 rounded bg-muted"></div>
+                <div className="h-3 w-1/2 rounded bg-muted"></div>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 h-32 rounded bg-gray-200"></div>
+                <div className="mb-4 h-32 rounded bg-muted"></div>
                 <div className="space-y-2">
-                  <div className="h-3 w-full rounded bg-gray-200"></div>
-                  <div className="h-3 w-2/3 rounded bg-gray-200"></div>
+                  <div className="h-3 w-full rounded bg-muted"></div>
+                  <div className="h-3 w-2/3 rounded bg-muted"></div>
                 </div>
               </CardContent>
             </Card>
@@ -273,7 +273,7 @@ export default function DashboardHomePage() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDelete(story)}
-                        className="text-red-600"
+                        className="text-red-600 dark:text-red-400"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete

@@ -358,37 +358,37 @@ export default function StoryFrame({
           <>
             {/* Corner handles */}
             <div
-              className="absolute -left-1 -top-1 h-3 w-3 cursor-nw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -left-1 -top-1 h-3 w-3 cursor-nw-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('nw', e)}
             />
             <div
-              className="absolute -right-1 -top-1 h-3 w-3 cursor-ne-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -right-1 -top-1 h-3 w-3 cursor-ne-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('ne', e)}
             />
             <div
-              className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('sw', e)}
             />
             <div
-              className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('se', e)}
             />
 
             {/* Edge handles */}
             <div
-              className="absolute -top-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-n-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -top-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-n-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('n', e)}
             />
             <div
-              className="absolute -bottom-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-s-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -bottom-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-s-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('s', e)}
             />
             <div
-              className="absolute -left-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-w-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -left-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-w-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('w', e)}
             />
             <div
-              className="absolute -right-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-e-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className="absolute -right-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-e-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
               onMouseDown={(e) => handleResizeStart('e', e)}
             />
           </>
@@ -459,8 +459,8 @@ export default function StoryFrame({
         )}
 
         {element.type === 'image' && !element.mediaUrl && (
-          <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-gray-300 bg-gray-200">
-            <Image className="h-8 w-8 text-gray-400" />
+          <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-border bg-muted">
+            <Image className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
 
@@ -530,7 +530,7 @@ export default function StoryFrame({
         return {
           width: 'w-72',
           height: 'h-[550px]',
-          border: 'rounded-[3rem] border-8 border-gray-400',
+          border: 'rounded-[3rem] border-8 border-border',
         }
       } else {
         // Video player portrait
@@ -546,7 +546,7 @@ export default function StoryFrame({
         return {
           width: 'w-[400px]',
           height: 'h-[225px]',
-          border: 'rounded-[2rem] border-6 border-gray-400',
+          border: 'rounded-[2rem] border-6 border-border',
         }
       } else {
         // Video player landscape
@@ -578,7 +578,7 @@ export default function StoryFrame({
 
   return (
     <div
-      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-gray-200 shadow-2xl transition-all duration-200 ${
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200 ${
         !isEditMode && link
           ? 'hover:shadow-3xl cursor-pointer hover:shadow-blue-500/20'
           : ''
@@ -749,7 +749,7 @@ export default function StoryFrame({
       {/* Link Indicator Overlay - Show when frame has a link */}
       {link && (
         <div className="absolute right-3 top-16 z-50">
-          <div className="flex items-center space-x-1 rounded-full bg-blue-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+          <div className="flex items-center space-x-1 rounded-full bg-primary/90 px-2 py-1 text-primary-foreground shadow-lg backdrop-blur-sm">
             <Link className="h-3 w-3" />
             <span className="text-xs font-medium">
               {linkText && linkText.trim() ? linkText : 'Link'}
@@ -761,7 +761,7 @@ export default function StoryFrame({
       {/* Clickable Frame Indicator - Show when in edit mode and frame has link */}
       {isEditMode && link && (
         <div className="absolute bottom-16 left-3 z-50">
-          <div className="rounded-full bg-green-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+          <div className="rounded-full bg-green-600 px-2 py-1 text-white shadow-lg backdrop-blur-sm dark:bg-green-500">
             <span className="text-xs font-medium">Clickable</span>
           </div>
         </div>

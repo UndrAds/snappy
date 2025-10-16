@@ -29,7 +29,7 @@ export default function PropertyPanel({
 
   return (
     <div
-      className="h-full w-80 overflow-y-auto border-l bg-white p-4"
+      className="h-full w-80 overflow-y-auto border-l bg-background p-4"
       style={{ maxHeight: '100vh' }}
     >
       {PanelComponent ? (

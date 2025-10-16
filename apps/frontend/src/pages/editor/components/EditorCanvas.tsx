@@ -123,12 +123,12 @@ export default function EditorCanvas({
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-gray-50 p-8">
+    <div className="flex flex-1 flex-col items-center justify-center bg-muted/30 p-8">
       <div className="relative">
         {/* Canvas Title */}
         <div className="mb-4 text-center">
           {currentSlide && totalSlides && (
-            <span className="block text-xs text-green-600">
+            <span className="block text-xs text-green-600 dark:text-green-400">
               Story {currentSlide} of {totalSlides}
             </span>
           )}

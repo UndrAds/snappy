@@ -372,13 +372,13 @@ export default function CreateSnapPage() {
                     <SelectContent>
                       <SelectItem value="portrait">
                         <div className="flex items-center space-x-2">
-                          <div className="h-4 w-3 rounded bg-gray-300"></div>
+                          <div className="h-4 w-3 rounded bg-muted"></div>
                           <span>Portrait (9:16)</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="landscape">
                         <div className="flex items-center space-x-2">
-                          <div className="h-3 w-4 rounded bg-gray-300"></div>
+                          <div className="h-3 w-4 rounded bg-muted"></div>
                           <span>Landscape (16:9)</span>
                         </div>
                       </SelectItem>

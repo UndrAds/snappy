@@ -155,7 +155,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         <DialogHeader>
           <DialogTitle>Embed Web Story</DialogTitle>
         </DialogHeader>
-        <div className="mb-2 text-xs text-gray-500">
+        <div className="mb-2 text-xs text-muted-foreground">
           Paste this code into your website where you want the story to appear.
           <br />
           The story data will be automatically fetched from our servers.
@@ -293,7 +293,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                   onChange={(e) => setTriggerScroll(Number(e.target.value))}
                   className="mt-1"
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   The floater will appear when user scrolls this percentage of
                   the page
                 </p>
@@ -350,7 +350,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
             <Label className="font-medium">Embed Code</Label>
             <div className="relative mt-1">
               <textarea
-                className="w-full rounded border bg-gray-100 p-2 font-mono text-xs"
+                className="w-full rounded border bg-muted p-2 font-mono text-xs"
                 rows={embedType === 'floater' ? 8 : 4}
                 value={embedCode}
                 readOnly

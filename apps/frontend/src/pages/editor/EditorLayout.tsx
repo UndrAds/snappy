@@ -31,9 +31,9 @@ export default function EditorLayout({
   const navigate = useNavigate()
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-background">
       {/* Top Toolbar */}
-      <div className="flex h-14 items-center justify-between border-b bg-white px-4 shadow-sm">
+      <div className="flex h-14 items-center justify-between border-b bg-card px-4 shadow-sm">
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
@@ -44,7 +44,7 @@ export default function EditorLayout({
             <ArrowLeft className="h-4 w-4" />
             <span>Back</span>
           </Button>
-          <div className="h-6 w-px bg-gray-300"></div>
+          <div className="h-6 w-px bg-border"></div>
           <div>
             <h1 className="text-lg font-semibold">
               {storyTitle ? `Editing: ${storyTitle}` : 'Story Editor'}
@@ -74,7 +74,7 @@ export default function EditorLayout({
           >
             <Redo className="h-4 w-4" />
           </Button>
-          <div className="h-6 w-px bg-gray-300"></div>
+          <div className="h-6 w-px bg-border"></div>
           <Button variant="ghost" size="sm" onClick={onPreview}>
             <Eye className="h-4 w-4" />
             <span className="ml-2">Preview</span>

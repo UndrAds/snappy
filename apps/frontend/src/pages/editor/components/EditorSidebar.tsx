@@ -164,7 +164,7 @@ export default function EditorSidebar({
   }
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-white">
+    <div className="flex h-full w-64 flex-col border-r bg-background">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
         <TabsList className="grid w-full grid-cols-3 rounded-none border-b">
           <TabsTrigger value="frames" className="rounded-none">
@@ -220,10 +220,10 @@ export default function EditorSidebar({
                   {frames.map((frame) => (
                     <div
                       key={frame.id}
-                      className={`group relative cursor-move rounded-lg border-2 border-dashed p-3 transition-all hover:border-gray-400 ${
+                      className={`group relative cursor-move rounded-lg border-2 border-dashed p-3 transition-all hover:border-border ${
                         selectedFrameId === frame.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-300 bg-gray-50'
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border bg-muted/50'
                       } ${draggingId === frame.id ? 'opacity-60' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, frame.id)}
@@ -233,13 +233,15 @@ export default function EditorSidebar({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-background">
                             {frame.type === 'ad' ? (
-                              <Megaphone className="h-6 w-6 text-orange-600" />
+                              <Megaphone className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                             ) : frame.hasContent ? (
-                              <Image className="h-6 w-6 text-gray-600" />
+                              <Image className="h-6 w-6 text-muted-foreground" />
                             ) : (
-                              <div className="text-xs text-gray-400">Empty</div>
+                              <div className="text-xs text-muted-foreground">
+                                Empty
+                              </div>
                             )}
                           </div>
                           <div className="flex-1">
@@ -327,7 +329,7 @@ export default function EditorSidebar({
                                 e.stopPropagation()
                                 onRemoveFrame(frame.id)
                               }}
-                              className="h-6 w-6 p-0 text-red-500 hover:bg-red-50"
+                              className="h-6 w-6 p-0 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>

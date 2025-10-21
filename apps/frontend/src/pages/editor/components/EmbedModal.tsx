@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Copy } from 'lucide-react'
 import React from 'react'
+import { toast } from 'sonner'
 import type {
   StoryFormat,
   DeviceFrame,
@@ -145,8 +146,14 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   const embedCode = generateEmbedCode()
 
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(embedCode)
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(embedCode)
+      toast.success('Embed code copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy:', error)
+      toast.error('Failed to copy to clipboard')
+    }
   }
 
   return (

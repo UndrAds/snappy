@@ -58,7 +58,6 @@ export default function PreviewPage() {
   const handlePrev = () => {
     if (current > 0) setCurrent(current - 1)
   }
-  const handleClose = () => navigate(-1)
   const handleEmbed = () => {
     setEmbedOpen(true)
   }
@@ -68,10 +67,7 @@ export default function PreviewPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black">
-      <div className="absolute left-4 top-4 flex gap-2">
-        <Button variant="ghost" onClick={handleClose}>
-          Back
-        </Button>
+      <div className="absolute left-4 top-4">
         <Button variant="outline" onClick={handleEmbed}>
           Embed
         </Button>

@@ -11,7 +11,6 @@ import {
 import {
   Image,
   Type,
-  Shapes,
   Plus,
   Trash2,
   Copy,
@@ -349,32 +348,14 @@ export default function EditorSidebar({
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold">Add Elements</h3>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex justify-center">
                   <Button
                     variant="outline"
-                    className="h-20 flex-col space-y-2"
+                    className="h-20 w-full flex-col space-y-2"
                     onClick={() => handleAddElement('text')}
                   >
                     <Type className="h-6 w-6" />
                     <span className="text-xs">Text</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="h-20 flex-col space-y-2"
-                    onClick={() => handleAddElement('shape')}
-                  >
-                    <Shapes className="h-6 w-6" />
-                    <span className="text-xs">Shapes</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="h-20 flex-col space-y-2"
-                    onClick={() => handleAddElement('image')}
-                  >
-                    <Image className="h-6 w-6" />
-                    <span className="text-xs">Image</span>
                   </Button>
                 </div>
               </div>

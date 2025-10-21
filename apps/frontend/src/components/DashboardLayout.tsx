@@ -3,17 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
-import {
-  Moon,
-  Sun,
-  Bell,
-  User,
-  Settings,
-  LogOut,
-  Plus,
-  BarChart3,
-  ChevronDown,
-} from 'lucide-react'
+import { Moon, Sun, User, LogOut, Plus, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +26,6 @@ export default function DashboardLayout() {
   const getPageTitle = () => {
     const path = location.pathname
     if (path.includes('/create')) return 'Create Snap'
-    if (path.includes('/analytics')) return 'Analytics'
-    if (path.includes('/settings')) return 'Settings'
     return 'Dashboard'
   }
 
@@ -47,12 +35,6 @@ export default function DashboardLayout() {
       label: 'Create Snap',
       icon: Plus,
       path: '/create',
-    },
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: BarChart3,
-      path: '/analytics',
     },
   ]
 
@@ -113,24 +95,6 @@ export default function DashboardLayout() {
             )
           })}
         </div>
-
-        {/* Bottom Bar - Settings */}
-        <div className="border-t p-4">
-          <Button
-            variant="ghost"
-            className={`w-full justify-start transition-all duration-200 ${
-              !sidebarOpen && 'justify-center'
-            } ${
-              location.pathname === '/settings'
-                ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
-                : 'hover:bg-accent hover:text-accent-foreground'
-            }`}
-            onClick={() => handleMenuClick('/settings')}
-          >
-            <Settings className="h-4 w-4" />
-            {sidebarOpen && <span className="ml-2">Settings</span>}
-          </Button>
-        </div>
       </div>
 
       {/* Main Content */}
@@ -143,7 +107,7 @@ export default function DashboardLayout() {
               <h1 className="text-2xl font-bold">{getPageTitle()}</h1>
             </div>
 
-            {/* Right side - Theme toggle, notifications, profile */}
+            {/* Right side - Theme toggle and profile */}
             <div className="flex items-center space-x-4">
               {/* Theme Toggle */}
               <Button
@@ -154,11 +118,6 @@ export default function DashboardLayout() {
                 <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                 <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 <span className="sr-only">Toggle theme</span>
-              </Button>
-
-              {/* Notifications */}
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
               </Button>
 
               {/* Profile Dropdown */}
@@ -174,10 +133,6 @@ export default function DashboardLayout() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleMenuClick('/profile')}>
-                    <User className="mr-2 h-4 w-4" />
-                    Profile Settings
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout

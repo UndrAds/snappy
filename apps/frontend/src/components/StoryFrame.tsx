@@ -597,29 +597,67 @@ export default function StoryFrame({
   const getBackgroundImageStyle = () => {
     if (!background || background.type !== 'image' || !background.value)
       return {}
+
+    // Get frame dimensions for proper scaling
+    const getFramePixelDimensions = () => {
+      if (format === 'portrait') {
+        if (deviceFrame === 'mobile') {
+          return { width: 288, height: 550 }
+        } else {
+          return { width: 320, height: 568 }
+        }
+      } else {
+        if (deviceFrame === 'mobile') {
+          return { width: 550, height: 288 }
+        } else {
+          return { width: 568, height: 320 }
+        }
+      }
+    }
+
+    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+
     let style: React.CSSProperties = {
       position: 'absolute',
       left: '50%',
       top: '50%',
-      objectFit: 'cover',
-      width: '100%',
-      height: '100%',
+      objectFit: 'none', // Changed from 'cover' to 'none' to allow panning
       zIndex: 0,
       pointerEvents: 'none',
-      transform: 'translate(-50%, -50%)',
-      minWidth: '100%',
-      minHeight: '100%',
     }
+
     // Opacity
     if (background.opacity !== undefined) {
       style.opacity = background.opacity / 100
     }
-    // Transform: center, pan, rotate, zoom
+
+    // Calculate zoom and sizing
+    const userZoom = background.zoom !== undefined ? background.zoom / 100 : 1.0
+    const rotation = background.rotation || 0
     const x = background.offsetX || 0
     const y = background.offsetY || 0
-    const rotation = background.rotation || 0
-    const zoom = background.zoom !== undefined ? background.zoom / 100 : 1.0 // Convert percentage to scale (100 = 1.0x)
-    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom})`
+
+    // Calculate the minimum scale needed to cover the frame
+    // This ensures the image always covers the frame like object-fit: cover
+    const minScaleToCover =
+      Math.max(frameWidth, frameHeight) / Math.min(frameWidth, frameHeight)
+
+    // Add a safety buffer (20% extra) to ensure complete coverage with no gaps
+    const safetyBuffer = 1.2
+    const safeCoverScale = minScaleToCover * safetyBuffer
+
+    // Use a base size that ensures coverage
+    const baseSize = Math.max(frameWidth, frameHeight) * 2
+    style.width = `${baseSize}px`
+    style.height = `${baseSize}px`
+
+    // Apply the safe cover scale as the base, then apply user zoom on top
+    // This ensures the image always covers the frame with a safety margin
+    const finalZoom = safeCoverScale * userZoom
+
+    // Apply transforms: center, pan, rotate, zoom
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${finalZoom})`
+
     // Filter/Skins
     if (background.filter) {
       const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)
@@ -627,6 +665,7 @@ export default function StoryFrame({
         style.filter = filterObj.css
       }
     }
+
     return style
   }
 

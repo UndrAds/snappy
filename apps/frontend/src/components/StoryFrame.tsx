@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Image, X, Link } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,6 +25,7 @@ interface CanvasElement {
     textOpacity?: number // Text color opacity
     backgroundOpacity?: number // Background color opacity
     rotation?: number
+    zoom?: number
     filter?: string
   }
 }
@@ -114,7 +115,8 @@ export default function StoryFrame({
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const lastUpdateTime = useRef(0)
 
   // Resize state
   const [isResizing, setIsResizing] = useState(false)
@@ -152,36 +154,57 @@ export default function StoryFrame({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isEditMode) return
+    e.preventDefault()
     setIsDragging(true)
-    setDragStart({ x: e.clientX, y: e.clientY })
-  }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isEditMode) return
-
-    if (isResizing) {
-      handleResizeMove(e)
-    } else if (isDragging && selectedElementId && onElementUpdate) {
-      const deltaX = e.clientX - dragStart.x
-      const deltaY = e.clientY - dragStart.y
-
-      const selectedElement = elements.find((el) => el.id === selectedElementId)
-      if (selectedElement) {
-        onElementUpdate(selectedElementId, {
-          x: selectedElement.x + deltaX,
-          y: selectedElement.y + deltaY,
-        })
-      }
-
-      setDragStart({ x: e.clientX, y: e.clientY })
+    // Calculate initial offset from element position
+    const selectedElement = elements.find((el) => el.id === selectedElementId)
+    if (selectedElement) {
+      setDragOffset({
+        x: e.clientX - selectedElement.x,
+        y: e.clientY - selectedElement.y,
+      })
     }
   }
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isEditMode) return
+
+      if (isResizing) {
+        handleResizeMove(e)
+      } else if (isDragging && selectedElementId && onElementUpdate) {
+        // Throttle updates to improve performance
+        const now = Date.now()
+        if (now - lastUpdateTime.current < 16) return // ~60fps
+        lastUpdateTime.current = now
+
+        // Calculate new position using the offset to prevent jittery movement
+        const newX = e.clientX - dragOffset.x
+        const newY = e.clientY - dragOffset.y
+
+        onElementUpdate(selectedElementId, {
+          x: newX,
+          y: newY,
+        })
+      }
+    },
+    [
+      isEditMode,
+      isResizing,
+      isDragging,
+      selectedElementId,
+      onElementUpdate,
+      dragOffset,
+    ]
+  )
 
   const handleMouseUp = () => {
     if (!isEditMode) return
     setIsDragging(false)
     setIsResizing(false)
     setResizeHandle(null)
+    setDragOffset({ x: 0, y: 0 })
   }
 
   // Resize handlers
@@ -340,7 +363,7 @@ export default function StoryFrame({
         onClick={(e) => handleElementClick(element.id, e)}
         onDoubleClick={() => handleElementDoubleClick(element)}
         onMouseDown={isEditMode ? (e) => handleMouseDown(e) : undefined}
-        className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all`}
+        className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all ${isDragging && selectedElementId === element.id ? 'transition-none' : ''}`}
       >
         {/* Delete Button - Only in edit mode */}
         {isSelected && isEditMode && (

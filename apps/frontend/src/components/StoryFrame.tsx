@@ -116,6 +116,7 @@ export default function StoryFrame({
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const lastUpdateTime = useRef(0)
 
   // Resize state
@@ -126,6 +127,8 @@ export default function StoryFrame({
     y: 0,
     width: 0,
     height: 0,
+    bottomEdge: 0,
+    rightEdge: 0,
   })
 
   const handleElementClick = (elementId: string, e?: React.MouseEvent) => {
@@ -223,6 +226,9 @@ export default function StoryFrame({
       y: e.clientY,
       width: selectedElement.width,
       height: selectedElement.height,
+      // Store the bottom and right edges for reference
+      bottomEdge: selectedElement.y + selectedElement.height,
+      rightEdge: selectedElement.x + selectedElement.width,
     })
   }
 
@@ -236,45 +242,84 @@ export default function StoryFrame({
     )
       return
 
+    const selectedElement = elements.find((el) => el.id === selectedElementId)
+    if (!selectedElement) return
+
     const deltaX = e.clientX - resizeStart.x
     const deltaY = e.clientY - resizeStart.y
 
+    // Get frame dimensions
+    const getFramePixelDimensions = () => {
+      if (format === 'portrait') {
+        if (deviceFrame === 'mobile') {
+          return { width: 288, height: 550 }
+        } else {
+          return { width: 320, height: 568 }
+        }
+      } else {
+        if (deviceFrame === 'mobile') {
+          return { width: 550, height: 288 }
+        } else {
+          return { width: 568, height: 320 }
+        }
+      }
+    }
+
+    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+
     let newWidth = resizeStart.width
     let newHeight = resizeStart.height
+    let newX = selectedElement.x
+    let newY = selectedElement.y
 
     // Calculate new dimensions based on resize handle
+    // Use fixed edge approach - keep one edge fixed and move the other
     switch (resizeHandle) {
-      case 'nw': // Top-left corner
+      case 'nw': // Top-left corner - keep bottom-right fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newX = resizeStart.rightEdge - newWidth
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 'ne': // Top-right corner
+      case 'ne': // Top-right corner - keep bottom-left fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 'sw': // Bottom-left corner
+      case 'sw': // Bottom-left corner - keep top-right fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
         newHeight = Math.max(50, resizeStart.height + deltaY)
+        newX = resizeStart.rightEdge - newWidth
         break
-      case 'se': // Bottom-right corner
+      case 'se': // Bottom-right corner - keep top-left fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         newHeight = Math.max(50, resizeStart.height + deltaY)
         break
-      case 'n': // Top edge
+      case 'n': // Top edge - keep bottom edge fixed
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 's': // Bottom edge
+      case 's': // Bottom edge - keep top edge fixed
         newHeight = Math.max(50, resizeStart.height + deltaY)
         break
-      case 'w': // Left edge
+      case 'w': // Left edge - keep right edge fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
+        newX = resizeStart.rightEdge - newWidth
         break
-      case 'e': // Right edge
+      case 'e': // Right edge - keep left edge fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         break
     }
 
+    // Final boundary constraints
+    newX = Math.max(0, Math.min(newX, frameWidth - newWidth))
+    newY = Math.max(0, Math.min(newY, frameHeight - newHeight))
+    newWidth = Math.min(newWidth, frameWidth - newX)
+    newHeight = Math.min(newHeight, frameHeight - newY)
+
     onElementUpdate(selectedElementId, {
+      x: newX,
+      y: newY,
       width: newWidth,
       height: newHeight,
     })
@@ -283,6 +328,7 @@ export default function StoryFrame({
   const handleDeleteElement = (elementId: string, e: React.MouseEvent) => {
     if (!isEditMode) return
     e.stopPropagation()
+    e.preventDefault()
     onElementRemove?.(elementId)
     toast.success('Element deleted!')
   }
@@ -353,7 +399,8 @@ export default function StoryFrame({
         isSelected && isEditMode
           ? '2px solid #3b82f6'
           : '1px solid transparent',
-      overflow: 'hidden' as const,
+      overflow: 'visible' as const,
+      zIndex: isSelected ? 10 : 1,
     }
 
     return (
@@ -364,6 +411,8 @@ export default function StoryFrame({
         onDoubleClick={() => handleElementDoubleClick(element)}
         onMouseDown={isEditMode ? (e) => handleMouseDown(e) : undefined}
         className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all ${isDragging && selectedElementId === element.id ? 'transition-none' : ''}`}
+        onMouseEnter={() => setHoveredElementId(element.id)}
+        onMouseLeave={() => setHoveredElementId(null)}
       >
         {/* Delete Button - Only in edit mode */}
         {isSelected && isEditMode && (
@@ -371,7 +420,11 @@ export default function StoryFrame({
             size="sm"
             variant="destructive"
             onClick={(e) => handleDeleteElement(element.id, e)}
-            className="absolute -right-2 -top-2 z-10 h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            className={`pointer-events-auto absolute right-0 top-0 z-30 h-6 w-6 cursor-pointer p-0 transition-opacity ${
+              hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+            }`}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -380,39 +433,63 @@ export default function StoryFrame({
         {/* Resize Handles - Only in edit mode and when selected */}
         {isSelected && isEditMode && (
           <>
-            {/* Corner handles */}
+            {/* Corner handles - more subtle and modern */}
             <div
-              className="absolute -left-1 -top-1 h-3 w-3 cursor-nw-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -left-1 -top-1 h-4 w-4 cursor-nw-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('nw', e)}
             />
             <div
-              className="absolute -right-1 -top-1 h-3 w-3 cursor-ne-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -right-1 -top-1 h-4 w-4 cursor-ne-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('ne', e)}
             />
             <div
-              className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 -left-1 h-4 w-4 cursor-sw-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('sw', e)}
             />
             <div
-              className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 -right-1 h-4 w-4 cursor-se-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('se', e)}
             />
 
-            {/* Edge handles */}
+            {/* Edge handles - more subtle */}
             <div
-              className="absolute -top-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-n-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -top-1 left-1/2 h-2 w-12 -translate-x-1/2 cursor-n-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('n', e)}
             />
             <div
-              className="absolute -bottom-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-s-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 left-1/2 h-2 w-12 -translate-x-1/2 cursor-s-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('s', e)}
             />
             <div
-              className="absolute -left-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-w-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -left-1 top-1/2 h-12 w-2 -translate-y-1/2 cursor-w-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('w', e)}
             />
             <div
-              className="absolute -right-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-e-resize rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -right-1 top-1/2 h-12 w-2 -translate-y-1/2 cursor-e-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('e', e)}
             />
           </>

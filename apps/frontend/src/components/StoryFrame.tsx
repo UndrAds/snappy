@@ -330,6 +330,7 @@ export default function StoryFrame({
         isSelected && isEditMode
           ? '2px solid #3b82f6'
           : '1px solid transparent',
+      overflow: 'hidden' as const,
     }
 
     return (
@@ -455,6 +456,11 @@ export default function StoryFrame({
             src={element.mediaUrl}
             alt=""
             className="h-full w-full object-cover"
+            style={{
+              transform: element.style?.zoom
+                ? `scale(${element.style.zoom / 100})`
+                : undefined,
+            }}
           />
         )}
 

@@ -1,17 +1,13 @@
 import { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Save, Undo, Redo, Eye, Code2 } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Code2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 interface EditorLayoutProps {
   children: ReactNode
   onSave?: () => void
-  onUndo?: () => void
-  onRedo?: () => void
   onPreview?: () => void
   onEmbed?: () => void
-  canUndo?: boolean
-  canRedo?: boolean
   storyTitle?: string
   isSaving?: boolean
 }
@@ -19,12 +15,8 @@ interface EditorLayoutProps {
 export default function EditorLayout({
   children,
   onSave,
-  onUndo,
-  onRedo,
   onPreview,
   onEmbed,
-  canUndo = false,
-  canRedo = false,
   storyTitle,
   isSaving = false,
 }: EditorLayoutProps) {
@@ -58,23 +50,6 @@ export default function EditorLayout({
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onUndo}
-            disabled={!canUndo}
-          >
-            <Undo className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRedo}
-            disabled={!canRedo}
-          >
-            <Redo className="h-4 w-4" />
-          </Button>
-          <div className="h-6 w-px bg-border"></div>
           <Button variant="ghost" size="sm" onClick={onPreview}>
             <Eye className="h-4 w-4" />
             <span className="ml-2">Preview</span>

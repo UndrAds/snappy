@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Type, Image } from 'lucide-react'
+import { Type } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -89,15 +89,15 @@ export default function EditorCanvas({
   format = 'portrait',
   deviceFrame = 'mobile',
 }: EditorCanvasProps) {
-  const handleAddElement = (type: 'text' | 'image') => {
+  const handleAddElement = () => {
     const newElement: CanvasElement = {
       id: Date.now().toString(),
-      type,
+      type: 'text',
       x: 50,
       y: 50,
-      width: type === 'text' ? 200 : 150,
-      height: type === 'text' ? 60 : 150,
-      content: type === 'text' ? 'Double click to edit' : undefined,
+      width: 200,
+      height: 60,
+      content: 'Double click to edit',
       style: {
         fontSize: 16,
         fontFamily: 'Arial',
@@ -117,9 +117,7 @@ export default function EditorCanvas({
 
     onElementAdd(newElement)
     onElementSelect(newElement.id)
-    toast.success(
-      `${type.charAt(0).toUpperCase() + type.slice(1)} element added!`
-    )
+    toast.success('Text element added!')
   }
 
   return (
@@ -165,24 +163,15 @@ export default function EditorCanvas({
         />
 
         {/* Quick Add Elements - Alternative to the buttons inside the frame */}
-        <div className="mt-4 flex justify-center space-x-2">
+        <div className="mt-4 flex justify-center">
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => handleAddElement('text')}
+            onClick={handleAddElement}
             className="flex items-center space-x-2"
           >
             <Type className="h-4 w-4" />
             <span>Add Text</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleAddElement('image')}
-            className="flex items-center space-x-2"
-          >
-            <Image className="h-4 w-4" />
-            <span>Add Image</span>
           </Button>
         </div>
       </div>

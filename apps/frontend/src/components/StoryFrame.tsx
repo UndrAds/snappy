@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image, X, Link, RotateCcw } from 'lucide-react'
+import { Image, X, Link } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -117,6 +117,8 @@ export default function StoryFrame({
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [editingTextValue, setEditingTextValue] = useState('')
   const lastUpdateTime = useRef(0)
 
   // Resize state
@@ -148,15 +150,42 @@ export default function StoryFrame({
   const handleElementDoubleClick = (element: CanvasElement) => {
     if (!isEditMode) return
     if (element.type === 'text') {
-      const newContent = prompt('Enter text:', element.content)
-      if (newContent !== null) {
-        onElementUpdate?.(element.id, { content: newContent })
-      }
+      setEditingTextId(element.id)
+      setEditingTextValue(element.content || '')
     }
+  }
+
+  const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingTextValue(e.target.value)
+  }
+
+  const handleTextInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    elementId: string
+  ) => {
+    if (e.key === 'Enter') {
+      // Save the text
+      onElementUpdate?.(elementId, { content: editingTextValue })
+      setEditingTextId(null)
+      setEditingTextValue('')
+    } else if (e.key === 'Escape') {
+      // Cancel editing
+      setEditingTextId(null)
+      setEditingTextValue('')
+    }
+  }
+
+  const handleTextInputBlur = (elementId: string) => {
+    // Save the text when focus is lost
+    onElementUpdate?.(elementId, { content: editingTextValue })
+    setEditingTextId(null)
+    setEditingTextValue('')
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isEditMode) return
+    // Don't start dragging if we're editing text
+    if (editingTextId) return
     e.preventDefault()
     setIsDragging(true)
 
@@ -173,6 +202,8 @@ export default function StoryFrame({
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isEditMode) return
+      // Don't handle mouse move if we're editing text
+      if (editingTextId) return
 
       if (isResizing) {
         handleResizeMove(e)
@@ -199,6 +230,7 @@ export default function StoryFrame({
       selectedElementId,
       onElementUpdate,
       dragOffset,
+      editingTextId,
     ]
   )
 
@@ -536,18 +568,47 @@ export default function StoryFrame({
               hyphens: 'auto',
             }}
           >
-            <span
-              style={{
-                wordBreak: 'break-word',
-                hyphens: 'auto',
-                overflowWrap: 'break-word',
-                maxWidth: '100%',
-                display: 'block',
-                width: '100%',
-              }}
-            >
-              {element.content}
-            </span>
+            {editingTextId === element.id ? (
+              <input
+                type="text"
+                value={editingTextValue}
+                onChange={handleTextInputChange}
+                onKeyDown={(e) => handleTextInputKeyDown(e, element.id)}
+                onBlur={() => handleTextInputBlur(element.id)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+                className="w-full resize-none border-none bg-transparent text-center outline-none"
+                style={{
+                  fontSize: element.style.fontSize || 16,
+                  fontFamily: element.style.fontFamily || 'Arial',
+                  fontWeight: element.style.fontWeight || 'normal',
+                  color: applyOpacityToColor(
+                    element.style.color || '#000000',
+                    element.style.textOpacity || element.style.opacity || 100
+                  ),
+                  lineHeight: '1.2',
+                  textAlign: 'center',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  hyphens: 'auto',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
+                  overflowWrap: 'break-word',
+                  maxWidth: '100%',
+                  display: 'block',
+                  width: '100%',
+                }}
+              >
+                {element.content}
+              </span>
+            )}
           </div>
         )}
 

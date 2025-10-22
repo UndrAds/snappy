@@ -612,14 +612,6 @@ export default function EditorPage() {
     }
   }
 
-  const handleUndo = () => {
-    toast.info('Undo functionality coming soon!')
-  }
-
-  const handleRedo = () => {
-    toast.info('Redo functionality coming soon!')
-  }
-
   const handlePreview = () => {
     const previewWindow = window.open('/editor/preview', '_blank')
     if (previewWindow) {
@@ -642,8 +634,6 @@ export default function EditorPage() {
   return (
     <EditorLayout
       onSave={handleSave}
-      onUndo={handleUndo}
-      onRedo={handleRedo}
       onPreview={handlePreview}
       onEmbed={handleEmbed}
       storyTitle={storyDataState?.storyTitle}

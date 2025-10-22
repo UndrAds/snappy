@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Image, X, Link } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,6 +25,7 @@ interface CanvasElement {
     textOpacity?: number // Text color opacity
     backgroundOpacity?: number // Background color opacity
     rotation?: number
+    zoom?: number
     filter?: string
   }
 }
@@ -114,7 +115,11 @@ export default function StoryFrame({
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [editingTextValue, setEditingTextValue] = useState('')
+  const lastUpdateTime = useRef(0)
 
   // Resize state
   const [isResizing, setIsResizing] = useState(false)
@@ -124,6 +129,8 @@ export default function StoryFrame({
     y: 0,
     width: 0,
     height: 0,
+    bottomEdge: 0,
+    rightEdge: 0,
   })
 
   const handleElementClick = (elementId: string, e?: React.MouseEvent) => {
@@ -143,45 +150,96 @@ export default function StoryFrame({
   const handleElementDoubleClick = (element: CanvasElement) => {
     if (!isEditMode) return
     if (element.type === 'text') {
-      const newContent = prompt('Enter text:', element.content)
-      if (newContent !== null) {
-        onElementUpdate?.(element.id, { content: newContent })
-      }
+      setEditingTextId(element.id)
+      setEditingTextValue(element.content || '')
     }
+  }
+
+  const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditingTextValue(e.target.value)
+  }
+
+  const handleTextInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    elementId: string
+  ) => {
+    if (e.key === 'Enter') {
+      // Save the text
+      onElementUpdate?.(elementId, { content: editingTextValue })
+      setEditingTextId(null)
+      setEditingTextValue('')
+    } else if (e.key === 'Escape') {
+      // Cancel editing
+      setEditingTextId(null)
+      setEditingTextValue('')
+    }
+  }
+
+  const handleTextInputBlur = (elementId: string) => {
+    // Save the text when focus is lost
+    onElementUpdate?.(elementId, { content: editingTextValue })
+    setEditingTextId(null)
+    setEditingTextValue('')
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isEditMode) return
+    // Don't start dragging if we're editing text
+    if (editingTextId) return
+    e.preventDefault()
     setIsDragging(true)
-    setDragStart({ x: e.clientX, y: e.clientY })
-  }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isEditMode) return
-
-    if (isResizing) {
-      handleResizeMove(e)
-    } else if (isDragging && selectedElementId && onElementUpdate) {
-      const deltaX = e.clientX - dragStart.x
-      const deltaY = e.clientY - dragStart.y
-
-      const selectedElement = elements.find((el) => el.id === selectedElementId)
-      if (selectedElement) {
-        onElementUpdate(selectedElementId, {
-          x: selectedElement.x + deltaX,
-          y: selectedElement.y + deltaY,
-        })
-      }
-
-      setDragStart({ x: e.clientX, y: e.clientY })
+    // Calculate initial offset from element position
+    const selectedElement = elements.find((el) => el.id === selectedElementId)
+    if (selectedElement) {
+      setDragOffset({
+        x: e.clientX - selectedElement.x,
+        y: e.clientY - selectedElement.y,
+      })
     }
   }
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isEditMode) return
+      // Don't handle mouse move if we're editing text
+      if (editingTextId) return
+
+      if (isResizing) {
+        handleResizeMove(e)
+      } else if (isDragging && selectedElementId && onElementUpdate) {
+        // Throttle updates to improve performance
+        const now = Date.now()
+        if (now - lastUpdateTime.current < 16) return // ~60fps
+        lastUpdateTime.current = now
+
+        // Calculate new position using the offset to prevent jittery movement
+        const newX = e.clientX - dragOffset.x
+        const newY = e.clientY - dragOffset.y
+
+        onElementUpdate(selectedElementId, {
+          x: newX,
+          y: newY,
+        })
+      }
+    },
+    [
+      isEditMode,
+      isResizing,
+      isDragging,
+      selectedElementId,
+      onElementUpdate,
+      dragOffset,
+      editingTextId,
+    ]
+  )
 
   const handleMouseUp = () => {
     if (!isEditMode) return
     setIsDragging(false)
     setIsResizing(false)
     setResizeHandle(null)
+    setDragOffset({ x: 0, y: 0 })
   }
 
   // Resize handlers
@@ -200,6 +258,9 @@ export default function StoryFrame({
       y: e.clientY,
       width: selectedElement.width,
       height: selectedElement.height,
+      // Store the bottom and right edges for reference
+      bottomEdge: selectedElement.y + selectedElement.height,
+      rightEdge: selectedElement.x + selectedElement.width,
     })
   }
 
@@ -213,45 +274,84 @@ export default function StoryFrame({
     )
       return
 
+    const selectedElement = elements.find((el) => el.id === selectedElementId)
+    if (!selectedElement) return
+
     const deltaX = e.clientX - resizeStart.x
     const deltaY = e.clientY - resizeStart.y
 
+    // Get frame dimensions
+    const getFramePixelDimensions = () => {
+      if (format === 'portrait') {
+        if (deviceFrame === 'mobile') {
+          return { width: 288, height: 550 }
+        } else {
+          return { width: 320, height: 568 }
+        }
+      } else {
+        if (deviceFrame === 'mobile') {
+          return { width: 550, height: 288 }
+        } else {
+          return { width: 568, height: 320 }
+        }
+      }
+    }
+
+    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+
     let newWidth = resizeStart.width
     let newHeight = resizeStart.height
+    let newX = selectedElement.x
+    let newY = selectedElement.y
 
     // Calculate new dimensions based on resize handle
+    // Use fixed edge approach - keep one edge fixed and move the other
     switch (resizeHandle) {
-      case 'nw': // Top-left corner
+      case 'nw': // Top-left corner - keep bottom-right fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newX = resizeStart.rightEdge - newWidth
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 'ne': // Top-right corner
+      case 'ne': // Top-right corner - keep bottom-left fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 'sw': // Bottom-left corner
+      case 'sw': // Bottom-left corner - keep top-right fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
         newHeight = Math.max(50, resizeStart.height + deltaY)
+        newX = resizeStart.rightEdge - newWidth
         break
-      case 'se': // Bottom-right corner
+      case 'se': // Bottom-right corner - keep top-left fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         newHeight = Math.max(50, resizeStart.height + deltaY)
         break
-      case 'n': // Top edge
+      case 'n': // Top edge - keep bottom edge fixed
         newHeight = Math.max(50, resizeStart.height - deltaY)
+        newY = resizeStart.bottomEdge - newHeight
         break
-      case 's': // Bottom edge
+      case 's': // Bottom edge - keep top edge fixed
         newHeight = Math.max(50, resizeStart.height + deltaY)
         break
-      case 'w': // Left edge
+      case 'w': // Left edge - keep right edge fixed
         newWidth = Math.max(50, resizeStart.width - deltaX)
+        newX = resizeStart.rightEdge - newWidth
         break
-      case 'e': // Right edge
+      case 'e': // Right edge - keep left edge fixed
         newWidth = Math.max(50, resizeStart.width + deltaX)
         break
     }
 
+    // Final boundary constraints
+    newX = Math.max(0, Math.min(newX, frameWidth - newWidth))
+    newY = Math.max(0, Math.min(newY, frameHeight - newHeight))
+    newWidth = Math.min(newWidth, frameWidth - newX)
+    newHeight = Math.min(newHeight, frameHeight - newY)
+
     onElementUpdate(selectedElementId, {
+      x: newX,
+      y: newY,
       width: newWidth,
       height: newHeight,
     })
@@ -260,6 +360,7 @@ export default function StoryFrame({
   const handleDeleteElement = (elementId: string, e: React.MouseEvent) => {
     if (!isEditMode) return
     e.stopPropagation()
+    e.preventDefault()
     onElementRemove?.(elementId)
     toast.success('Element deleted!')
   }
@@ -330,6 +431,8 @@ export default function StoryFrame({
         isSelected && isEditMode
           ? '2px solid #3b82f6'
           : '1px solid transparent',
+      overflow: 'visible' as const,
+      zIndex: isSelected ? 10 : 1,
     }
 
     return (
@@ -339,7 +442,9 @@ export default function StoryFrame({
         onClick={(e) => handleElementClick(element.id, e)}
         onDoubleClick={() => handleElementDoubleClick(element)}
         onMouseDown={isEditMode ? (e) => handleMouseDown(e) : undefined}
-        className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all`}
+        className={`${isSelected && isEditMode ? 'ring-2 ring-blue-500' : ''} group relative transition-all ${isDragging && selectedElementId === element.id ? 'transition-none' : ''}`}
+        onMouseEnter={() => setHoveredElementId(element.id)}
+        onMouseLeave={() => setHoveredElementId(null)}
       >
         {/* Delete Button - Only in edit mode */}
         {isSelected && isEditMode && (
@@ -347,7 +452,11 @@ export default function StoryFrame({
             size="sm"
             variant="destructive"
             onClick={(e) => handleDeleteElement(element.id, e)}
-            className="absolute -right-2 -top-2 z-10 h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            className={`pointer-events-auto absolute right-0 top-0 z-30 h-6 w-6 cursor-pointer p-0 transition-opacity ${
+              hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+            }`}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -356,39 +465,63 @@ export default function StoryFrame({
         {/* Resize Handles - Only in edit mode and when selected */}
         {isSelected && isEditMode && (
           <>
-            {/* Corner handles */}
+            {/* Corner handles - more subtle and modern */}
             <div
-              className="absolute -left-1 -top-1 h-3 w-3 cursor-nw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -left-1 -top-1 h-4 w-4 cursor-nw-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('nw', e)}
             />
             <div
-              className="absolute -right-1 -top-1 h-3 w-3 cursor-ne-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -right-1 -top-1 h-4 w-4 cursor-ne-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('ne', e)}
             />
             <div
-              className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 -left-1 h-4 w-4 cursor-sw-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('sw', e)}
             />
             <div
-              className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 -right-1 h-4 w-4 cursor-se-resize rounded-sm border-2 border-white bg-primary shadow-lg transition-all duration-200 ${
+                hoveredElementId === element.id
+                  ? 'scale-110 opacity-100'
+                  : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('se', e)}
             />
 
-            {/* Edge handles */}
+            {/* Edge handles - more subtle */}
             <div
-              className="absolute -top-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-n-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -top-1 left-1/2 h-2 w-12 -translate-x-1/2 cursor-n-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('n', e)}
             />
             <div
-              className="absolute -bottom-1 left-1/2 h-3 w-8 -translate-x-1/2 cursor-s-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -bottom-1 left-1/2 h-2 w-12 -translate-x-1/2 cursor-s-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('s', e)}
             />
             <div
-              className="absolute -left-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-w-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -left-1 top-1/2 h-12 w-2 -translate-y-1/2 cursor-w-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('w', e)}
             />
             <div
-              className="absolute -right-1 top-1/2 h-8 w-3 -translate-y-1/2 cursor-e-resize rounded-full bg-blue-500 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`absolute -right-1 top-1/2 h-12 w-2 -translate-y-1/2 cursor-e-resize rounded-full bg-white shadow-md transition-all duration-200 ${
+                hoveredElementId === element.id ? 'opacity-100' : 'opacity-0'
+              }`}
               onMouseDown={(e) => handleResizeStart('e', e)}
             />
           </>
@@ -435,32 +568,67 @@ export default function StoryFrame({
               hyphens: 'auto',
             }}
           >
-            <span
-              style={{
-                wordBreak: 'break-word',
-                hyphens: 'auto',
-                overflowWrap: 'break-word',
-                maxWidth: '100%',
-                display: 'block',
-                width: '100%',
-              }}
-            >
-              {element.content}
-            </span>
+            {editingTextId === element.id ? (
+              <input
+                type="text"
+                value={editingTextValue}
+                onChange={handleTextInputChange}
+                onKeyDown={(e) => handleTextInputKeyDown(e, element.id)}
+                onBlur={() => handleTextInputBlur(element.id)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+                className="w-full resize-none border-none bg-transparent text-center outline-none"
+                style={{
+                  fontSize: element.style.fontSize || 16,
+                  fontFamily: element.style.fontFamily || 'Arial',
+                  fontWeight: element.style.fontWeight || 'normal',
+                  color: applyOpacityToColor(
+                    element.style.color || '#000000',
+                    element.style.textOpacity || element.style.opacity || 100
+                  ),
+                  lineHeight: '1.2',
+                  textAlign: 'center',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                  hyphens: 'auto',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
+                  overflowWrap: 'break-word',
+                  maxWidth: '100%',
+                  display: 'block',
+                  width: '100%',
+                }}
+              >
+                {element.content}
+              </span>
+            )}
           </div>
         )}
 
         {element.type === 'image' && element.mediaUrl && (
-          <img
-            src={element.mediaUrl}
-            alt=""
-            className="h-full w-full object-cover"
-          />
+          <div className="h-full w-full overflow-hidden">
+            <img
+              src={element.mediaUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                transform: `scale(${(element.style?.zoom || 100) / 100})`,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
         )}
 
         {element.type === 'image' && !element.mediaUrl && (
-          <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-gray-300 bg-gray-200">
-            <Image className="h-8 w-8 text-gray-400" />
+          <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-border bg-muted">
+            <Image className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
 
@@ -490,29 +658,67 @@ export default function StoryFrame({
   const getBackgroundImageStyle = () => {
     if (!background || background.type !== 'image' || !background.value)
       return {}
+
+    // Get frame dimensions for proper scaling
+    const getFramePixelDimensions = () => {
+      if (format === 'portrait') {
+        if (deviceFrame === 'mobile') {
+          return { width: 288, height: 550 }
+        } else {
+          return { width: 320, height: 568 }
+        }
+      } else {
+        if (deviceFrame === 'mobile') {
+          return { width: 550, height: 288 }
+        } else {
+          return { width: 568, height: 320 }
+        }
+      }
+    }
+
+    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+
     let style: React.CSSProperties = {
       position: 'absolute',
       left: '50%',
       top: '50%',
-      objectFit: 'cover',
-      width: '100%',
-      height: '100%',
+      objectFit: 'none', // Changed from 'cover' to 'none' to allow panning
       zIndex: 0,
       pointerEvents: 'none',
-      transform: 'translate(-50%, -50%)',
-      minWidth: '100%',
-      minHeight: '100%',
     }
+
     // Opacity
     if (background.opacity !== undefined) {
       style.opacity = background.opacity / 100
     }
-    // Transform: center, pan, rotate, zoom
+
+    // Calculate zoom and sizing
+    const userZoom = background.zoom !== undefined ? background.zoom / 100 : 1.0
+    const rotation = background.rotation || 0
     const x = background.offsetX || 0
     const y = background.offsetY || 0
-    const rotation = background.rotation || 0
-    const zoom = background.zoom || 1.0 // Default no zoom - fit to frame
-    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom})`
+
+    // Calculate the minimum scale needed to cover the frame
+    // This ensures the image always covers the frame like object-fit: cover
+    const minScaleToCover =
+      Math.max(frameWidth, frameHeight) / Math.min(frameWidth, frameHeight)
+
+    // Add a safety buffer (20% extra) to ensure complete coverage with no gaps
+    const safetyBuffer = 1.2
+    const safeCoverScale = minScaleToCover * safetyBuffer
+
+    // Use a base size that ensures coverage
+    const baseSize = Math.max(frameWidth, frameHeight) * 2
+    style.width = `${baseSize}px`
+    style.height = `${baseSize}px`
+
+    // Apply the safe cover scale as the base, then apply user zoom on top
+    // This ensures the image always covers the frame with a safety margin
+    const finalZoom = safeCoverScale * userZoom
+
+    // Apply transforms: center, pan, rotate, zoom
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${finalZoom})`
+
     // Filter/Skins
     if (background.filter) {
       const filterObj = IMAGE_FILTERS.find((f) => f.name === background.filter)
@@ -520,6 +726,7 @@ export default function StoryFrame({
         style.filter = filterObj.css
       }
     }
+
     return style
   }
 
@@ -530,7 +737,7 @@ export default function StoryFrame({
         return {
           width: 'w-72',
           height: 'h-[550px]',
-          border: 'rounded-[3rem] border-8 border-gray-400',
+          border: 'rounded-[3rem] border-8 border-border',
         }
       } else {
         // Video player portrait
@@ -546,7 +753,7 @@ export default function StoryFrame({
         return {
           width: 'w-[400px]',
           height: 'h-[225px]',
-          border: 'rounded-[2rem] border-6 border-gray-400',
+          border: 'rounded-[2rem] border-6 border-border',
         }
       } else {
         // Video player landscape
@@ -578,7 +785,7 @@ export default function StoryFrame({
 
   return (
     <div
-      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-gray-200 shadow-2xl transition-all duration-200 ${
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200 ${
         !isEditMode && link
           ? 'hover:shadow-3xl cursor-pointer hover:shadow-blue-500/20'
           : ''
@@ -749,7 +956,7 @@ export default function StoryFrame({
       {/* Link Indicator Overlay - Show when frame has a link */}
       {link && (
         <div className="absolute right-3 top-16 z-50">
-          <div className="flex items-center space-x-1 rounded-full bg-blue-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+          <div className="flex items-center space-x-1 rounded-full bg-primary/90 px-2 py-1 text-primary-foreground shadow-lg backdrop-blur-sm">
             <Link className="h-3 w-3" />
             <span className="text-xs font-medium">
               {linkText && linkText.trim() ? linkText : 'Link'}
@@ -761,7 +968,7 @@ export default function StoryFrame({
       {/* Clickable Frame Indicator - Show when in edit mode and frame has link */}
       {isEditMode && link && (
         <div className="absolute bottom-16 left-3 z-50">
-          <div className="rounded-full bg-green-500/90 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
+          <div className="rounded-full bg-green-600 px-2 py-1 text-white shadow-lg backdrop-blur-sm dark:bg-green-500">
             <span className="text-xs font-medium">Clickable</span>
           </div>
         </div>

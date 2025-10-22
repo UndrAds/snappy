@@ -17,25 +17,20 @@ import contentRoutes from './routes/content';
 const app = express();
 const PORT = config.PORT;
 
+// Trust proxy for rate limiting behind nginx
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
-// CORS configuration for API routes
+// CORS configuration - allow all origins for now
 app.use(
-  cors({
-    origin: [config.CORS_ORIGIN, 'http://localhost:3000', 'http://localhost:5173'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  })
-);
-
-// Special CORS for embed script - allow all origins for public story access
-app.use(
-  '/api/stories/public',
+  '/api',
   cors({
     origin: '*',
     credentials: false,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 

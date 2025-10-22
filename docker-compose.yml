@@ -77,7 +77,7 @@ services:
     env_file:
       - ./apps/frontend/.env
     expose:
-      - "5173"
+      - "80"
     depends_on:
       - backend
     networks:

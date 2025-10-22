@@ -28,12 +28,12 @@ export default function FrameSelector({
       {frames.map((frame) => (
         <div
           key={frame.id}
-          className={`relative cursor-pointer rounded-lg border-2 border-dashed p-3 transition-all hover:border-gray-400 ${
+          className={`relative cursor-pointer rounded-lg border-2 border-dashed p-3 transition-all hover:border-border ${
             selectedFrameId === frame.id
-              ? 'border-blue-500 bg-blue-50'
+              ? 'border-primary bg-primary/10'
               : frame.link
-                ? 'border-green-300 bg-green-50'
-                : 'border-gray-300 bg-gray-50'
+                ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950'
+                : 'border-border bg-muted/50'
           }`}
           onClick={() => onFrameSelect(frame.id)}
           title={frame.link ? `Click to open: ${frame.link}` : undefined}
@@ -41,15 +41,15 @@ export default function FrameSelector({
           {/* Frame Content */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border bg-background">
                 {frame.mediaUrl ? (
                   frame.mediaType === 'image' ? (
-                    <Image className="h-6 w-6 text-gray-600" />
+                    <Image className="h-6 w-6 text-muted-foreground" />
                   ) : (
-                    <Video className="h-6 w-6 text-gray-600" />
+                    <Video className="h-6 w-6 text-muted-foreground" />
                   )
                 ) : (
-                  <div className="text-xs text-gray-400">Empty</div>
+                  <div className="text-xs text-muted-foreground">Empty</div>
                 )}
               </div>
               <div>
@@ -58,9 +58,9 @@ export default function FrameSelector({
                     {frame.name || `Frame ${frame.order}`}
                   </span>
                   {frame.link && (
-                    <div className="flex items-center space-x-1 rounded-full bg-blue-100 px-1.5 py-0.5">
-                      <Link className="h-3 w-3 text-blue-600" />
-                      <span className="text-xs font-medium text-blue-600">
+                    <div className="flex items-center space-x-1 rounded-full bg-primary/10 px-1.5 py-0.5">
+                      <Link className="h-3 w-3 text-primary" />
+                      <span className="text-xs font-medium text-primary">
                         Link
                       </span>
                     </div>
@@ -83,7 +83,7 @@ export default function FrameSelector({
                   e.stopPropagation()
                   onRemoveFrame(frame.id)
                 }}
-                className="h-8 w-8 p-0 text-red-500 hover:bg-red-50"
+                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

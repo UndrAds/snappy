@@ -114,7 +114,7 @@ export default function FramePropertyPanel({
         </div>
       )}
       {link && !isValidUrl(link) && (
-        <p className="text-xs text-red-500">
+        <p className="text-xs text-red-600 dark:text-red-400">
           Please enter a valid URL (e.g., https://example.com)
         </p>
       )}
@@ -126,8 +126,8 @@ export default function FramePropertyPanel({
           <div
             className={`rounded px-2 py-1 text-xs font-medium ${
               element.frameType === 'story'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-green-100 text-green-800'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
             }`}
           >
             {element.frameType === 'story' ? 'Story Frame' : 'Ad Frame'}
@@ -145,19 +145,19 @@ export default function FramePropertyPanel({
       {link && isValidUrl(link) && (
         <div className="space-y-2">
           <Label>Link Preview</Label>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
             <div className="flex items-center space-x-2">
-              <Link className="h-4 w-4 text-blue-500" />
+              <Link className="h-4 w-4 text-primary" />
               <a
                 href={link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 truncate text-sm text-blue-600 hover:text-blue-800"
+                className="flex-1 truncate text-sm text-primary hover:text-primary/80"
               >
                 {link}
               </a>
             </div>
-            <div className="mt-2 text-xs text-blue-600">
+            <div className="mt-2 text-xs text-primary">
               ✓ This frame will be clickable when published
             </div>
           </div>
@@ -168,12 +168,14 @@ export default function FramePropertyPanel({
       {link && !isValidUrl(link) && (
         <div className="space-y-2">
           <Label>Link Status</Label>
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
             <div className="flex items-center space-x-2">
-              <Link className="h-4 w-4 text-red-500" />
-              <span className="text-sm text-red-600">Invalid URL format</span>
+              <Link className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <span className="text-sm text-red-600 dark:text-red-400">
+                Invalid URL format
+              </span>
             </div>
-            <div className="mt-2 text-xs text-red-600">
+            <div className="mt-2 text-xs text-red-600 dark:text-red-400">
               ⚠️ Please enter a valid URL (e.g., https://example.com)
             </div>
           </div>

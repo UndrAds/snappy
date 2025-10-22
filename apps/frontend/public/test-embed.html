@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snappy Embed Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .input-panel {
+            width: 400px;
+            background: white;
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-panel h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .input-panel p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .embed-input {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .embed-input label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .embed-input textarea {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: none;
+            margin-bottom: 15px;
+        }
+
+        .embed-input button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .embed-input button:hover {
+            background: #0056b3;
+        }
+
+        .embed-input button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .webpage-simulation {
+            flex: 1;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .webpage-header {
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #555;
+        }
+
+        .webpage-content {
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+            padding: 20px;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .content-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .content-section h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .content-section p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .embed-area {
+            min-height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-style: italic;
+            margin: 20px 0;
+        }
+
+        .embed-area.has-content {
+            border: none;
+            min-height: auto;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Input Panel -->
+        <div class="input-panel">
+            <h1>Snappy Embed Test</h1>
+            <p>Paste your embed code below and see how it appears on a real webpage.</p>
+
+            <div class="embed-input">
+                <label for="embedCode">Embed Code:</label>
+                <textarea id="embedCode" placeholder="Paste your embed code here..."></textarea>
+                <button id="testButton" onclick="testEmbed()">Test Embed</button>
+
+                <div id="statusMessage" class="status-message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Webpage Simulation -->
+        <div class="webpage-simulation">
+            <div class="webpage-header">
+                📄 Example Website - Snappy Embed Test
+            </div>
+            <div class="webpage-content">
+                <div class="content-section">
+                    <h2>Welcome to Our Website</h2>
+                    <p>This is a simulated webpage where you can test your Snappy story embeds. The content below will
+                        help you scroll and test floater embeds.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>About Our Company</h2>
+                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
+                        labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+                        laboris nisi ut aliquip ex ea commodo consequat.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Our Services</h2>
+                    <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+                        pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+                        mollit anim id est laborum.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Story Embed Area</h2>
+                    <p>Your Snappy story will appear below. For regular embeds, it will show here. For floater embeds,
+                        scroll down to trigger them.</p>
+                    <div id="embedArea" class="embed-area">
+                        Paste embed code and click "Test Embed" to see your story here
+                    </div>
+                </div>
+
+                <div class="content-section">
+                    <h2>More Content</h2>
+                    <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium,
+                        totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae
+                        dicta sunt explicabo.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Contact Information</h2>
+                    <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur
+                        magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Additional Content</h2>
+                    <p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed
+                        quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat
+                        voluptatem.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Final Section</h2>
+                    <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut
+                        aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate
+                        velit esse quam nihil molestiae consequatur.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testEmbed() {
+            const embedCode = document.getElementById('embedCode').value.trim();
+            const embedArea = document.getElementById('embedArea');
+
+            if (!embedCode) {
+                showStatus('Please enter embed code first', 'error');
+                return;
+            }
+
+            // Clear previous content
+            embedArea.innerHTML = '';
+            embedArea.className = 'embed-area has-content';
+
+            try {
+                // Insert the embed code
+                embedArea.innerHTML = embedCode;
+
+                // Find and execute script tags
+                const scripts = embedArea.querySelectorAll('script');
+                scripts.forEach(script => {
+                    const newScript = document.createElement('script');
+                    Array.from(script.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = script.textContent;
+                    document.head.appendChild(newScript);
+                });
+
+                showStatus('Embed code executed successfully! Scroll to test floater embeds.', 'success');
+            } catch (error) {
+                showStatus('Error executing embed code: ' + error.message, 'error');
+                embedArea.className = 'embed-area';
+                embedArea.innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status-message ' + type;
+            statusDiv.style.display = 'block';
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Allow Enter key to test embed
+        document.getElementById('embedCode').addEventListener('keydown', function (e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                testEmbed();
+            }
+        });
+    </script>
+</body>
+
+</html>

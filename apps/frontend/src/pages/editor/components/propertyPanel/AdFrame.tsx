@@ -42,7 +42,7 @@ export default function PropertyPanelAdFrame({
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-2">
-        <Megaphone className="h-5 w-5 text-orange-600" />
+        <Megaphone className="h-5 w-5 text-orange-600 dark:text-orange-400" />
         <h3 className="text-lg font-semibold">Ad Frame Properties</h3>
       </div>
 
@@ -55,7 +55,7 @@ export default function PropertyPanelAdFrame({
             value={adCode}
             onChange={(e) => handleAdCodeChange(e.target.value)}
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Enter your Google Ad Manager ad unit path (e.g.,
             /6355419/Travel/Europe/France/Paris)
           </p>
@@ -63,10 +63,10 @@ export default function PropertyPanelAdFrame({
 
         <div className="space-y-2">
           <Label>Ad Details</Label>
-          <div className="space-y-2 rounded-lg border bg-gray-50 p-3">
+          <div className="space-y-2 rounded-lg border bg-muted p-3">
             <div className="text-sm">
               <span className="font-medium">Ad Unit:</span>{' '}
-              <code className="rounded bg-white px-2 py-1 text-xs">
+              <code className="rounded border bg-background px-2 py-1 text-xs">
                 {adCode}
               </code>
             </div>
@@ -82,7 +82,7 @@ export default function PropertyPanelAdFrame({
 
         <div className="space-y-2">
           <Label>Preview</Label>
-          <div className="flex items-center justify-center rounded-lg border bg-black p-4">
+          <div className="flex items-center justify-center rounded-lg border bg-black p-4 dark:bg-gray-900">
             <div className="text-center text-white">
               <Megaphone className="mx-auto mb-2 h-8 w-8 text-orange-400" />
               <div className="text-sm">Ad Frame</div>

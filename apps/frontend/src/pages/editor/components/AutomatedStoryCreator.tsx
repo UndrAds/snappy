@@ -119,10 +119,10 @@ export default function AutomatedStoryCreator({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-auto max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
+      <div className="mx-auto max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-background shadow-xl">
         <div className="flex items-center justify-between border-b p-6">
           <div className="flex items-center gap-3">
-            <Globe className="h-6 w-6 text-blue-600" />
+            <Globe className="h-6 w-6 text-primary" />
             <h2 className="text-2xl font-bold">Automated Story Creator</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -133,7 +133,7 @@ export default function AutomatedStoryCreator({
         <div className="space-y-6 p-6">
           {/* URL Input */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-foreground">
               Website URL
             </label>
             <div className="flex gap-3">
@@ -210,7 +210,7 @@ export default function AutomatedStoryCreator({
                   <Card>
                     <CardHeader>
                       <CardTitle>Select Headlines for Story Frames</CardTitle>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Choose the headlines you want to include in your story.
                         Each selected headline will become a story frame.
                       </p>
@@ -222,23 +222,23 @@ export default function AutomatedStoryCreator({
                             key={index}
                             className={`cursor-pointer rounded-lg border p-3 transition-colors ${
                               selectedHeadlines.includes(headline)
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                                ? 'border-primary bg-primary/10'
+                                : 'border-border hover:border-border/80'
                             }`}
                             onClick={() => handleHeadlineToggle(headline)}
                           >
                             <div className="flex items-start justify-between">
                               <p className="text-sm">{headline}</p>
                               {selectedHeadlines.includes(headline) && (
-                                <Check className="ml-2 h-4 w-4 flex-shrink-0 text-blue-600" />
+                                <Check className="ml-2 h-4 w-4 flex-shrink-0 text-primary" />
                               )}
                             </div>
                           </div>
                         ))}
                       </div>
                       {selectedHeadlines.length > 0 && (
-                        <div className="mt-4 rounded-lg bg-blue-50 p-3">
-                          <p className="text-sm font-medium text-blue-800">
+                        <div className="mt-4 rounded-lg bg-primary/10 p-3">
+                          <p className="text-sm font-medium text-primary">
                             Selected: {selectedHeadlines.length} headline
                             {selectedHeadlines.length !== 1 ? 's' : ''}
                           </p>
@@ -252,7 +252,7 @@ export default function AutomatedStoryCreator({
                   <Card>
                     <CardHeader>
                       <CardTitle>Select Images for Story Frames</CardTitle>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Choose images to use as backgrounds for your story
                         frames. Each selected image will be matched with
                         headlines to create frames.
@@ -269,8 +269,8 @@ export default function AutomatedStoryCreator({
                               key={index}
                               className={`relative cursor-pointer rounded-lg border transition-all hover:scale-105 ${
                                 isSelected
-                                  ? 'border-blue-500 ring-2 ring-blue-500'
-                                  : 'border-gray-200 hover:border-gray-300'
+                                  ? 'border-primary ring-2 ring-primary'
+                                  : 'border-border hover:border-border/80'
                               }`}
                               onClick={() =>
                                 handleImageToggle(image.url, image.alt)
@@ -287,14 +287,14 @@ export default function AutomatedStoryCreator({
                               />
                               {isSelected && (
                                 <div className="absolute right-2 top-2">
-                                  <Badge className="bg-blue-600 text-white">
+                                  <Badge className="bg-primary text-primary-foreground">
                                     <Check className="mr-1 h-3 w-3" />
                                     Selected
                                   </Badge>
                                 </div>
                               )}
                               <div className="p-2">
-                                <p className="truncate text-xs text-gray-600">
+                                <p className="truncate text-xs text-muted-foreground">
                                   {image.alt || 'No description'}
                                 </p>
                               </div>
@@ -303,8 +303,8 @@ export default function AutomatedStoryCreator({
                         })}
                       </div>
                       {selectedImages.length > 0 && (
-                        <div className="mt-4 rounded-lg bg-green-50 p-3">
-                          <p className="text-sm font-medium text-green-800">
+                        <div className="mt-4 rounded-lg bg-primary/10 p-3">
+                          <p className="text-sm font-medium text-primary">
                             Selected: {selectedImages.length} image
                             {selectedImages.length !== 1 ? 's' : ''}
                           </p>

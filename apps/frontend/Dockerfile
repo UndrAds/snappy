@@ -1,8 +1,6 @@
-# Use postgres as base (we have this locally) and install Node.js
-FROM postgres:15-alpine
-
-# Install Node.js and npm
-RUN apk add --no-cache nodejs npm
+# Multi-stage build for production
+# Stage 1: Build the application
+FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -18,12 +16,25 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 5173
+# Build shared-types package first
+WORKDIR /app/packages/shared-types
+RUN npm run build
 
-# Set environment
-ENV NODE_ENV=development
-
-# Start the development server
+# Build the frontend application
 WORKDIR /app/apps/frontend
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+RUN npm run build
+
+# Stage 2: Serve with nginx
+FROM nginx:alpine
+
+# Copy built assets from builder stage
+COPY --from=builder /app/apps/frontend/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

@@ -113,6 +113,10 @@ export default function EditorPage() {
             type: 'image' as const,
             value: location.state.storyData.thumbnail,
             opacity: 100, // Set default opacity to 100
+            zoom: 100, // Set default zoom to 100%
+            rotation: 0,
+            offsetX: 0,
+            offsetY: 0,
           }
         : {
             type: 'color' as const,
@@ -148,6 +152,10 @@ export default function EditorPage() {
                   type: 'image' as const,
                   value: location.state.storyData.thumbnail,
                   opacity: 100, // Set default opacity to 100
+                  zoom: 100, // Set default zoom to 100%
+                  rotation: 0,
+                  offsetX: 0,
+                  offsetY: 0,
                 },
               }
             : frame
@@ -203,11 +211,11 @@ export default function EditorPage() {
                         | 'video',
                       value: frame.background.value,
                       opacity: frame.background.opacity ?? 100, // Use 100 as default if not set
-                      rotation: frame.background.rotation,
-                      zoom: frame.background.zoom,
+                      rotation: frame.background.rotation ?? 0,
+                      zoom: frame.background.zoom ?? 100, // Default zoom at 100%
                       filter: frame.background.filter,
-                      offsetX: frame.background.offsetX,
-                      offsetY: frame.background.offsetY,
+                      offsetX: frame.background.offsetX ?? 0,
+                      offsetY: frame.background.offsetY ?? 0,
                     }
                   : {
                       type: 'color' as const,
@@ -232,6 +240,10 @@ export default function EditorPage() {
                       type: 'image' as const,
                       value: story.largeThumbnail,
                       opacity: 100, // Set default opacity to 100
+                      zoom: 100, // Set default zoom to 100%
+                      rotation: 0,
+                      offsetX: 0,
+                      offsetY: 0,
                     }
                   : {
                       type: 'color' as const,
@@ -283,6 +295,10 @@ export default function EditorPage() {
               value:
                 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
               opacity: 100, // Set default opacity to 100
+              zoom: 100,
+              rotation: 0,
+              offsetX: 0,
+              offsetY: 0,
             }
           : undefined,
       adConfig:
@@ -407,7 +423,8 @@ export default function EditorPage() {
           type: 'image' as const,
           value: image.url,
           opacity: 100,
-          zoom: 1.0, // No zoom - fit to frame
+          zoom: 100, // Default zoom at 100% (1.0x scale)
+          rotation: 0,
           filter: 'none', // No filter for now
           offsetX: 0,
           offsetY: 0,

@@ -518,7 +518,7 @@ export default function StoryFrame({
     const x = background.offsetX || 0
     const y = background.offsetY || 0
     const rotation = background.rotation || 0
-    const zoom = background.zoom || 1.0 // Default no zoom - fit to frame
+    const zoom = background.zoom !== undefined ? background.zoom / 100 : 1.0 // Convert percentage to scale (100 = 1.0x)
     style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${zoom})`
     // Filter/Skins
     if (background.filter) {

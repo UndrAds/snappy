@@ -31,6 +31,11 @@ export default function PropertyPanelBackground({
               onBackgroundUpdate?.({
                 type: value as 'color' | 'image' | 'video',
                 value: '', // Reset value, user will pick new
+                opacity: 100,
+                zoom: 100,
+                rotation: 0,
+                offsetX: 0,
+                offsetY: 0,
               })
             }
           >
@@ -49,6 +54,7 @@ export default function PropertyPanelBackground({
               value={background.value}
               onSelect={(val) =>
                 onBackgroundUpdate?.({
+                  ...background,
                   type: 'color',
                   value: val,
                 })

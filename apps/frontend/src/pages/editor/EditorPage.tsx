@@ -467,7 +467,17 @@ export default function EditorPage() {
           const updatedFrame = {
             ...frame,
             elements: frame.elements.map((element) =>
-              element.id === elementId ? { ...element, ...updates } : element
+              element.id === elementId
+                ? {
+                    ...element,
+                    ...updates,
+                    // Properly merge style properties instead of replacing
+                    style: {
+                      ...element.style,
+                      ...updates.style,
+                    },
+                  }
+                : element
             ),
           }
 

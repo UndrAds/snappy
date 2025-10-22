@@ -452,16 +452,17 @@ export default function StoryFrame({
         )}
 
         {element.type === 'image' && element.mediaUrl && (
-          <img
-            src={element.mediaUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            style={{
-              transform: element.style?.zoom
-                ? `scale(${element.style.zoom / 100})`
-                : undefined,
-            }}
-          />
+          <div className="h-full w-full overflow-hidden">
+            <img
+              src={element.mediaUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                transform: `scale(${(element.style?.zoom || 100) / 100})`,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
         )}
 
         {element.type === 'image' && !element.mediaUrl && (

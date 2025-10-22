@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
 import BackgroundColorGradientPicker from '../ColorPicker'
 import MediaSourcePicker from '../MediaSourcePicker'
 import MediaSkin from '../MediaSkin'
@@ -14,11 +15,65 @@ import { Button } from '@/components/ui/button'
 import { RotateCcw } from 'lucide-react'
 import PropertyControl from './PropertyControl'
 import { propertyControlsConfig } from './config'
+import { useState, useEffect } from 'react'
 
 export default function PropertyPanelBackground({
   background,
   onBackgroundUpdate,
 }: any) {
+  const [panXInput, setPanXInput] = useState(
+    (background?.offsetX ?? 0).toString()
+  )
+  const [panYInput, setPanYInput] = useState(
+    (background?.offsetY ?? 0).toString()
+  )
+
+  // Update input values when background changes
+  useEffect(() => {
+    setPanXInput((background?.offsetX ?? 0).toString())
+    setPanYInput((background?.offsetY ?? 0).toString())
+  }, [background?.offsetX, background?.offsetY])
+
+  const handlePanXInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setPanXInput(newValue)
+
+    const numValue = parseFloat(newValue)
+    if (!isNaN(numValue) && numValue >= -200 && numValue <= 200) {
+      onBackgroundUpdate?.({
+        ...background,
+        offsetX: numValue,
+      })
+    }
+  }
+
+  const handlePanXInputBlur = () => {
+    const numValue = parseFloat(panXInput)
+    if (isNaN(numValue) || numValue < -200 || numValue > 200) {
+      setPanXInput((background?.offsetX ?? 0).toString())
+    }
+  }
+
+  const handlePanYInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setPanYInput(newValue)
+
+    const numValue = parseFloat(newValue)
+    if (!isNaN(numValue) && numValue >= -200 && numValue <= 200) {
+      onBackgroundUpdate?.({
+        ...background,
+        offsetY: numValue,
+      })
+    }
+  }
+
+  const handlePanYInputBlur = () => {
+    const numValue = parseFloat(panYInput)
+    if (isNaN(numValue) || numValue < -200 || numValue > 200) {
+      setPanYInput((background?.offsetY ?? 0).toString())
+    }
+  }
+
   if (!background) return null
   return (
     <div className="space-y-4">
@@ -80,20 +135,32 @@ export default function PropertyPanelBackground({
             {/* Pan Controls */}
             <div className="flex items-center gap-2">
               <Label className="text-xs">Pan X</Label>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="ml-auto h-6 w-6 p-0"
-                title="Reset X"
-                onClick={() =>
-                  onBackgroundUpdate?.({
-                    ...background,
-                    offsetX: 0,
-                  })
-                }
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={panXInput}
+                  onChange={handlePanXInputChange}
+                  onBlur={handlePanXInputBlur}
+                  min={-200}
+                  max={200}
+                  step={1}
+                  className="h-6 w-16 text-xs"
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  title="Reset X"
+                  onClick={() =>
+                    onBackgroundUpdate?.({
+                      ...background,
+                      offsetX: 0,
+                    })
+                  }
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Slider
               value={[background.offsetX ?? 0]}
@@ -110,20 +177,32 @@ export default function PropertyPanelBackground({
             />
             <div className="flex items-center gap-2">
               <Label className="text-xs">Pan Y</Label>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="ml-auto h-6 w-6 p-0"
-                title="Reset Y"
-                onClick={() =>
-                  onBackgroundUpdate?.({
-                    ...background,
-                    offsetY: 0,
-                  })
-                }
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={panYInput}
+                  onChange={handlePanYInputChange}
+                  onBlur={handlePanYInputBlur}
+                  min={-200}
+                  max={200}
+                  step={1}
+                  className="h-6 w-16 text-xs"
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 p-0"
+                  title="Reset Y"
+                  onClick={() =>
+                    onBackgroundUpdate?.({
+                      ...background,
+                      offsetY: 0,
+                    })
+                  }
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <Slider
               value={[background.offsetY ?? 0]}

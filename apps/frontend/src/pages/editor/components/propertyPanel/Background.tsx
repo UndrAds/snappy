@@ -11,6 +11,7 @@ import BackgroundColorGradientPicker from '../ColorPicker'
 import MediaSourcePicker from '../MediaSourcePicker'
 import MediaSkin from '../MediaSkin'
 import { Button } from '@/components/ui/button'
+import { RotateCcw } from 'lucide-react'
 import PropertyControl from './PropertyControl'
 import { propertyControlsConfig } from './config'
 
@@ -82,7 +83,7 @@ export default function PropertyPanelBackground({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 p-0"
+                className="ml-auto h-6 w-6 p-0"
                 title="Reset X"
                 onClick={() =>
                   onBackgroundUpdate?.({
@@ -91,7 +92,7 @@ export default function PropertyPanelBackground({
                   })
                 }
               >
-                <span className="text-xs">0</span>
+                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
             <Slider
@@ -112,7 +113,7 @@ export default function PropertyPanelBackground({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 p-0"
+                className="ml-auto h-6 w-6 p-0"
                 title="Reset Y"
                 onClick={() =>
                   onBackgroundUpdate?.({
@@ -121,7 +122,7 @@ export default function PropertyPanelBackground({
                   })
                 }
               >
-                <span className="text-xs">0</span>
+                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
             <Slider

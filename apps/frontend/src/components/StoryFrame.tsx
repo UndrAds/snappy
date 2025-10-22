@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image, X, Link } from 'lucide-react'
+import { Image, X, Link, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'

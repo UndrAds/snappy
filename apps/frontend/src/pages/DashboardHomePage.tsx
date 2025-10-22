@@ -23,20 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Edit,
-  Trash2,
-  Share2,
-  Code,
-  MoreVertical,
-  Plus,
-  Calendar,
-  User,
-  Eye,
-} from 'lucide-react'
+import { Edit, Trash2, MoreVertical, Plus, Calendar, User } from 'lucide-react'
 import { storyAPI } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
 
@@ -46,10 +33,6 @@ export default function DashboardHomePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
-  const [embedDialogOpen, setEmbedDialogOpen] = useState(false)
-  const [storyToEmbed, setStoryToEmbed] = useState<Story | null>(null)
-  const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [storyToShare, setStoryToShare] = useState<Story | null>(null)
 
   // Load user stories
   useEffect(() => {
@@ -101,25 +84,6 @@ export default function DashboardHomePage() {
     } finally {
       setDeleteDialogOpen(false)
       setStoryToDelete(null)
-    }
-  }
-
-  const handleShare = (story: Story) => {
-    setStoryToShare(story)
-    setShareDialogOpen(true)
-  }
-
-  const handleEmbed = (story: Story) => {
-    setStoryToEmbed(story)
-    setEmbedDialogOpen(true)
-  }
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast.success('Copied to clipboard!')
-    } catch (error) {
-      toast.error('Failed to copy to clipboard')
     }
   }
 
@@ -263,14 +227,6 @@ export default function DashboardHomePage() {
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleShare(story)}>
-                        <Share2 className="mr-2 h-4 w-4" />
-                        Share
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEmbed(story)}>
-                        <Code className="mr-2 h-4 w-4" />
-                        Embed
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDelete(story)}
                         className="text-red-600 dark:text-red-400"
@@ -329,40 +285,14 @@ export default function DashboardHomePage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
+                <div className="pt-2">
                   <Button
                     size="sm"
                     onClick={() => handleEdit(story)}
-                    className="flex-1"
+                    className="w-full"
                   >
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      window.open(
-                        `/api/stories/public/${story.uniqueId}`,
-                        '_blank'
-                      )
-                    }
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleShare(story)}
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEmbed(story)}
-                  >
-                    <Code className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
@@ -391,80 +321,6 @@ export default function DashboardHomePage() {
             <Button variant="destructive" onClick={confirmDelete}>
               Delete
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Share Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share Story</DialogTitle>
-            <DialogDescription>
-              Share your story with others using the link below.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Story URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={`${window.location.origin}/api/stories/public/${storyToShare?.uniqueId}`}
-                  readOnly
-                />
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    copyToClipboard(
-                      `${window.location.origin}/api/stories/public/${storyToShare?.uniqueId}`
-                    )
-                  }
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Embed Dialog */}
-      <Dialog open={embedDialogOpen} onOpenChange={setEmbedDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Embed Story</DialogTitle>
-            <DialogDescription>
-              Embed this story on your website using the code below.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Embed Code</Label>
-              <Textarea
-                value={`<iframe src="${window.location.origin}/api/stories/public/${storyToEmbed?.uniqueId}" width="100%" height="600" frameborder="0"></iframe>`}
-                readOnly
-                rows={4}
-                className="font-mono text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() =>
-                  copyToClipboard(
-                    `<iframe src="${window.location.origin}/api/stories/public/${storyToEmbed?.uniqueId}" width="100%" height="600" frameborder="0"></iframe>`
-                  )
-                }
-              >
-                Copy Code
-              </Button>
-            </div>
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <div className="text-sm text-muted-foreground">
-                  Story preview will appear here when embedded
-                </div>
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

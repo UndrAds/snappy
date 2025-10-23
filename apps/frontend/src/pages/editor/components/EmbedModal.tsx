@@ -113,10 +113,11 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   const SIZE_PRESETS = getSizePresets()
 
-  const { width, height } =
-    size === 'custom'
-      ? { width: customWidth, height: customHeight }
-      : SIZE_PRESETS[size]
+  // Note: width and height are now handled by the script automatically
+  // const { width, height } =
+  //   size === 'custom'
+  //     ? { width: customWidth, height: customHeight }
+  //     : SIZE_PRESETS[size]
 
   // Get the base URL for external embedding
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
@@ -128,7 +129,9 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   // Generate embed code based on type
   const generateEmbedCode = () => {
     if (embedType === 'floater') {
-      return `<script src="${scriptSrc}" 
+      return {
+        head: `<script src="${scriptSrc}"></script>`,
+        body: `<ins id="snappy-webstory-${storyId}" 
   data-story-id="${storyId}" 
   data-api-url="${apiUrl}" 
   data-floater="true"
@@ -138,18 +141,36 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   data-size="${floaterSize}"
   data-show-close="${showCloseButton}"
   data-auto-hide="${autoHide}"
-  data-auto-hide-delay="${autoHideDelay}"></script>`
+  data-auto-hide-delay="${autoHideDelay}"></ins>`,
+      }
     } else {
-      return `<div id="snappy-webstory-${storyId}" style="width:${width}px;height:${height}px;"></div>\n<script src="${scriptSrc}" data-story-id="${storyId}" data-api-url="${apiUrl}" data-autoplay="${autoplay}"></script>`
+      return {
+        head: `<script src="${scriptSrc}"></script>`,
+        body: `<ins id="snappy-webstory-${storyId}" 
+  data-story-id="${storyId}" 
+  data-api-url="${apiUrl}" 
+  data-autoplay="${autoplay}"></ins>`,
+      }
     }
   }
 
   const embedCode = generateEmbedCode()
 
-  const handleCopy = async () => {
+  const handleCopy = async (type: 'head' | 'body' | 'all') => {
     try {
-      await navigator.clipboard.writeText(embedCode)
-      toast.success('Embed code copied to clipboard!')
+      let textToCopy = ''
+      if (type === 'head') {
+        textToCopy = embedCode.head
+      } else if (type === 'body') {
+        textToCopy = embedCode.body
+      } else {
+        textToCopy = `<!-- Add this to your <head> section -->\n${embedCode.head}\n\n<!-- Add this to your <body> section -->\n${embedCode.body}`
+      }
+
+      await navigator.clipboard.writeText(textToCopy)
+      toast.success(
+        `${type === 'all' ? 'Full' : type.charAt(0).toUpperCase() + type.slice(1)} embed code copied to clipboard!`
+      )
     } catch (error) {
       console.error('Failed to copy:', error)
       toast.error('Failed to copy to clipboard')
@@ -355,21 +376,70 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
           <div>
             <Label className="font-medium">Embed Code</Label>
-            <div className="relative mt-1">
-              <textarea
-                className="w-full rounded border bg-muted p-2 font-mono text-xs"
-                rows={embedType === 'floater' ? 8 : 4}
-                value={embedCode}
-                readOnly
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute right-2 top-2"
-                onClick={handleCopy}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
+            <div className="mt-1 space-y-4">
+              {/* Head Code */}
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Add this to your &lt;head&gt; section:
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopy('head')}
+                    className="h-6 px-2"
+                  >
+                    <Copy className="mr-1 h-3 w-3" />
+                    Copy
+                  </Button>
+                </div>
+                <div className="relative">
+                  <textarea
+                    className="w-full rounded border bg-muted p-2 font-mono text-xs"
+                    rows={2}
+                    value={embedCode.head}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Body Code */}
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Add this to your &lt;body&gt; section:
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopy('body')}
+                    className="h-6 px-2"
+                  >
+                    <Copy className="mr-1 h-3 w-3" />
+                    Copy
+                  </Button>
+                </div>
+                <div className="relative">
+                  <textarea
+                    className="w-full rounded border bg-muted p-2 font-mono text-xs"
+                    rows={embedType === 'floater' ? 6 : 4}
+                    value={embedCode.body}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Copy All Button */}
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => handleCopy('all')}
+                  className="h-8"
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy All Code
+                </Button>
+              </div>
             </div>
           </div>
         </div>

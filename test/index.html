@@ -4,18 +4,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Snappy Web Story Embed Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .story-container {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .story-container h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .code-block {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .floater-demo {
+            height: 2000px;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+            padding: 20px;
+            margin: 20px 0;
+        }
+    </style>
+
+    <!-- NEW EMBED APPROACH: Add script to head -->
+    <script src="http://localhost:5173/webstory-embed.js"></script>
 </head>
 
 <body>
+    <div class="container">
+        <h1>Snappy Web Story Embed Test</h1>
+        <p>This page demonstrates the new embedding approach using &lt;ins&gt; tags with automatic styling.</p>
 
-    <h1>Testing Embed</h1>
+        <h2>Regular Embed Test</h2>
+        <div class="story-container">
+            <h3>Regular Story Embed</h3>
+            <p>This is a regular story embed. The script works directly with the &lt;ins&gt; tag as the container:</p>
 
-    <div id="snappy-webstory-my-amazing-story-ed177c50365d7ca5" style="width:300px;height:525px;"></div>
-    <script src="https://player.tektag.ai/webstory-embed.js" data-story-id="my-amazing-story-ed177c50365d7ca5"
-        data-api-url="https://player.tektag.ai" data-autoplay="false"></script>
+            <!-- NEW EMBED APPROACH: Use ins tag in body - test with custom dimensions -->
+            <ins id="snappy-webstory-my-amazing-story-c46438ebf90f7e50"
+                data-story-id="my-amazing-story-c46438ebf90f7e50" data-api-url="http://localhost:3000"
+                data-autoplay="false" style="width:300px;height:525px;"></ins>
 
+            <div class="code-block">
+                &lt;ins id="snappy-webstory-my-amazing-story-c46438ebf90f7e50"
+                data-story-id="my-amazing-story-c46438ebf90f7e50"
+                data-api-url="http://localhost:3000"
+                data-autoplay="false"
+                style="width:300px;height:525px;"&gt;&lt;/ins&gt;
+            </div>
+        </div>
 
+        <h2>Floater Embed Test</h2>
+        <div class="story-container">
+            <h3>Floater Story Embed</h3>
+            <p>This is a floater story embed. Scroll down to see it appear:</p>
+
+            <!-- NEW EMBED APPROACH: Use ins tag for floater -->
+            <!-- <ins id="snappy-webstory-my-amazing-story-c46438ebf90f7e50"
+                data-story-id="my-amazing-story-c46438ebf90f7e50" data-api-url="http://localhost:3000"
+                data-floater="true" data-direction="right" data-trigger-scroll="50" data-position="bottom"
+                data-size="medium" data-show-close="true" data-auto-hide="false" data-auto-hide-delay="5000"
+                style="width:300px;height:525px;"></ins> -->
+
+            <div class="code-block">
+                &lt;ins id="snappy-webstory-test-story-456"
+                data-story-id="test-story-456"
+                data-api-url="http://localhost:3000"
+                data-floater="true"
+                data-direction="right"
+                data-trigger-scroll="20"
+                data-position="bottom"
+                data-size="medium"
+                data-auto-hide="true"
+                data-auto-hide-delay="5000"&gt;&lt;/ins&gt;
+            </div>
+        </div>
+
+        <div class="floater-demo">
+            <h3>Scroll Demo for Floater</h3>
+            <p>Scroll down to trigger the floater embed. The floater should appear when you scroll 20% of the page.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et
+                dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip
+                ex ea commodo consequat.</p>
+            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est
+                laborum.</p>
+            <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam
+                rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt
+                explicabo.</p>
+            <p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni
+                dolores eos qui ratione voluptatem sequi nesciunt.</p>
+            <p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia
+                non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
+            <p>Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid
+                ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam
+                nihil molestiae consequatur.</p>
+            <p>At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti
+                atque corrupti quos dolores et quas molestias excepturi sint occaecat cupidatat non provident.</p>
+            <p>Similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum
+                quidem rerum facilis est et expedita distinctio.</p>
+            <p>Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime
+                placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus.</p>
+            <p>Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et
+                voluptates repudiandae sint et molestiae non recusandae.</p>
+            <p>Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias
+                consequatur aut perferendis doloribus asperiores repellat.</p>
+        </div>
+
+        <h2>Benefits of New Approach</h2>
+        <ul>
+            <li><strong>WordPress Friendly:</strong> The &lt;ins&gt; tag can be easily inserted into content areas</li>
+            <li><strong>Automatic Styling:</strong> Script handles all styling - no need for inline styles</li>
+            <li><strong>Mobile-like Display:</strong> Proper aspect ratio and mobile-like appearance</li>
+            <li><strong>Decoupled:</strong> Script is loaded once in head, embeds are defined in body</li>
+            <li><strong>Dynamic:</strong> Supports dynamically added content via MutationObserver</li>
+            <li><strong>Clean:</strong> No need to pair script tags with div elements</li>
+            <li><strong>Flexible:</strong> Easy to add multiple embeds without script tag duplication</li>
+        </ul>
+    </div>
 </body>
 
 </html>

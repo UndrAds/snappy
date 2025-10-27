@@ -548,13 +548,13 @@ export class StoryService {
         const item = feedItems[i];
         if (!item) continue;
 
-        // Create frame
+        // Create frame with RSS title as name
         const frame = await prisma.storyFrame.create({
           data: {
             order: i,
             type: 'story',
             hasContent: true,
-            name: `Frame ${i + 1}`,
+            name: item.title, // Use RSS item title as frame name
             storyId,
           },
         });
@@ -566,30 +566,69 @@ export class StoryService {
               type: 'image',
               value: item.imageUrl,
               frameId: frame.id,
+              // Add proper background properties for panning and zooming
+              zoom: 100, // Default zoom level
+              offsetX: 0, // Default X offset for panning
+              offsetY: 0, // Default Y offset for panning
+              rotation: 0, // Default rotation
+              opacity: 100, // Default opacity
             },
           });
         }
 
-        // Create title text element at the bottom
-        await prisma.storyElement.create({
+        // Create title text element with dynamic sizing
+        const frameWidth = story.format === 'portrait' ? 288 : 550; // Frame width
+        const frameHeight = story.format === 'portrait' ? 550 : 288; // Frame height
+        const fontSize = story.format === 'portrait' ? 18 : 24;
+        const horizontalPadding = 20; // Left and right margins
+        const ctaHeight = 60; // Space reserved for CTA button
+        const bottomPadding = 20; // Padding from CTA area
+
+        // Calculate text width with left margin and right margin
+        const rightMargin = 40; // Extra margin from right edge
+        const textWidth = frameWidth - horizontalPadding - rightMargin;
+
+        // Estimate text height based on text length and font size
+        // Rough calculation: average characters per line, with line height of 1.2
+        const avgCharsPerLine = textWidth / (fontSize * 0.6); // Rough character width estimation
+        const estimatedLines = Math.ceil(item.title.length / avgCharsPerLine);
+        const lineHeight = fontSize * 1.2;
+        const verticalPadding = 60; // Even more increased top and bottom padding
+        const textHeight = Math.max(estimatedLines * lineHeight + verticalPadding, 80); // Even more increased minimum height
+
+        // Position above CTA button area
+        const textY = frameHeight - ctaHeight - textHeight - bottomPadding;
+
+        const textElement = await prisma.storyElement.create({
           data: {
             type: 'text',
-            x: 0,
-            y: story.format === 'portrait' ? 600 : 300, // Bottom position
-            width: story.format === 'portrait' ? 400 : 800,
-            height: story.format === 'portrait' ? 200 : 100,
+            x: horizontalPadding, // Left margin (moves text element left)
+            y: textY, // Position above CTA area
+            width: textWidth, // Width with right margin
+            height: textHeight, // Dynamic height based on text
             content: item.title,
             frameId: frame.id,
             style: {
-              fontSize: story.format === 'portrait' ? 24 : 32,
+              fontSize: fontSize,
               fontFamily: 'Arial, sans-serif',
               fontWeight: 'bold',
               color: '#FFFFFF',
               backgroundColor: '#000000',
-              textOpacity: 1,
-              backgroundOpacity: 0.8,
+              textOpacity: 100, // 100% text opacity
+              backgroundOpacity: 100, // 100% background opacity
+              textAlign: 'center', // Center text within the element
+              padding: '8px',
+              lineHeight: 1.2, // Line height for better text wrapping
+              wordWrap: 'break-word', // Allow text to wrap
             },
           },
+        });
+
+        console.log(`Created text element for frame ${frame.id}:`, {
+          title: item.title,
+          position: { x: textElement.x, y: textElement.y },
+          size: { width: textElement.width, height: textElement.height },
+          frameFormat: story.format,
         });
 
         framesGenerated++;

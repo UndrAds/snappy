@@ -55,7 +55,11 @@ export default function FrameSelector({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="font-medium">
-                    {frame.name || `Frame ${frame.order}`}
+                    {frame.name
+                      ? frame.name.length > 20
+                        ? `${frame.name.substring(0, 20)}...`
+                        : frame.name
+                      : `Frame ${frame.order}`}
                   </span>
                   {frame.link && (
                     <div className="flex items-center space-x-1 rounded-full bg-primary/10 px-1.5 py-0.5">

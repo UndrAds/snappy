@@ -59,12 +59,12 @@ export class RSSService {
               imageUrl = imageEnclosure.$.url;
             }
           } else if (
-            item.enclosure.$ &&
-            item.enclosure.$.type &&
-            item.enclosure.$.type.startsWith('image/')
+            (item.enclosure as any).$ &&
+            (item.enclosure as any).$.type &&
+            (item.enclosure as any).$.type.startsWith('image/')
           ) {
             // Single enclosure object
-            imageUrl = item.enclosure.$.url;
+            imageUrl = (item.enclosure as any).$.url;
           }
         }
 

@@ -158,7 +158,11 @@ export default function EditorSidebar({
   }
 
   const getFrameDisplayName = (frame: any) => {
-    if (frame.name) return frame.name
+    if (frame.name) {
+      return frame.name.length > 20
+        ? `${frame.name.substring(0, 20)}...`
+        : frame.name
+    }
     return `${frame.type === 'ad' ? 'Ad Frame' : 'Story Frame'} ${frame.order}`
   }
 

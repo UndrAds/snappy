@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import {
   Story,
   CreateStoryRequest,
@@ -76,7 +76,7 @@ export class StoryService {
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         storyType: data.storyType || 'static',
-        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : Prisma.DbNull,
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
         userId,
       },
       include: {
@@ -496,9 +496,6 @@ export class StoryService {
     const stories = await prisma.story.findMany({
       where: {
         storyType: 'dynamic',
-        rssConfig: {
-          not: Prisma.DbNull,
-        },
       },
       include: {
         frames: {
@@ -513,7 +510,10 @@ export class StoryService {
       },
     });
 
-    return stories.map((story: any) => convertPrismaStoryToSharedType(story));
+    // Filter out stories with null rssConfig
+    const activeStories = stories.filter((story: any) => story.rssConfig !== null);
+
+    return activeStories.map((story: any) => convertPrismaStoryToSharedType(story));
   }
 
   // Update RSS configuration for a story

@@ -76,7 +76,7 @@ export class StoryService {
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         storyType: data.storyType || 'static',
-        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : Prisma.JsonNull,
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : Prisma.DbNull,
         userId,
       },
       include: {
@@ -497,7 +497,7 @@ export class StoryService {
       where: {
         storyType: 'dynamic',
         rssConfig: {
-          not: Prisma.JsonNull,
+          not: Prisma.DbNull,
         },
       },
       include: {

@@ -37,6 +37,18 @@ export interface ApiResponse<T = any> {
 export type StoryFormat = 'portrait' | 'landscape';
 export type DeviceFrame = 'mobile' | 'video-player';
 export type FloaterDirection = 'right' | 'left';
+export type StoryType = 'static' | 'dynamic';
+
+// RSS Configuration types
+export interface RSSConfig {
+  feedUrl: string;
+  updateIntervalMinutes: number;
+  maxPosts: number;
+  allowRepetition: boolean;
+  lastUpdated?: string;
+  nextUpdate?: string;
+  isActive: boolean;
+}
 
 // Story types
 export interface Story {
@@ -53,6 +65,8 @@ export interface Story {
   status: 'draft' | 'published' | 'archived';
   format: StoryFormat;
   deviceFrame: DeviceFrame;
+  storyType: StoryType;
+  rssConfig?: RSSConfig;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -70,6 +84,8 @@ export interface CreateStoryRequest {
   ctaText?: string;
   format?: StoryFormat;
   deviceFrame?: DeviceFrame;
+  storyType?: StoryType;
+  rssConfig?: RSSConfig;
   uniqueId?: string; // Optional: allow providing a specific unique ID
 }
 
@@ -85,6 +101,8 @@ export interface UpdateStoryRequest {
   status?: 'draft' | 'published' | 'archived';
   format?: StoryFormat;
   deviceFrame?: DeviceFrame;
+  storyType?: StoryType;
+  rssConfig?: RSSConfig;
   uniqueId?: string; // Optional: allow updating the unique ID
 }
 
@@ -250,6 +268,25 @@ export interface AppError {
   details?: string[];
 }
 
+// RSS Feed Processing types
+export interface RSSFeedItem {
+  title: string;
+  description?: string;
+  link?: string;
+  imageUrl?: string;
+  pubDate?: string;
+  guid?: string;
+}
+
+export interface RSSProcessingStatus {
+  storyId: string;
+  status: 'processing' | 'completed' | 'failed';
+  progress: number; // 0-100
+  message?: string;
+  framesGenerated?: number;
+  totalFrames?: number;
+}
+
 // Environment types
 export interface Environment {
   NODE_ENV: 'development' | 'production' | 'test';
@@ -258,6 +295,7 @@ export interface Environment {
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
   CORS_ORIGIN: string;
+  REDIS_URL?: string;
 }
 
 // Frontend specific types

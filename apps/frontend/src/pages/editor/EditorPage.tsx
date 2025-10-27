@@ -6,6 +6,7 @@ import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
 import PropertyPanel from './components/propertyPanel'
 import EmbedModal from './components/EmbedModal'
+import RSSUpdateTimer from '@/components/RSSUpdateTimer'
 import { storyAPI } from '@/lib/api'
 
 interface CanvasElement {
@@ -135,6 +136,81 @@ export default function EditorPage() {
   const [currentStoryId, setCurrentStoryId] = useState<string | undefined>(
     storyId
   )
+  const [isDynamicStory, setIsDynamicStory] = useState(false)
+  const [rssConfig, setRssConfig] = useState<any>(null)
+
+  // Load story function
+  const loadStory = async () => {
+    if (uniqueId && !fromCreate) {
+      try {
+        setIsLoading(true)
+        const response = await storyAPI.getStoryByUniqueId(uniqueId)
+
+        if (response.success && response.data) {
+          const story = response.data
+
+          // Set the story ID for saving
+          setCurrentStoryId(story.id)
+
+          // Check if this is a dynamic story
+          setIsDynamicStory(story.storyType === 'dynamic')
+          if (story.storyType === 'dynamic' && story.rssConfig) {
+            setRssConfig(story.rssConfig)
+          }
+
+          // Update story data
+          setStoryDataState({
+            storyTitle: story.title,
+            publisherName: story.publisherName,
+            publisherPic: story.publisherPic || '',
+            thumbnail: story.largeThumbnail || '',
+            background: story.largeThumbnail || '',
+            ctaType: story.ctaType as any,
+            ctaValue: story.ctaValue || '',
+            format: (story.format as 'portrait' | 'landscape') || 'portrait',
+            deviceFrame:
+              (story.deviceFrame as 'mobile' | 'video-player') || 'mobile',
+          })
+
+          // Convert database frames to editor frames
+          if (story.frames && story.frames.length > 0) {
+            console.log('Loaded frames from backend:', story.frames)
+            const editorFrames = story.frames.map((frame: any) => ({
+              id: frame.id,
+              order: frame.order,
+              type: frame.type || 'story',
+              elements: frame.elements || [],
+              hasContent: frame.hasContent,
+              name: frame.name,
+              adConfig: frame.adConfig,
+              background: frame.background
+                ? {
+                    type: frame.background.type as 'color' | 'image' | 'video',
+                    value: frame.background.value,
+                    opacity: frame.background.opacity ?? 100,
+                    rotation: frame.background.rotation ?? 0,
+                    zoom: frame.background.zoom ?? 100,
+                    filter: frame.background.filter,
+                    offsetX: frame.background.offsetX ?? 0,
+                    offsetY: frame.background.offsetY ?? 0,
+                  }
+                : undefined,
+            }))
+
+            setFrames(editorFrames)
+            if (editorFrames.length > 0) {
+              setSelectedFrameId(editorFrames[0].id)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading story:', error)
+        toast.error('Failed to load story')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+  }
 
   // Update initial frame when coming from create page
   useEffect(() => {
@@ -177,6 +253,12 @@ export default function EditorPage() {
 
             // Set the story ID for saving
             setCurrentStoryId(story.id)
+
+            // Check if this is a dynamic story
+            setIsDynamicStory(story.storyType === 'dynamic')
+            if (story.storyType === 'dynamic' && story.rssConfig) {
+              setRssConfig(story.rssConfig)
+            }
 
             // Update story data
             setStoryDataState({
@@ -638,6 +720,20 @@ export default function EditorPage() {
       onEmbed={handleEmbed}
       storyTitle={storyDataState?.storyTitle}
       isSaving={isSaving}
+      rssTimer={
+        isDynamicStory && rssConfig && currentStoryId ? (
+          <RSSUpdateTimer
+            storyId={currentStoryId}
+            rssConfig={rssConfig}
+            onUpdateTriggered={() => {
+              // Refresh story data when RSS update is triggered
+              if (uniqueId) {
+                loadStory()
+              }
+            }}
+          />
+        ) : undefined
+      }
     >
       <EditorSidebar
         frames={frames}

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import {
   Story,
   CreateStoryRequest,
@@ -11,6 +11,8 @@ import {
   UpdateStoryElementRequest,
   StoryBackground,
   CreateStoryBackgroundRequest,
+  RSSFeedItem,
+  RSSConfig,
 } from '@snappy/shared-types';
 import crypto from 'crypto';
 
@@ -73,6 +75,8 @@ export class StoryService {
         ctaText: data.ctaText || null,
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
+        storyType: data.storyType || 'static',
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : Prisma.JsonNull,
         userId,
       },
       include: {
@@ -87,6 +91,22 @@ export class StoryService {
         },
       },
     });
+
+    // Handle dynamic story setup
+    if (data.storyType === 'dynamic' && data.rssConfig) {
+      try {
+        const { SchedulerService } = await import('./schedulerService');
+        const schedulerService = new SchedulerService();
+
+        // Schedule RSS updates (includes immediate processing)
+        await schedulerService.scheduleRSSUpdate(story.id, data.rssConfig);
+
+        console.log(`Dynamic story ${story.id} created and RSS processing scheduled`);
+      } catch (error) {
+        console.error('Error setting up dynamic story RSS processing:', error);
+        // Don't fail the story creation if RSS setup fails
+      }
+    }
 
     return convertPrismaStoryToSharedType(story);
   }
@@ -172,7 +192,10 @@ export class StoryService {
         id: storyId,
         userId, // Ensure user owns the story
       },
-      data,
+      data: {
+        ...data,
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : undefined,
+      },
       include: {
         frames: {
           include: {
@@ -466,5 +489,146 @@ export class StoryService {
 
     // Return updated story
     return (await this.getStoryById(dbStory.id, userId)) as Story;
+  }
+
+  // Get all active dynamic stories
+  static async getActiveDynamicStories(): Promise<Story[]> {
+    const stories = await prisma.story.findMany({
+      where: {
+        storyType: 'dynamic',
+        rssConfig: {
+          not: Prisma.JsonNull,
+        },
+      },
+      include: {
+        frames: {
+          include: {
+            elements: true,
+            background: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+    });
+
+    return stories.map((story: any) => convertPrismaStoryToSharedType(story));
+  }
+
+  // Update RSS configuration for a story
+  static async updateStoryRSSConfig(storyId: string, rssConfig: RSSConfig): Promise<void> {
+    await prisma.story.update({
+      where: { id: storyId },
+      data: { rssConfig: JSON.parse(JSON.stringify(rssConfig)) },
+    });
+  }
+
+  // Generate frames from RSS feed items
+  static async generateFramesFromRSS(storyId: string, feedItems: RSSFeedItem[]): Promise<number> {
+    try {
+      // Get the story to understand its format
+      const story = await prisma.story.findUnique({
+        where: { id: storyId },
+      });
+
+      if (!story) {
+        throw new Error('Story not found');
+      }
+
+      // Clear existing frames
+      await prisma.storyFrame.deleteMany({
+        where: { storyId },
+      });
+
+      let framesGenerated = 0;
+
+      // Create frames for each RSS item
+      for (let i = 0; i < feedItems.length; i++) {
+        const item = feedItems[i];
+        if (!item) continue;
+
+        // Create frame
+        const frame = await prisma.storyFrame.create({
+          data: {
+            order: i,
+            type: 'story',
+            hasContent: true,
+            name: `Frame ${i + 1}`,
+            storyId,
+          },
+        });
+
+        // Create background with RSS image
+        if (item.imageUrl) {
+          await prisma.storyBackground.create({
+            data: {
+              type: 'image',
+              value: item.imageUrl,
+              frameId: frame.id,
+            },
+          });
+        }
+
+        // Create title text element at the bottom
+        await prisma.storyElement.create({
+          data: {
+            type: 'text',
+            x: 0,
+            y: story.format === 'portrait' ? 600 : 300, // Bottom position
+            width: story.format === 'portrait' ? 400 : 800,
+            height: story.format === 'portrait' ? 200 : 100,
+            content: item.title,
+            frameId: frame.id,
+            style: {
+              fontSize: story.format === 'portrait' ? 24 : 32,
+              fontFamily: 'Arial, sans-serif',
+              fontWeight: 'bold',
+              color: '#FFFFFF',
+              backgroundColor: '#000000',
+              textOpacity: 1,
+              backgroundOpacity: 0.8,
+            },
+          },
+        });
+
+        framesGenerated++;
+      }
+
+      console.log(`Generated ${framesGenerated} frames for story ${storyId}`);
+      return framesGenerated;
+    } catch (error) {
+      console.error('Error generating frames from RSS:', error);
+      throw error;
+    }
+  }
+
+  // Get RSS processing status for a story
+  static async getRSSProcessingStatus(_storyId: string): Promise<any> {
+    // This will be implemented with Redis integration
+    return null;
+  }
+
+  // Validate RSS configuration
+  static async validateRSSConfig(rssConfig: RSSConfig): Promise<boolean> {
+    try {
+      // Basic validation
+      if (!rssConfig.feedUrl || !rssConfig.feedUrl.startsWith('http')) {
+        return false;
+      }
+
+      if (rssConfig.updateIntervalMinutes < 5) {
+        return false; // Minimum 5 minutes
+      }
+
+      if (rssConfig.maxPosts < 1 || rssConfig.maxPosts > 50) {
+        return false; // Reasonable limits
+      }
+
+      return true;
+    } catch (error) {
+      console.error('RSS config validation error:', error);
+      return false;
+    }
   }
 }

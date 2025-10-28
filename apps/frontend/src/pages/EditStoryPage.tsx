@@ -18,11 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
-import { Upload, Save } from 'lucide-react'
+import { Upload, Save, Info, Rss } from 'lucide-react'
 import { storyAPI, uploadAPI } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function EditStoryPage() {
   const navigate = useNavigate()
@@ -121,6 +128,11 @@ export default function EditStoryPage() {
         ctaType: story.ctaType || undefined,
         ctaValue: story.ctaValue || undefined,
         ctaText: story.ctaText || undefined,
+        storyType: story.storyType || 'static',
+        rssConfig:
+          story.storyType === 'dynamic'
+            ? (story as any).rssConfig || undefined
+            : null,
       })
 
       if (response.success) {
@@ -277,6 +289,220 @@ export default function EditStoryPage() {
                 onFileSelect={(file) => handleFileUpload('publisherPic', file)}
                 currentUrl={story.publisherPic}
               />
+            </CardContent>
+          </Card>
+
+          {/* Story Type & RSS Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Story Type
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Static: Manual content creation</p>
+                      <p>Dynamic: Auto-generated from RSS feed</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
+              <CardDescription>
+                Choose whether your story will be static or dynamic
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="story-type">Story Type</Label>
+                <RadioGroup
+                  value={story.storyType || 'static'}
+                  onValueChange={(value) => {
+                    setStory((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            storyType: value as any,
+                            // Initialize rssConfig when switching to dynamic, but preserve existing values
+                            ...(value === 'dynamic'
+                              ? {
+                                  rssConfig: (prev as any).rssConfig || {
+                                    feedUrl: '',
+                                    updateIntervalMinutes: 15,
+                                    maxPosts: 10,
+                                    allowRepetition: false,
+                                    isActive: true,
+                                  },
+                                }
+                              : {}), // Don't clear rssConfig when switching to static
+                          }
+                        : null
+                    )
+                  }}
+                  className="flex space-x-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="static" id="static" />
+                    <Label htmlFor="static">Static Story</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="dynamic" id="dynamic" />
+                    <Label htmlFor="dynamic">Dynamic Story</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {story.storyType === 'dynamic' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Rss className="h-5 w-5" />
+                      RSS Configuration
+                    </CardTitle>
+                    <CardDescription>
+                      Configure RSS feed settings for dynamic content
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="rss-feed-url">RSS Feed URL</Label>
+                      <Input
+                        id="rss-feed-url"
+                        placeholder="https://example.com/feed.xml"
+                        value={(story as any).rssConfig?.feedUrl || ''}
+                        onChange={(e) =>
+                          setStory((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rssConfig: {
+                                    ...(prev as any).rssConfig,
+                                    feedUrl: e.target.value,
+                                  },
+                                }
+                              : null
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="rss-interval">
+                          Update Interval (mins)
+                        </Label>
+                        <Input
+                          id="rss-interval"
+                          type="number"
+                          min={5}
+                          value={
+                            (story as any).rssConfig?.updateIntervalMinutes ??
+                            15
+                          }
+                          onChange={(e) =>
+                            setStory((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rssConfig: {
+                                      ...(prev as any).rssConfig,
+                                      updateIntervalMinutes: Number(
+                                        e.target.value || 0
+                                      ),
+                                    },
+                                  }
+                                : null
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="rss-max-posts">Max Posts</Label>
+                        <Input
+                          id="rss-max-posts"
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={(story as any).rssConfig?.maxPosts ?? 10}
+                          onChange={(e) =>
+                            setStory((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rssConfig: {
+                                      ...(prev as any).rssConfig,
+                                      maxPosts: Number(e.target.value || 0),
+                                    },
+                                  }
+                                : null
+                            )
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Allow Repetition</Label>
+                        <div className="flex h-10 items-center space-x-2 rounded-md border px-3">
+                          <input
+                            id="rss-allow-repetition"
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={
+                              (story as any).rssConfig?.allowRepetition ?? false
+                            }
+                            onChange={(e) =>
+                              setStory((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rssConfig: {
+                                        ...(prev as any).rssConfig,
+                                        allowRepetition: e.target.checked,
+                                      },
+                                    }
+                                  : null
+                              )
+                            }
+                          />
+                          <Label htmlFor="rss-allow-repetition" className="m-0">
+                            Allow repeating posts
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>RSS Processing</Label>
+                      <div className="flex h-10 items-center space-x-2 rounded-md border px-3">
+                        <input
+                          id="rss-is-active"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={(story as any).rssConfig?.isActive ?? true}
+                          onChange={(e) =>
+                            setStory((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rssConfig: {
+                                      ...(prev as any).rssConfig,
+                                      isActive: e.target.checked,
+                                    },
+                                  }
+                                : null
+                            )
+                          }
+                        />
+                        <Label htmlFor="rss-is-active" className="m-0">
+                          Enable automatic updates
+                        </Label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
 

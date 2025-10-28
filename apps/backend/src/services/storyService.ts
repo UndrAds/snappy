@@ -175,7 +175,7 @@ export class StoryService {
     if (story && story.frames && story.frames.length > 0) {
       console.log(
         'Raw Prisma story frames:',
-        story.frames.map((frame) => ({
+        story.frames.map((frame: any) => ({
           id: frame.id,
           name: frame.name,
           link: frame.link,
@@ -714,7 +714,7 @@ export class StoryService {
 
       console.log(
         `Final verification - ${verificationFrames.length} frames in database:`,
-        verificationFrames.map((frame) => ({
+        verificationFrames.map((frame: any) => ({
           id: frame.id,
           name: frame.name,
           link: frame.link,

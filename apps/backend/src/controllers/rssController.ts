@@ -385,4 +385,81 @@ export class RSSController {
       res.status(400).json(response);
     }
   }
+
+  // Test RSS processing (debug endpoint)
+  static async testRSSProcessing(req: Request, res: Response): Promise<void> {
+    try {
+      const { storyId } = req.params;
+      const userId = (req as any).user.id;
+
+      if (!storyId) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'Story ID is required',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Get the story
+      const story = await StoryService.getStoryById(storyId, userId);
+      if (!story) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'Story not found',
+          },
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      if (story.storyType !== 'dynamic' || !story.rssConfig) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'Story is not dynamic or has no RSS config',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Test RSS parsing
+      const { RSSService } = await import('../services/rssService');
+      const rssService = new RSSService();
+      const feedItems = await rssService.fetchFeed(story.rssConfig.feedUrl);
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          message: 'RSS processing test completed',
+          feedItemsCount: feedItems.length,
+          firstItem:
+            feedItems.length > 0 && feedItems[0]
+              ? {
+                  title: feedItems[0].title,
+                  link: feedItems[0].link,
+                  hasLink: !!feedItems[0].link,
+                  imageUrl: feedItems[0].imageUrl,
+                  hasImage: !!feedItems[0].imageUrl,
+                }
+              : null,
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          message: error.message || 'Failed to test RSS processing',
+        },
+      };
+
+      res.status(500).json(response);
+    }
+  }
 }

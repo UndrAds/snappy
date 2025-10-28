@@ -84,7 +84,7 @@ export class RSSService {
           }
         }
 
-        return {
+        const feedItem = {
           title: item.title || 'Untitled',
           description: item.contentSnippet || item.content || '',
           link: item.link || '',
@@ -92,6 +92,17 @@ export class RSSService {
           pubDate: item.pubDate || '',
           guid: item.guid || '',
         };
+
+        // Debug logging for RSS item parsing
+        console.log(`RSS Item parsed:`, {
+          title: feedItem.title,
+          link: feedItem.link,
+          hasLink: !!feedItem.link,
+          imageUrl: feedItem.imageUrl,
+          hasImage: !!feedItem.imageUrl,
+        });
+
+        return feedItem;
       });
 
       console.log(`Successfully parsed ${feedItems.length} items from RSS feed`);

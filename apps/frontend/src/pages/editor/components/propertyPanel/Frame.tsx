@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,19 @@ export default function FramePropertyPanel({
   const [name, setName] = useState(element.name || '')
   const [link, setLink] = useState(element.link || '')
   const [linkText, setLinkText] = useState(element.linkText || '')
+
+  // Sync state when element changes (e.g., when switching between frames)
+  useEffect(() => {
+    console.log('FramePropertyPanel useEffect triggered:', {
+      elementId: element.id,
+      elementName: element.name,
+      elementLink: element.link,
+      elementLinkText: element.linkText,
+    })
+    setName(element.name || '')
+    setLink(element.link || '')
+    setLinkText(element.linkText || '')
+  }, [element.id, element.name, element.link, element.linkText])
 
   const handleSave = () => {
     onFrameUpdate(element.id, { name, link, linkText })
@@ -99,20 +112,19 @@ export default function FramePropertyPanel({
       </div>
 
       {/* Frame Link Text */}
-      {link && (
-        <div className="space-y-2">
-          <Label htmlFor="frame-link-text">Link Text</Label>
-          <Input
-            id="frame-link-text"
-            placeholder="Link"
-            value={linkText}
-            onChange={(e) => setLinkText(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Custom text to display on the link indicator (defaults to "Link")
-          </p>
-        </div>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="frame-link-text">Link Text</Label>
+        <Input
+          id="frame-link-text"
+          placeholder="Read More"
+          value={linkText}
+          onChange={(e) => setLinkText(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Custom text to display on the link indicator (defaults to "Read More")
+        </p>
+      </div>
+
       {link && !isValidUrl(link) && (
         <p className="text-xs text-red-600 dark:text-red-400">
           Please enter a valid URL (e.g., https://example.com)

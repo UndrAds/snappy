@@ -62,4 +62,11 @@ router.post(
 // Get queue statistics (admin only)
 router.get('/queue-stats', RSSController.getQueueStats);
 
+// Test RSS processing (debug endpoint)
+router.get(
+  '/test-processing/:storyId',
+  [param('storyId').notEmpty().withMessage('Story ID is required'), validateRequest],
+  RSSController.testRSSProcessing
+);
+
 export default router;

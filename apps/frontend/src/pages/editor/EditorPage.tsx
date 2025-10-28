@@ -43,6 +43,7 @@ interface StoryFrame {
   hasContent: boolean
   name?: string
   link?: string // Optional link URL for the frame
+  linkText?: string // Optional link text for the frame
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
@@ -175,27 +176,54 @@ export default function EditorPage() {
           // Convert database frames to editor frames
           if (story.frames && story.frames.length > 0) {
             console.log('Loaded frames from backend:', story.frames)
-            const editorFrames = story.frames.map((frame: any) => ({
-              id: frame.id,
-              order: frame.order,
-              type: frame.type || 'story',
-              elements: frame.elements || [],
-              hasContent: frame.hasContent,
-              name: frame.name,
-              adConfig: frame.adConfig,
-              background: frame.background
-                ? {
-                    type: frame.background.type as 'color' | 'image' | 'video',
-                    value: frame.background.value,
-                    opacity: frame.background.opacity ?? 100,
-                    rotation: frame.background.rotation ?? 0,
-                    zoom: frame.background.zoom ?? 100,
-                    filter: frame.background.filter,
-                    offsetX: frame.background.offsetX ?? 0,
-                    offsetY: frame.background.offsetY ?? 0,
-                  }
-                : undefined,
-            }))
+            const editorFrames = story.frames.map((frame: any) => {
+              console.log('Mapping frame from backend:', {
+                frameId: frame.id,
+                frameName: frame.name,
+                frameLink: frame.link,
+                frameLinkText: frame.linkText,
+                hasLink: !!frame.link,
+                hasLinkText: !!frame.linkText,
+              })
+              return {
+                id: frame.id,
+                order: frame.order,
+                type: frame.type || 'story',
+                elements: frame.elements || [],
+                hasContent: frame.hasContent,
+                name: frame.name,
+                link: frame.link, // Add frame link from database
+                linkText: frame.linkText, // Add frame linkText from database
+                adConfig: frame.adConfig,
+                background: frame.background
+                  ? {
+                      type: frame.background.type as
+                        | 'color'
+                        | 'image'
+                        | 'video',
+                      value: frame.background.value,
+                      opacity: frame.background.opacity ?? 100,
+                      rotation: frame.background.rotation ?? 0,
+                      zoom: frame.background.zoom ?? 100,
+                      filter: frame.background.filter,
+                      offsetX: frame.background.offsetX ?? 0,
+                      offsetY: frame.background.offsetY ?? 0,
+                    }
+                  : undefined,
+              }
+            })
+
+            console.log('Editor frames after mapping:', editorFrames)
+            if (editorFrames.length > 0) {
+              console.log('First editor frame:', {
+                id: editorFrames[0].id,
+                name: editorFrames[0].name,
+                link: editorFrames[0].link,
+                linkText: editorFrames[0].linkText,
+                hasLink: !!editorFrames[0].link,
+                hasLinkText: !!editorFrames[0].linkText,
+              })
+            }
 
             setFrames(editorFrames)
             if (editorFrames.length > 0) {
@@ -284,6 +312,8 @@ export default function EditorPage() {
                 elements: frame.elements || [],
                 hasContent: frame.hasContent,
                 name: frame.name,
+                link: frame.link, // Add frame link from database
+                linkText: frame.linkText, // Add frame linkText from database
                 adConfig: frame.adConfig,
                 background: frame.background
                   ? {
@@ -806,25 +836,44 @@ export default function EditorPage() {
                     adConfig: selectedFrame.adConfig,
                   }
                 : selectedFrame && !selectedElement
-                  ? {
-                      id: selectedFrame.id,
-                      type: 'frame',
-                      name: selectedFrame.name,
-                      link: selectedFrame.link,
-                      frameType: selectedFrame.type,
-                    }
+                  ? (() => {
+                      console.log('Creating selectedElement for frame:', {
+                        frameId: selectedFrame.id,
+                        frameName: selectedFrame.name,
+                        frameLink: selectedFrame.link,
+                        frameLinkText: selectedFrame.linkText,
+                      })
+                      console.log('Full selectedFrame object:', selectedFrame)
+                      return {
+                        id: selectedFrame.id,
+                        type: 'frame',
+                        name: selectedFrame.name,
+                        link: selectedFrame.link,
+                        linkText: selectedFrame.linkText,
+                        frameType: selectedFrame.type,
+                      }
+                    })()
                   : undefined
         }
         background={selectedFrame?.background}
         onElementUpdate={updateElement}
         onBackgroundUpdate={updateBackground}
         onElementRemove={removeElement}
-        onFrameUpdate={(frameId: string, updates: any) => {
+        onFrameUpdate={async (frameId: string, updates: any) => {
+          // Update local state immediately for UI responsiveness
           setFrames((prev) =>
             prev.map((frame) =>
               frame.id === frameId ? { ...frame, ...updates } : frame
             )
           )
+
+          // Save to database
+          try {
+            await storyAPI.updateStoryFrame(frameId, updates)
+          } catch (error) {
+            console.error('Failed to save frame update:', error)
+            toast.error('Failed to save frame update')
+          }
         }}
       />
       <EmbedModal

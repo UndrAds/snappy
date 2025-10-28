@@ -72,6 +72,14 @@ export class SchedulerService {
         // Fetch RSS feed items
         const feedItems = await this.rssService.getFeedItemsForStory(rssConfig);
 
+        // Debug logging for RSS items
+        console.log(`RSS processing for story ${storyId}:`);
+        console.log(`Found ${feedItems.length} items`);
+        if (feedItems.length > 0 && feedItems[0]) {
+          console.log(`First item link: ${feedItems[0].link}`);
+          console.log(`First item has link: ${!!feedItems[0].link}`);
+        }
+
         await this.updateProcessingStatus(storyId, {
           storyId,
           status: 'processing',
@@ -80,7 +88,37 @@ export class SchedulerService {
         });
 
         // Generate frames from RSS items
-        const framesGenerated = await StoryService.generateFramesFromRSS(storyId, feedItems);
+        console.log(`About to generate frames for story ${storyId} with ${feedItems.length} items`);
+
+        let framesGenerated = 0;
+        try {
+          framesGenerated = await StoryService.generateFramesFromRSS(storyId, feedItems);
+          console.log(`Generated ${framesGenerated} frames for story ${storyId}`);
+
+          // Wait a moment for database to commit
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Verify frames were created with links
+          const updatedStory = await StoryService.getStoryById(storyId);
+          if (updatedStory && updatedStory.frames && updatedStory.frames.length > 0) {
+            console.log(
+              `Verification - Updated story frames:`,
+              updatedStory.frames.map((frame) => ({
+                id: frame.id,
+                name: frame.name,
+                link: frame.link,
+                linkText: frame.linkText,
+                hasLink: !!frame.link,
+                hasLinkText: !!frame.linkText,
+              }))
+            );
+          } else {
+            console.error(`ERROR: No frames found after generation for story ${storyId}`);
+          }
+        } catch (frameError) {
+          console.error(`ERROR generating frames for story ${storyId}:`, frameError);
+          throw frameError;
+        }
 
         await this.updateProcessingStatus(storyId, {
           storyId,
@@ -142,8 +180,10 @@ export class SchedulerService {
    */
   async scheduleRSSUpdate(storyId: string, rssConfig: RSSConfig): Promise<void> {
     try {
+      console.log(`🚀 Scheduling RSS update for story ${storyId}`);
+
       // Schedule immediate update
-      await this.rssQueue.add(
+      const immediateJob = await this.rssQueue.add(
         'update-story',
         {
           storyId,
@@ -154,9 +194,11 @@ export class SchedulerService {
         }
       );
 
+      console.log(`✅ Immediate RSS job scheduled with ID: ${immediateJob.id}`);
+
       // Schedule recurring updates
       if (rssConfig.isActive) {
-        await this.rssQueue.add(
+        const recurringJob = await this.rssQueue.add(
           'update-story',
           {
             storyId,
@@ -169,11 +211,12 @@ export class SchedulerService {
             jobId: `rss-update-${storyId}`, // Unique job ID to prevent duplicates
           }
         );
+        console.log(`✅ Recurring RSS job scheduled with ID: ${recurringJob.id}`);
       }
 
-      console.log(`Scheduled RSS updates for story: ${storyId}`);
+      console.log(`🎯 RSS updates scheduled for story: ${storyId}`);
     } catch (error) {
-      console.error('Failed to schedule RSS update:', error);
+      console.error('❌ Failed to schedule RSS update:', error);
       throw error;
     }
   }

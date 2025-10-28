@@ -649,30 +649,44 @@ export class StoryService {
         // Create title text element with dynamic sizing
         const frameWidth = story.format === 'portrait' ? 288 : 550; // Frame width
         const frameHeight = story.format === 'portrait' ? 550 : 288; // Frame height
-        const fontSize = story.format === 'portrait' ? 18 : 24;
-        const horizontalPadding = 20; // Left and right margins
+        // Landscape (horizontal video player) should use 14px bold
+        const fontSize = story.format === 'portrait' ? 18 : 14;
+        const horizontalPadding = 20; // Left and right margins (portrait default)
         const ctaHeight = 60; // Space reserved for CTA button
         const bottomPadding = 20; // Padding from CTA area
 
-        // Calculate text width with left margin and right margin
-        const rightMargin = 40; // Extra margin from right edge
-        const textWidth = frameWidth - horizontalPadding - rightMargin;
+        // Calculate text width
+        // For landscape (horizontal video player), make the text narrower with equal side margins
+        const rightMargin = 40; // Extra margin from right edge (portrait default)
+        // Use fixed 70% width for landscape to ensure comfortable side gaps
+        const textWidth =
+          story.format === 'landscape'
+            ? Math.floor(frameWidth * 0.5)
+            : frameWidth - horizontalPadding - rightMargin;
 
         // Estimate text height based on text length and font size
         // Rough calculation: average characters per line, with line height of 1.2
         const avgCharsPerLine = textWidth / (fontSize * 0.6); // Rough character width estimation
         const estimatedLines = Math.ceil(item.title.length / avgCharsPerLine);
         const lineHeight = fontSize * 1.2;
-        const verticalPadding = 60; // Even more increased top and bottom padding
-        const textHeight = Math.max(estimatedLines * lineHeight + verticalPadding, 80); // Even more increased minimum height
+        // Reduce overall height for landscape to occupy less vertical space
+        const verticalPadding = story.format === 'landscape' ? 16 : 60;
+        const minHeight = story.format === 'landscape' ? 48 : 80;
+        const textHeight = Math.max(estimatedLines * lineHeight + verticalPadding, minHeight);
 
         // Position above CTA button area
         const textY = frameHeight - ctaHeight - textHeight - bottomPadding;
 
+        // Compute X position (center horizontally for landscape)
+        const textX =
+          story.format === 'landscape'
+            ? Math.floor((frameWidth - textWidth) / 2)
+            : horizontalPadding; // portrait keeps left margin
+
         const textElement = await prisma.storyElement.create({
           data: {
             type: 'text',
-            x: horizontalPadding, // Left margin (moves text element left)
+            x: textX,
             y: textY, // Position above CTA area
             width: textWidth, // Width with right margin
             height: textHeight, // Dynamic height based on text

@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
-import { Upload, Save, Info, Rss } from 'lucide-react'
+import { Upload, Save, Info, Rss, Smartphone, Monitor } from 'lucide-react'
 import { storyAPI, uploadAPI } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
@@ -128,6 +128,8 @@ export default function EditStoryPage() {
         ctaType: story.ctaType || undefined,
         ctaValue: story.ctaValue || undefined,
         ctaText: story.ctaText || undefined,
+        format: story.format || 'portrait',
+        deviceFrame: story.deviceFrame || 'mobile',
         storyType: story.storyType || 'static',
         rssConfig:
           story.storyType === 'dynamic'
@@ -237,7 +239,7 @@ export default function EditStoryPage() {
       {/* Main Content */}
       <div className="flex flex-1 space-x-6 overflow-hidden">
         {/* Left Panel - Configuration */}
-        <div className="flex-1 space-y-6 overflow-y-auto">
+        <div className="flex-1 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">Edit Story</h2>
             <p className="text-muted-foreground">
@@ -506,6 +508,78 @@ export default function EditStoryPage() {
             </CardContent>
           </Card>
 
+          {/* Format and Device Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Story Format & Device</CardTitle>
+              <CardDescription>
+                Choose the format and device frame for your story
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="story-format">Story Format</Label>
+                  <Select
+                    value={(story as any).format || 'portrait'}
+                    onValueChange={(value) =>
+                      setStory((prev) =>
+                        prev ? { ...prev, format: value as any } : null
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-4 w-3 rounded bg-muted"></div>
+                          <span>Portrait (9:16)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="landscape">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-3 w-4 rounded bg-muted"></div>
+                          <span>Landscape (16:9)</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="device-frame">Device Frame</Label>
+                  <Select
+                    value={(story as any).deviceFrame || 'mobile'}
+                    onValueChange={(value) =>
+                      setStory((prev) =>
+                        prev ? { ...prev, deviceFrame: value as any } : null
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select device" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mobile">
+                        <div className="flex items-center space-x-2">
+                          <Smartphone className="h-4 w-4" />
+                          <span>Mobile</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="video-player">
+                        <div className="flex items-center space-x-2">
+                          <Monitor className="h-4 w-4" />
+                          <span>Video Player</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Story Configuration */}
           <Card>
             <CardHeader>
@@ -619,7 +693,7 @@ export default function EditStoryPage() {
         </div>
 
         {/* Right Panel - Mobile Preview */}
-        <div className="w-96 flex-shrink-0 px-4">
+        <div className="w-124 flex-shrink-0 px-4">
           <div className="sticky flex h-full flex-col items-center justify-center">
             <StoryFrame
               publisherName={story.publisherName}
@@ -633,6 +707,8 @@ export default function EditStoryPage() {
               totalSlides={4}
               showProgressBar={true}
               isEditMode={false}
+              format={(story as any).format || 'portrait'}
+              deviceFrame={(story as any).deviceFrame || 'mobile'}
             />
           </div>
         </div>

@@ -438,7 +438,7 @@ export default function CreateSnapPage() {
       {/* Main Content */}
       <div className="flex flex-1 space-x-6 overflow-hidden">
         {/* Left Panel - Configuration */}
-        <div className="flex-1 space-y-6 overflow-y-auto">
+        <div className="flex-1 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">Create Snap</h2>
             <p className="text-muted-foreground">
@@ -802,7 +802,7 @@ export default function CreateSnapPage() {
         </div>
 
         {/* Right Panel - Mobile Preview */}
-        <div className="w-96 flex-shrink-0 px-4">
+        <div className="w-124 flex-shrink-0 px-4">
           <div className="sticky flex h-full flex-col items-center justify-center">
             <StoryFrame
               publisherName={snapData.publisher.name}

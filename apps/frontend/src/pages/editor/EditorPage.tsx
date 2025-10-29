@@ -142,7 +142,12 @@ export default function EditorPage() {
 
   // Load story function
   const loadStory = async () => {
-    if (uniqueId && !fromCreate) {
+    // Load story if:
+    // 1. uniqueId is provided AND not from create (normal edit flow)
+    // 2. OR uniqueId is provided AND coming from RSS processing (isDynamic)
+    const shouldLoadStory =
+      uniqueId && (!fromCreate || location.state?.isDynamic)
+    if (shouldLoadStory) {
       try {
         setIsLoading(true)
         const response = await storyAPI.getStoryByUniqueId(uniqueId)
@@ -269,9 +274,15 @@ export default function EditorPage() {
   }, [fromCreate, location.state?.storyData?.thumbnail])
 
   // Load story data if uniqueId is provided in URL
+  // For dynamic stories created from RSS, we need to load even if fromCreate is true
   useEffect(() => {
     const loadStory = async () => {
-      if (uniqueId && !fromCreate) {
+      // Load story if:
+      // 1. uniqueId is provided AND not from create (normal edit flow)
+      // 2. OR uniqueId is provided AND coming from RSS processing (isDynamic)
+      const shouldLoadStory =
+        uniqueId && (!fromCreate || location.state?.isDynamic)
+      if (shouldLoadStory) {
         try {
           setIsLoading(true)
           const response = await storyAPI.getStoryByUniqueId(uniqueId)
@@ -368,7 +379,14 @@ export default function EditorPage() {
               setSelectedFrameId('1')
             }
 
-            toast.success(`Loaded story: ${story.title}`)
+            // Show success message
+            if (location.state?.isDynamic && fromCreate) {
+              toast.success(
+                `RSS feed processed! Loaded ${story.frames?.length || 0} frames for "${story.title}"`
+              )
+            } else {
+              toast.success(`Loaded story: ${story.title}`)
+            }
           } else {
             toast.error('Story not found')
           }
@@ -382,16 +400,17 @@ export default function EditorPage() {
     }
 
     loadStory()
-  }, [uniqueId, fromCreate])
+  }, [uniqueId, fromCreate, location.state?.isDynamic])
 
   // Show welcome message if coming from create page
+  // Only show for static stories (dynamic stories show message after loading)
   useEffect(() => {
-    if (fromCreate && storyDataState) {
+    if (fromCreate && storyDataState && !location.state?.isDynamic) {
       toast.success(
         `Welcome to the editor! You can now customize your story "${storyDataState.storyTitle}"`
       )
     }
-  }, [fromCreate, storyDataState])
+  }, [fromCreate, storyDataState, location.state?.isDynamic])
 
   const addNewFrame = (frameType: 'story' | 'ad' = 'story') => {
     const newFrame: StoryFrame = {

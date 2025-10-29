@@ -109,6 +109,9 @@ export default function CreateSnapPage() {
   const [isValidatingFeed, setIsValidatingFeed] = useState(false)
   const [showProgressLoader, setShowProgressLoader] = useState(false)
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null)
+  const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
+    string | null
+  >(null)
 
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
@@ -320,6 +323,7 @@ export default function CreateSnapPage() {
         if (snapData.storyType === 'dynamic') {
           // Show progress loader for dynamic stories
           setCurrentStoryId(storyResponse.data.id)
+          setCurrentStoryUniqueId(storyResponse.data.uniqueId)
           setShowProgressLoader(true)
           toast.success('Dynamic story created! Processing RSS feed...')
         } else {
@@ -360,11 +364,13 @@ export default function CreateSnapPage() {
   }
 
   const handleProgressComplete = () => {
-    if (currentStoryId) {
+    if (currentStoryUniqueId && currentStoryId) {
       // Navigate to editor after RSS processing is complete
-      navigate(`/editor/${currentStoryId}`, {
+      // Use uniqueId in the URL path, and pass both storyId and uniqueId in state
+      navigate(`/editor/${currentStoryUniqueId}`, {
         state: {
           storyId: currentStoryId,
+          uniqueId: currentStoryUniqueId,
           fromCreate: true,
           isDynamic: true,
         },
@@ -372,11 +378,13 @@ export default function CreateSnapPage() {
     }
     setShowProgressLoader(false)
     setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
   }
 
   const handleProgressError = () => {
     setShowProgressLoader(false)
     setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
     toast.error('RSS processing failed. You can still edit the story manually.')
   }
 

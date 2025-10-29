@@ -604,6 +604,9 @@
       }
     }
 
+    // Store button data for creating buttons outside slides
+    var buttonData = []
+
     // Build the story UI (same as in fetchAndRenderStory)
     var slides = frames.map(function (frame, idx) {
       // Handle ad frames
@@ -621,8 +624,7 @@
             .join('') +
           '</div>'
 
-        // Frame Link Button for ad frames
-        var adFrameLinkButton = ''
+        // Frame Link Button for ad frames - store data instead of creating HTML
         var adLinkClickHandler = ''
         if (frame.link) {
           // Calculate button size based on aspect ratio
@@ -637,6 +639,7 @@
           var buttonRight = isWide ? 'auto' : '16px'
           var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           var buttonMaxWidth = isWide ? '80%' : 'auto'
+          var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
 
           // Use frame-specific link text or default
           var linkButtonText =
@@ -644,29 +647,19 @@
               ? frame.linkText.trim()
               : 'Read More'
 
-          // Create clickable link button
-          adFrameLinkButton =
-            '<a href="' +
-            escapeAttr(frame.link) +
-            '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
-            idx +
-            '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
-            escapeAttr(frame.link) +
-            "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
-            buttonLeft +
-            ';right:' +
-            buttonRight +
-            ';bottom:32px;z-index:60;display:block;text-decoration:none;transform:' +
-            buttonTransform +
-            ';max-width:' +
-            buttonMaxWidth +
-            ';pointer-events:auto;cursor:pointer;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
-            buttonPadding +
-            ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
-            buttonFontSize +
-            ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
-            escapeHtml(linkButtonText) +
-            '</div></a>'
+          // Store button data instead of creating HTML
+          buttonData.push({
+            idx: idx,
+            link: frame.link,
+            text: linkButtonText,
+            left: buttonLeft,
+            top: buttonTop,
+            transform: buttonTransform,
+            marginLeft: '0',
+            maxWidth: buttonMaxWidth,
+            padding: buttonPadding,
+            fontSize: buttonFontSize,
+          })
 
           // Remove parent slide click handler when button exists (navigation still works via nav areas)
           adLinkClickHandler = ''
@@ -684,7 +677,6 @@
           '<div id="' +
           frame.adConfig.adId +
           '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-          adFrameLinkButton +
           '</div>'
         )
       }
@@ -933,10 +925,40 @@
         '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
         elementsHtml +
         '</div>' +
-        frameLinkButton +
         '</div>'
       )
     })
+
+    // Create buttons container outside slides
+    var buttonsHtml = buttonData
+      .map(function (btn) {
+        return (
+          '<a href="' +
+          escapeAttr(btn.link) +
+          '" target="_blank" rel="noopener noreferrer" class="snappy-frame-link-btn" data-frame-idx="' +
+          btn.idx +
+          '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+          escapeAttr(btn.link) +
+          "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+          btn.left +
+          ';margin-left:' +
+          btn.marginLeft +
+          ';top:' +
+          btn.top +
+          'px;z-index:70;display:none;text-decoration:none;transform:' +
+          btn.transform +
+          ';max-width:' +
+          btn.maxWidth +
+          ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+          btn.padding +
+          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+          btn.fontSize +
+          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+          escapeHtml(btn.text) +
+          '</div></a>'
+        )
+      })
+      .join('')
 
     var html =
       `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -950,14 +972,15 @@
       .nav-area.left{left:0;}
       .nav-area.right{right:0;}
       #snappy-cta-btn > div { cursor: pointer; }
-      a[id^="snappy-frame-link-btn-"] { cursor: pointer !important; pointer-events: auto !important; z-index: 60 !important; }
-      a[id^="snappy-frame-link-btn-"] > div { cursor: pointer; pointer-events: none; }
-      a[id^="snappy-frame-link-btn-"] > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
+      .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
+      .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
+      .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
       .ad-frame { background: #000; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
     </style><script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script></head><body><div style="width:100vw;height:100vh;position:relative;margin:0 auto;background:#111;border-radius:` +
       frameStyle.innerBorderRadius +
       `;overflow:hidden;">
     ${slides.join('')}
+    ${buttonsHtml}
     <div class="nav-area left" id="navLeft"></div><div class="nav-area right" id="navRight"></div>
     </div><script>
     // Initialize Google Publisher Tag
@@ -1020,7 +1043,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -1247,6 +1270,9 @@
               .replace(/>/g, '&gt;')
           }
 
+          // Store button data for creating buttons outside slides
+          var buttonData = []
+
           var slides = frames.map(function (frame, idx) {
             // Handle ad frames
             if (frame.type === 'ad' && frame.adConfig) {
@@ -1263,8 +1289,7 @@
                   .join('') +
                 '</div>'
 
-              // Frame Link Button for ad frames
-              var adFrameLinkButton = ''
+              // Frame Link Button for ad frames - store data instead of creating HTML
               var adLinkClickHandler = ''
               if (frame.link) {
                 // Calculate button size based on aspect ratio
@@ -1279,6 +1304,7 @@
                 var buttonRight = isWide ? 'auto' : '16px'
                 var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 var buttonMaxWidth = isWide ? '80%' : 'auto'
+                var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
 
                 // Use frame-specific link text or default
                 var linkButtonText =
@@ -1286,33 +1312,22 @@
                     ? frame.linkText.trim()
                     : 'Read More'
 
-                // Create clickable link button
-                adFrameLinkButton =
-                  '<a href="' +
-                  escapeAttr(frame.link) +
-                  '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
-                  idx +
-                  '" style="position:absolute;left:' +
-                  buttonLeft +
-                  ';right:' +
-                  buttonRight +
-                  ';bottom:32px;z-index:15;display:block;text-decoration:none;transform:' +
-                  buttonTransform +
-                  ';max-width:' +
-                  buttonMaxWidth +
-                  ';"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
-                  buttonPadding +
-                  ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
-                  buttonFontSize +
-                  ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);">' +
-                  escapeHtml(linkButtonText) +
-                  '</div></a>'
+                // Store button data instead of creating HTML
+                buttonData.push({
+                  idx: idx,
+                  link: frame.link,
+                  text: linkButtonText,
+                  left: buttonLeft,
+                  top: buttonTop,
+                  transform: buttonTransform,
+                  marginLeft: '0',
+                  maxWidth: buttonMaxWidth,
+                  padding: buttonPadding,
+                  fontSize: buttonFontSize,
+                })
 
-                // Add click handler for the entire ad slide (fallback)
-                adLinkClickHandler =
-                  'onclick="event.stopPropagation();document.getElementById(\'snappy-frame-link-btn-' +
-                  idx +
-                  '\')?.click();" style="cursor:pointer;"'
+                // Remove parent slide click handler when button exists (navigation still works via nav areas)
+                adLinkClickHandler = ''
               }
 
               return (
@@ -1327,7 +1342,6 @@
                 '<div id="' +
                 frame.adConfig.adId +
                 '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-                adFrameLinkButton +
                 '</div>'
               )
             }
@@ -1460,7 +1474,7 @@
                 '</div>'
             }
 
-            // Frame Link Button - Replace CTA with frame-specific link button
+            // Store button data for creating buttons outside slides
             var frameLinkButton = ''
             var linkClickHandler = ''
             if (frame.link) {
@@ -1507,31 +1521,19 @@
                   ? frame.linkText.trim()
                   : 'Read More'
 
-              // Create clickable link button with proper event handling
-              frameLinkButton =
-                '<a href="' +
-                escapeAttr(frame.link) +
-                '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
-                idx +
-                '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
-                escapeAttr(frame.link) +
-                "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
-                buttonLeft +
-                ';margin-left:' +
-                buttonMarginLeft +
-                ';top:' +
-                buttonTop +
-                'px;z-index:60;display:block;text-decoration:none;transform:' +
-                buttonTransform +
-                ';max-width:' +
-                buttonMaxWidth +
-                ';pointer-events:auto;cursor:pointer;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
-                buttonPadding +
-                ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
-                buttonFontSize +
-                ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
-                escapeHtml(linkButtonText) +
-                '</div></a>'
+              // Store button data instead of creating HTML
+              buttonData.push({
+                idx: idx,
+                link: frame.link,
+                text: linkButtonText,
+                left: buttonLeft,
+                top: buttonTop,
+                transform: buttonTransform,
+                marginLeft: buttonMarginLeft,
+                maxWidth: buttonMaxWidth,
+                padding: buttonPadding,
+                fontSize: buttonFontSize,
+              })
 
               // Remove parent slide click handler when button exists (navigation still works via nav areas)
               linkClickHandler = ''
@@ -1578,10 +1580,40 @@
               '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
               elementsHtml +
               '</div>' +
-              frameLinkButton +
               '</div>'
             )
           })
+
+          // Create buttons container outside slides
+          var buttonsHtml = buttonData
+            .map(function (btn) {
+              return (
+                '<a href="' +
+                escapeAttr(btn.link) +
+                '" target="_blank" rel="noopener noreferrer" class="snappy-frame-link-btn" data-frame-idx="' +
+                btn.idx +
+                '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+                escapeAttr(btn.link) +
+                "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+                btn.left +
+                ';margin-left:' +
+                btn.marginLeft +
+                ';top:' +
+                btn.top +
+                'px;z-index:70;display:none;text-decoration:none;transform:' +
+                btn.transform +
+                ';max-width:' +
+                btn.maxWidth +
+                ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+                btn.padding +
+                ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+                btn.fontSize +
+                ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+                escapeHtml(btn.text) +
+                '</div></a>'
+              )
+            })
+            .join('')
 
           var html =
             `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
@@ -1595,11 +1627,15 @@
           .nav-area.left{left:0;}
           .nav-area.right{right:0;}
           #snappy-cta-btn > div { cursor: pointer; }
+          .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
+          .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
+          .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
           .ad-frame { background: #000; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         </style><script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script></head><body><div style="width:100vw;height:100vh;position:relative;margin:0 auto;background:#111;border-radius:` +
             frameStyle.innerBorderRadius +
             `;overflow:hidden;">
         ${slides.join('')}
+        ${buttonsHtml}
         <div class="nav-area left" id="navLeft"></div><div class="nav-area right" id="navRight"></div>
         </div><script>
         // Initialize Google Publisher Tag
@@ -1662,7 +1698,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
         </script></body></html>`
 
           iframe.srcdoc = html

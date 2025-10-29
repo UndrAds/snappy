@@ -115,6 +115,17 @@ export default function DashboardHomePage() {
     }
   }
 
+  const getStoryTypeColor = (storyType: string) => {
+    switch (storyType) {
+      case 'dynamic':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+      case 'static':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -204,9 +215,14 @@ export default function DashboardHomePage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="truncate text-lg">
-                      {story.title}
-                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="truncate text-lg">
+                        {story.title}
+                      </CardTitle>
+                      <Badge className={getStoryTypeColor(story.storyType)}>
+                        {story.storyType === 'dynamic' ? 'Dynamic' : 'Static'}
+                      </Badge>
+                    </div>
                     <CardDescription className="mt-1 flex items-center gap-2">
                       <User className="h-3 w-3" />
                       <span className="truncate">{story.publisherName}</span>

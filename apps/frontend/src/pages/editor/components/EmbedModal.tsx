@@ -54,6 +54,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 }) => {
   const [embedType, setEmbedType] = useState<'regular' | 'floater'>('regular')
   const [autoplay, setAutoplay] = useState(false)
+  const [loop, setLoop] = useState(false)
   const [size, setSize] = useState<'large' | 'medium' | 'small' | 'custom'>(
     'medium'
   )
@@ -113,11 +114,11 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   const SIZE_PRESETS = getSizePresets()
 
-  // Note: width and height are now handled by the script automatically
-  // const { width, height } =
-  //   size === 'custom'
-  //     ? { width: customWidth, height: customHeight }
-  //     : SIZE_PRESETS[size]
+  // Get width and height based on size selection
+  const { width, height } =
+    size === 'custom'
+      ? { width: customWidth, height: customHeight }
+      : SIZE_PRESETS[size]
 
   // Get the base URL for external embedding
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
@@ -149,7 +150,10 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         body: `<ins id="snappy-webstory-${storyId}" 
   data-story-id="${storyId}" 
   data-api-url="${apiUrl}" 
-  data-autoplay="${autoplay}"></ins>`,
+  data-autoplay="${autoplay}"
+  data-loop="${loop}"
+  data-width="${width}"
+  data-height="${height}"></ins>`,
       }
     }
   }
@@ -222,6 +226,15 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                 <div className="mt-1 flex items-center space-x-2">
                   <Switch checked={autoplay} onCheckedChange={setAutoplay} />
                   <span className="text-sm">Automatically play the story</span>
+                </div>
+              </div>
+              <div>
+                <Label className="font-medium">Loop</Label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <Switch checked={loop} onCheckedChange={setLoop} />
+                  <span className="text-sm">
+                    Loop back to first slide after last
+                  </span>
                 </div>
               </div>
               <div>

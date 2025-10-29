@@ -103,13 +103,26 @@
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
     var autoplay = element.getAttribute('data-autoplay') === 'true'
+    var loop = element.getAttribute('data-loop') === 'true'
     var apiBaseUrl = element.getAttribute('data-api-url') || ''
 
     if (!storyId) return
 
-    // Get dimensions from the element's style or use defaults
-    var width = element.style.width || element.offsetWidth
-    var height = element.style.height || element.offsetHeight
+    // Get dimensions from data attributes first, then element style, then defaults
+    var width = element.getAttribute('data-width')
+    var height = element.getAttribute('data-height')
+
+    if (width) {
+      width = parseInt(width)
+    } else {
+      width = element.style.width || element.offsetWidth
+    }
+
+    if (height) {
+      height = parseInt(height)
+    } else {
+      height = element.style.height || element.offsetHeight
+    }
 
     // If no dimensions specified, use default mobile story dimensions
     if (!width || width === 0) {
@@ -137,7 +150,15 @@
     `
 
     // Fetch and render story
-    fetchAndRenderStory(storyId, apiBaseUrl, element, autoplay, false, null)
+    fetchAndRenderStory(
+      storyId,
+      apiBaseUrl,
+      element,
+      autoplay,
+      false,
+      null,
+      loop
+    )
   }
 
   function processFloaterEmbed(element) {
@@ -289,7 +310,7 @@
     `
 
     // Render the story in the regular container first (reuse the fetched data)
-    renderStoryDirectly(storyData, regularContainer, false, false)
+    renderStoryDirectly(storyData, regularContainer, false, false, null, false)
 
     // Create floater container with calculated dimensions
     var floaterContainer = document.createElement('div')
@@ -421,11 +442,18 @@
     }
 
     // Render story into the story container with floater scaling (reuse the fetched data)
-    renderStoryDirectly(storyData, storyContainer, false, true, {
-      isFloater: true,
-      scaleFactor: dimensions.width / width,
-      floaterDimensions: dimensions,
-    })
+    renderStoryDirectly(
+      storyData,
+      storyContainer,
+      false,
+      true,
+      {
+        isFloater: true,
+        scaleFactor: dimensions.width / width,
+        floaterDimensions: dimensions,
+      },
+      false
+    )
 
     // Start scroll detection
     window.addEventListener('scroll', checkScroll)
@@ -440,8 +468,11 @@
     container,
     autoplay,
     isFloater,
-    floaterOptions
+    floaterOptions,
+    loop
   ) {
+    // Default loop to false if not provided
+    if (loop === undefined) loop = false
     console.log('Rendering story directly with data:', storyData)
 
     var frames = storyData.frames || []
@@ -520,6 +551,65 @@
     iframe.style.zIndex = '1'
     var slideDuration = 2500
 
+    // Helper function to calculate text element position and size based on format/deviceFrame
+    function calculateTextElementPosition(
+      el,
+      containerWidth,
+      containerHeight,
+      format,
+      deviceFrame
+    ) {
+      var isLandscapeVideoPlayer =
+        format === 'landscape' && deviceFrame === 'video-player'
+      var isPortraitMobile = format === 'portrait' && deviceFrame === 'mobile'
+      var hasCTA = story.ctaType ? true : false
+
+      // CTA is at bottom:32px with height ~60px (12px padding top + 15px font + 12px padding bottom)
+      var ctaBottom = 32
+      var ctaHeight = 60
+      var textBottomPadding = 20 // Padding between text and CTA
+
+      var textWidth, textLeft, textBottom, textHeight
+
+      if (isLandscapeVideoPlayer) {
+        // Landscape video player: 50% width, centered, bottom with padding
+        textWidth = Math.round(containerWidth * 0.5)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = hasCTA
+          ? ctaBottom + ctaHeight + textBottomPadding
+          : textBottomPadding
+        // Height stays dynamic based on content, but ensure minimum
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      } else if (isPortraitMobile) {
+        // Portrait mobile: 90% width, centered, bottom with padding
+        textWidth = Math.round(containerWidth * 0.9)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = hasCTA
+          ? ctaBottom + ctaHeight + textBottomPadding
+          : textBottomPadding
+        // Height stays dynamic based on content, but ensure minimum
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      } else {
+        // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
+        textWidth = Math.round(containerWidth * 0.85)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = hasCTA
+          ? ctaBottom + ctaHeight + textBottomPadding
+          : textBottomPadding
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      }
+
+      // Convert bottom to top position (since we use top in CSS)
+      var textTop = containerHeight - textBottom - textHeight
+
+      return {
+        left: textLeft,
+        top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+        width: textWidth,
+        height: textHeight,
+      }
+    }
+
     // Build the story UI (same as in fetchAndRenderStory)
     var slides = frames.map(function (frame, idx) {
       // Handle ad frames
@@ -591,18 +681,39 @@
       }
       var elementsHtml = (frame.elements || [])
         .map(function (el) {
-          var style =
+          var style = ''
+          var elementWidth = el.width
+          var elementHeight = el.height
+          var elementLeft = el.x
+          var elementTop = el.y
+
+          // For text elements, calculate position based on format/deviceFrame
+          if (el.type === 'text') {
+            var textPos = calculateTextElementPosition(
+              el,
+              width,
+              height,
+              story.format,
+              story.deviceFrame
+            )
+            elementWidth = textPos.width
+            elementHeight = textPos.height
+            elementLeft = textPos.left
+            elementTop = textPos.top
+          }
+
+          style =
             'position:absolute;left:' +
-            el.x +
+            elementLeft +
             'px;top:' +
-            el.y +
+            elementTop +
             'px;width:' +
-            el.width +
+            elementWidth +
             'px;height:' +
-            el.height +
+            elementHeight +
             'px;'
           if (el.type === 'text') {
-            var minH = Math.max(24, Math.round(el.height || 0))
+            var minH = Math.max(24, Math.round(elementHeight || 0))
             style +=
               'color:' +
               (el.style.color || '#fff') +
@@ -812,7 +923,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -828,8 +939,11 @@
     container,
     autoplay,
     isFloater,
-    floaterOptions
+    floaterOptions,
+    loop
   ) {
+    // Default loop to false if not provided
+    if (loop === undefined) loop = false
     // Prevent duplicate requests for the same story
     var requestKey = storyId + '-' + (isFloater ? 'floater' : 'regular')
     if (pendingRequests.has(requestKey)) {
@@ -960,6 +1074,66 @@
           iframe.style.zIndex = '1'
           var slideDuration = 2500
 
+          // Helper function to calculate text element position and size based on format/deviceFrame
+          function calculateTextElementPosition(
+            el,
+            containerWidth,
+            containerHeight,
+            format,
+            deviceFrame
+          ) {
+            var isLandscapeVideoPlayer =
+              format === 'landscape' && deviceFrame === 'video-player'
+            var isPortraitMobile =
+              format === 'portrait' && deviceFrame === 'mobile'
+            var hasCTA = story.ctaType ? true : false
+
+            // CTA is at bottom:32px with height ~60px (12px padding top + 15px font + 12px padding bottom)
+            var ctaBottom = 32
+            var ctaHeight = 60
+            var textBottomPadding = 20 // Padding between text and CTA
+
+            var textWidth, textLeft, textBottom, textHeight
+
+            if (isLandscapeVideoPlayer) {
+              // Landscape video player: 50% width, centered, bottom with padding
+              textWidth = Math.round(containerWidth * 0.5)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = hasCTA
+                ? ctaBottom + ctaHeight + textBottomPadding
+                : textBottomPadding
+              // Height stays dynamic based on content, but ensure minimum
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            } else if (isPortraitMobile) {
+              // Portrait mobile: 90% width, centered, bottom with padding
+              textWidth = Math.round(containerWidth * 0.9)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = hasCTA
+                ? ctaBottom + ctaHeight + textBottomPadding
+                : textBottomPadding
+              // Height stays dynamic based on content, but ensure minimum
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            } else {
+              // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
+              textWidth = Math.round(containerWidth * 0.85)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = hasCTA
+                ? ctaBottom + ctaHeight + textBottomPadding
+                : textBottomPadding
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            }
+
+            // Convert bottom to top position (since we use top in CSS)
+            var textTop = containerHeight - textBottom - textHeight
+
+            return {
+              left: textLeft,
+              top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+              width: textWidth,
+              height: textHeight,
+            }
+          }
+
           // Build the story UI
           // Escapers for safe inline HTML
           function escapeHtml(str) {
@@ -1051,18 +1225,39 @@
             }
             var elementsHtml = (frame.elements || [])
               .map(function (el) {
-                var style =
+                var style = ''
+                var elementWidth = el.width
+                var elementHeight = el.height
+                var elementLeft = el.x
+                var elementTop = el.y
+
+                // For text elements, calculate position based on format/deviceFrame
+                if (el.type === 'text') {
+                  var textPos = calculateTextElementPosition(
+                    el,
+                    width,
+                    height,
+                    story.format,
+                    story.deviceFrame
+                  )
+                  elementWidth = textPos.width
+                  elementHeight = textPos.height
+                  elementLeft = textPos.left
+                  elementTop = textPos.top
+                }
+
+                style =
                   'position:absolute;left:' +
-                  el.x +
+                  elementLeft +
                   'px;top:' +
-                  el.y +
+                  elementTop +
                   'px;width:' +
-                  el.width +
+                  elementWidth +
                   'px;height:' +
-                  el.height +
+                  elementHeight +
                   'px;'
                 if (el.type === 'text') {
-                  var minH = Math.max(24, Math.round(el.height || 0))
+                  var minH = Math.max(24, Math.round(elementHeight || 0))
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
@@ -1272,7 +1467,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
         </script></body></html>`
 
           iframe.srcdoc = html

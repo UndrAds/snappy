@@ -445,6 +445,25 @@
     console.log('Rendering story directly with data:', storyData)
 
     var frames = storyData.frames || []
+    // Escapers for safe inline HTML
+    function escapeHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+    function escapeAttr(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    }
     var story = {
       storyTitle: storyData.title,
       publisherName: storyData.publisherName,
@@ -583,6 +602,7 @@
             el.height +
             'px;'
           if (el.type === 'text') {
+            var minH = Math.max(24, Math.round(el.height || 0))
             style +=
               'color:' +
               (el.style.color || '#fff') +
@@ -596,8 +616,17 @@
               (el.style.backgroundColor || 'transparent') +
               ';opacity:' +
               (el.style.opacity || 100) / 100 +
-              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;'
-            return '<div style="' + style + '">' + (el.content || '') + '</div>'
+              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+              'height:auto;min-height:' +
+              minH +
+              'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
+            return (
+              '<div style="' +
+              style +
+              '">' +
+              escapeHtml(el.content || '') +
+              '</div>'
+            )
           }
           if (el.type === 'image') {
             return (
@@ -623,9 +652,9 @@
               '" style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;object-fit:cover;" />'
             : '<div style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;">PP</div>') +
           '<div style="flex:1;"><div style="color:#fff;font-weight:600;font-size:15px;">' +
-          (story.publisherName || '') +
+          escapeHtml(story.publisherName || '') +
           '</div><div style="color:#fff;opacity:0.8;font-size:12px;">' +
-          (story.storyTitle || '') +
+          escapeHtml(story.storyTitle || '') +
           '</div></div>' +
           '<div style="color:#fff;font-size:12px;">' +
           (idx + 1) +
@@ -664,7 +693,7 @@
         // Add click handler for the entire slide
         linkClickHandler =
           'onclick="event.stopPropagation();handleFrameLink(\'' +
-          frame.link +
+          escapeAttr(frame.link) +
           '\')" style="cursor:pointer;"'
       }
 
@@ -695,7 +724,7 @@
         progress +
         header +
         bgImg +
-        '<div style="position:relative;width:100%;height:100%;">' +
+        '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
         elementsHtml +
         '</div>' +
         cta +
@@ -708,9 +737,9 @@
       `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
       html,body{margin:0;padding:0;overflow:hidden;background:#111;width:100vw;height:100vh;}
       body{width:100vw;height:100vh;}
-      .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;}
+      .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;position:absolute;top:0;left:0;}
       .slide.active{opacity:1;pointer-events:auto;z-index:1;}
-      .slide.has-link{pointer-events:auto;cursor:pointer;z-index:100;}
+      .slide.has-link.active{pointer-events:auto;cursor:pointer;z-index:2;}
       .nav-btn{display:none;}
       .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
       .nav-area.left{left:0;}
@@ -783,7 +812,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){if(url){window.open(url,'_blank','noopener,noreferrer');}}show(idx);if(${autoplay}){resetAutoplay();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -859,9 +888,39 @@
           console.log('Final format:', story.format)
           console.log('Final deviceFrame:', story.deviceFrame)
 
-          // Get container dimensions
-          var width = container.style.width || container.offsetWidth || 360
-          var height = container.style.height || container.offsetHeight || 700
+          // Determine ideal container dimensions from story format/device frame
+          var idealDims = calculateRegularContainerDimensions(
+            story.format,
+            story.deviceFrame
+          )
+
+          // If container has no explicit size or is using defaults, set appropriate size
+          var currentWidth = container.style.width || container.offsetWidth
+          var currentHeight = container.style.height || container.offsetHeight
+          if (!currentWidth || !currentHeight) {
+            container.style.width = idealDims.width + 'px'
+            container.style.height = idealDims.height + 'px'
+          } else {
+            // If it's still at portrait defaults (360x640), switch to ideal
+            var cw =
+              typeof currentWidth === 'string' && currentWidth.includes('px')
+                ? parseInt(currentWidth)
+                : currentWidth
+            var ch =
+              typeof currentHeight === 'string' && currentHeight.includes('px')
+                ? parseInt(currentHeight)
+                : currentHeight
+            if ((cw === 360 && ch === 640) || cw === 0 || ch === 0) {
+              container.style.width = idealDims.width + 'px'
+              container.style.height = idealDims.height + 'px'
+            }
+          }
+
+          // Get container dimensions (after possible adjustment)
+          var width =
+            container.style.width || container.offsetWidth || idealDims.width
+          var height =
+            container.style.height || container.offsetHeight || idealDims.height
 
           // Ensure dimensions are in pixels
           if (typeof width === 'string' && width.includes('px')) {
@@ -902,6 +961,26 @@
           var slideDuration = 2500
 
           // Build the story UI
+          // Escapers for safe inline HTML
+          function escapeHtml(str) {
+            if (str == null) return ''
+            return String(str)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/\"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+          }
+          function escapeAttr(str) {
+            if (str == null) return ''
+            return String(str)
+              .replace(/&/g, '&amp;')
+              .replace(/\"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+          }
+
           var slides = frames.map(function (frame, idx) {
             // Handle ad frames
             if (frame.type === 'ad' && frame.adConfig) {
@@ -983,6 +1062,7 @@
                   el.height +
                   'px;'
                 if (el.type === 'text') {
+                  var minH = Math.max(24, Math.round(el.height || 0))
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
@@ -996,12 +1076,15 @@
                     (el.style.backgroundColor || 'transparent') +
                     ';opacity:' +
                     (el.style.opacity || 100) / 100 +
-                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;'
+                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+                    'height:auto;min-height:' +
+                    minH +
+                    'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
                   return (
                     '<div style="' +
                     style +
                     '">' +
-                    (el.content || '') +
+                    escapeHtml(el.content || '') +
                     '</div>'
                   )
                 }
@@ -1029,9 +1112,9 @@
                     '" style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;object-fit:cover;" />'
                   : '<div style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;">PP</div>') +
                 '<div style="flex:1;"><div style="color:#fff;font-weight:600;font-size:15px;">' +
-                (story.publisherName || '') +
+                escapeHtml(story.publisherName || '') +
                 '</div><div style="color:#fff;opacity:0.8;font-size:12px;">' +
-                (story.storyTitle || '') +
+                escapeHtml(story.storyTitle || '') +
                 '</div></div>' +
                 '<div style="color:#fff;font-size:12px;">' +
                 (idx + 1) +
@@ -1070,7 +1153,7 @@
               // Add click handler for the entire slide
               linkClickHandler =
                 'onclick="event.stopPropagation();handleFrameLink(\'' +
-                frame.link +
+                escapeAttr(frame.link) +
                 '\')" style="cursor:pointer;"'
             }
 
@@ -1101,7 +1184,7 @@
               progress +
               header +
               bgImg +
-              '<div style="position:relative;width:100%;height:100%;">' +
+              '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
               elementsHtml +
               '</div>' +
               cta +
@@ -1114,9 +1197,9 @@
             `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
           html,body{margin:0;padding:0;overflow:hidden;background:#111;width:100vw;height:100vh;}
           body{width:100vw;height:100vh;}
-          .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;}
+          .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;position:absolute;top:0;left:0;}
           .slide.active{opacity:1;pointer-events:auto;z-index:1;}
-          .slide.has-link{pointer-events:auto;cursor:pointer;z-index:100;}
+          .slide.has-link.active{pointer-events:auto;cursor:pointer;z-index:2;}
           .nav-btn{display:none;}
           .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
           .nav-area.left{left:0;}
@@ -1189,7 +1272,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){if(url){window.open(url,'_blank','noopener,noreferrer');}}show(idx);if(${autoplay}){resetAutoplay();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
         </script></body></html>`
 
           iframe.srcdoc = html

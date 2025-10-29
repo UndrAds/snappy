@@ -557,17 +557,15 @@
       containerWidth,
       containerHeight,
       format,
-      deviceFrame
+      deviceFrame,
+      hasFrameLink
     ) {
       var isLandscapeVideoPlayer =
         format === 'landscape' && deviceFrame === 'video-player'
       var isPortraitMobile = format === 'portrait' && deviceFrame === 'mobile'
-      var hasCTA = story.ctaType ? true : false
 
-      // CTA is at bottom:32px with height ~60px (12px padding top + 15px font + 12px padding bottom)
-      var ctaBottom = 32
-      var ctaHeight = 60
-      var textBottomPadding = 20 // Padding between text and CTA
+      // Text positioning - button will be positioned below text dynamically
+      var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
 
       var textWidth, textLeft, textBottom, textHeight
 
@@ -575,32 +573,28 @@
         // Landscape video player: 50% width, centered, bottom with padding
         textWidth = Math.round(containerWidth * 0.5)
         textLeft = Math.round((containerWidth - textWidth) / 2)
-        textBottom = hasCTA
-          ? ctaBottom + ctaHeight + textBottomPadding
-          : textBottomPadding
+        textBottom = textBottomPadding
         // Height stays dynamic based on content, but ensure minimum
         textHeight = el.height || Math.max(60, containerHeight * 0.15)
       } else if (isPortraitMobile) {
         // Portrait mobile: 90% width, centered, bottom with padding
         textWidth = Math.round(containerWidth * 0.9)
         textLeft = Math.round((containerWidth - textWidth) / 2)
-        textBottom = hasCTA
-          ? ctaBottom + ctaHeight + textBottomPadding
-          : textBottomPadding
+        textBottom = textBottomPadding
         // Height stays dynamic based on content, but ensure minimum
         textHeight = el.height || Math.max(60, containerHeight * 0.15)
       } else {
         // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
         textWidth = Math.round(containerWidth * 0.85)
         textLeft = Math.round((containerWidth - textWidth) / 2)
-        textBottom = hasCTA
-          ? ctaBottom + ctaHeight + textBottomPadding
-          : textBottomPadding
+        textBottom = textBottomPadding
         textHeight = el.height || Math.max(60, containerHeight * 0.15)
       }
 
       // Convert bottom to top position (since we use top in CSS)
-      var textTop = containerHeight - textBottom - textHeight
+      // Position from bottom, accounting for button space if needed
+      var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
+      var textTop = containerHeight - textBottom - textHeight - buttonSpace
 
       return {
         left: textLeft,
@@ -627,23 +621,55 @@
             .join('') +
           '</div>'
 
-        // Frame Link Indicators and Click Handler for ad frames
-        var adLinkIndicators = ''
+        // Frame Link Button for ad frames
+        var adFrameLinkButton = ''
         var adLinkClickHandler = ''
         if (frame.link) {
-          // Link indicator badge for ad frames
-          adLinkIndicators =
-            '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
+          // Calculate button size based on aspect ratio
+          var isLandscape = story.format === 'landscape'
+          var aspectRatio = width / height
+          var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-          // Click to open hint for ad frames
-          adLinkIndicators +=
-            '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
+          // Button size calculations based on aspect ratio
+          var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+          var buttonFontSize = isWide ? '12px' : '15px'
+          var buttonLeft = isWide ? '50%' : '16px'
+          var buttonRight = isWide ? 'auto' : '16px'
+          var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+          var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-          // Add click handler for the entire ad slide
-          adLinkClickHandler =
-            'onclick="event.stopPropagation();handleFrameLink(\'' +
-            frame.link +
-            '\')" style="cursor:pointer;"'
+          // Use frame-specific link text or default
+          var linkButtonText =
+            frame.linkText && frame.linkText.trim()
+              ? frame.linkText.trim()
+              : 'Read More'
+
+          // Create clickable link button
+          adFrameLinkButton =
+            '<a href="' +
+            escapeAttr(frame.link) +
+            '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
+            idx +
+            '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+            escapeAttr(frame.link) +
+            "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+            buttonLeft +
+            ';right:' +
+            buttonRight +
+            ';bottom:32px;z-index:60;display:block;text-decoration:none;transform:' +
+            buttonTransform +
+            ';max-width:' +
+            buttonMaxWidth +
+            ';pointer-events:auto;cursor:pointer;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+            buttonPadding +
+            ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+            buttonFontSize +
+            ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+            escapeHtml(linkButtonText) +
+            '</div></a>'
+
+          // Remove parent slide click handler when button exists (navigation still works via nav areas)
+          adLinkClickHandler = ''
         }
 
         return (
@@ -658,7 +684,7 @@
           '<div id="' +
           frame.adConfig.adId +
           '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-          adLinkIndicators +
+          adFrameLinkButton +
           '</div>'
         )
       }
@@ -679,6 +705,11 @@
             ';" />'
         }
       }
+      // Track text element position for button placement
+      var textElementBottom = null
+      var textElementLeft = null
+      var textElementWidth = null
+
       var elementsHtml = (frame.elements || [])
         .map(function (el) {
           var style = ''
@@ -694,12 +725,23 @@
               width,
               height,
               story.format,
-              story.deviceFrame
+              story.deviceFrame,
+              !!frame.link
             )
             elementWidth = textPos.width
             elementHeight = textPos.height
             elementLeft = textPos.left
             elementTop = textPos.top
+
+            // Store text element position for button placement
+            // Since height is auto, estimate actual height (at least min-height)
+            var estimatedHeight = Math.max(
+              elementHeight,
+              Math.max(24, Math.round(el.height || 0))
+            )
+            textElementBottom = elementTop + estimatedHeight
+            textElementLeft = elementLeft
+            textElementWidth = elementWidth
           }
 
           style =
@@ -775,37 +817,90 @@
           '</div>'
       }
 
-      // CTA
-      var cta = ''
-      if (story.ctaType) {
+      // Frame Link Button - Replace CTA with frame-specific link button
+      var frameLinkButton = ''
+      var linkClickHandler = ''
+      if (frame.link) {
+        // Calculate button size based on aspect ratio
+        var isLandscape = story.format === 'landscape'
+        var aspectRatio = width / height
+        var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
+
+        // Button size calculations based on aspect ratio
+        var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+        var buttonFontSize = isWide ? '12px' : '15px'
+        var buttonMaxWidth = isWide ? '80%' : 'auto'
+
+        // Position button below text element with gap
+        var buttonGap = 24 // Gap between text and button
+        var buttonTop =
+          textElementBottom !== null
+            ? textElementBottom + buttonGap
+            : height - 100 // Fallback if no text element
+
+        // Calculate button horizontal position based on text element or aspect ratio
+        var buttonLeft = ''
+        var buttonTransform = ''
+        var buttonMarginLeft = ''
+
+        if (textElementLeft !== null && textElementWidth !== null) {
+          // Center button relative to text element
+          var buttonWidth = isWide
+            ? Math.min(textElementWidth, width * 0.8)
+            : Math.min(textElementWidth, width - 32)
+          buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
+          buttonTransform = 'translateX(-50%)'
+          buttonMarginLeft = '0'
+        } else {
+          // Fallback: center based on aspect ratio
+          buttonLeft = isWide ? '50%' : '16px'
+          buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+          buttonMarginLeft = isWide ? '0' : '0'
+        }
+
+        // Use frame-specific link text or default
+        var linkButtonText =
+          frame.linkText && frame.linkText.trim()
+            ? frame.linkText.trim()
+            : 'Read More'
+
+        // Create clickable link button with proper event handling
+        frameLinkButton =
+          '<a href="' +
+          escapeAttr(frame.link) +
+          '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
+          idx +
+          '" onclick="event.stopPropagation();" style="position:absolute;left:' +
+          buttonLeft +
+          ';margin-left:' +
+          buttonMarginLeft +
+          ';top:' +
+          buttonTop +
+          'px;z-index:20;display:block;text-decoration:none;transform:' +
+          buttonTransform +
+          ';max-width:' +
+          buttonMaxWidth +
+          ';pointer-events:auto;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+          buttonPadding +
+          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+          buttonFontSize +
+          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+          escapeHtml(linkButtonText) +
+          '</div></a>'
+
+        // Remove parent slide click handler when button exists (navigation still works via nav areas)
+        linkClickHandler = ''
+      } else if (story.ctaType) {
+        // Fallback to story-level CTA if no frame link
         var ctaText = ''
         if (story.ctaType === 'redirect') ctaText = 'Visit Link'
         if (story.ctaType === 'form') ctaText = 'Fill Form'
         if (story.ctaType === 'promo') ctaText = 'Get Promo'
         if (story.ctaType === 'sell') ctaText = 'Buy Now'
-        cta =
+        frameLinkButton =
           '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
           ctaText +
           '</div></div>'
-      }
-
-      // Frame Link Indicators and Click Handler
-      var linkIndicators = ''
-      var linkClickHandler = ''
-      if (frame.link) {
-        // Link indicator badge
-        linkIndicators =
-          '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
-
-        // Click to open hint
-        linkIndicators +=
-          '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
-
-        // Add click handler for the entire slide
-        linkClickHandler =
-          'onclick="event.stopPropagation();handleFrameLink(\'' +
-          escapeAttr(frame.link) +
-          '\')" style="cursor:pointer;"'
       }
 
       // Progress bar
@@ -838,8 +933,7 @@
         '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
         elementsHtml +
         '</div>' +
-        cta +
-        linkIndicators +
+        frameLinkButton +
         '</div>'
       )
     })
@@ -856,6 +950,9 @@
       .nav-area.left{left:0;}
       .nav-area.right{right:0;}
       #snappy-cta-btn > div { cursor: pointer; }
+      a[id^="snappy-frame-link-btn-"] { cursor: pointer !important; pointer-events: auto !important; z-index: 60 !important; }
+      a[id^="snappy-frame-link-btn-"] > div { cursor: pointer; pointer-events: none; }
+      a[id^="snappy-frame-link-btn-"] > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
       .ad-frame { background: #000; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
     </style><script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script></head><body><div style="width:100vw;height:100vh;position:relative;margin:0 auto;background:#111;border-radius:` +
       frameStyle.innerBorderRadius +
@@ -1080,18 +1177,16 @@
             containerWidth,
             containerHeight,
             format,
-            deviceFrame
+            deviceFrame,
+            hasFrameLink
           ) {
             var isLandscapeVideoPlayer =
               format === 'landscape' && deviceFrame === 'video-player'
             var isPortraitMobile =
               format === 'portrait' && deviceFrame === 'mobile'
-            var hasCTA = story.ctaType ? true : false
 
-            // CTA is at bottom:32px with height ~60px (12px padding top + 15px font + 12px padding bottom)
-            var ctaBottom = 32
-            var ctaHeight = 60
-            var textBottomPadding = 20 // Padding between text and CTA
+            // Text positioning - button will be positioned below text dynamically
+            var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
 
             var textWidth, textLeft, textBottom, textHeight
 
@@ -1099,32 +1194,29 @@
               // Landscape video player: 50% width, centered, bottom with padding
               textWidth = Math.round(containerWidth * 0.5)
               textLeft = Math.round((containerWidth - textWidth) / 2)
-              textBottom = hasCTA
-                ? ctaBottom + ctaHeight + textBottomPadding
-                : textBottomPadding
+              textBottom = textBottomPadding
               // Height stays dynamic based on content, but ensure minimum
               textHeight = el.height || Math.max(60, containerHeight * 0.15)
             } else if (isPortraitMobile) {
               // Portrait mobile: 90% width, centered, bottom with padding
               textWidth = Math.round(containerWidth * 0.9)
               textLeft = Math.round((containerWidth - textWidth) / 2)
-              textBottom = hasCTA
-                ? ctaBottom + ctaHeight + textBottomPadding
-                : textBottomPadding
+              textBottom = textBottomPadding
               // Height stays dynamic based on content, but ensure minimum
               textHeight = el.height || Math.max(60, containerHeight * 0.15)
             } else {
               // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
               textWidth = Math.round(containerWidth * 0.85)
               textLeft = Math.round((containerWidth - textWidth) / 2)
-              textBottom = hasCTA
-                ? ctaBottom + ctaHeight + textBottomPadding
-                : textBottomPadding
+              textBottom = textBottomPadding
               textHeight = el.height || Math.max(60, containerHeight * 0.15)
             }
 
             // Convert bottom to top position (since we use top in CSS)
-            var textTop = containerHeight - textBottom - textHeight
+            // Position from bottom, accounting for button space if needed
+            var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
+            var textTop =
+              containerHeight - textBottom - textHeight - buttonSpace
 
             return {
               left: textLeft,
@@ -1171,23 +1263,56 @@
                   .join('') +
                 '</div>'
 
-              // Frame Link Indicators and Click Handler for ad frames
-              var adLinkIndicators = ''
+              // Frame Link Button for ad frames
+              var adFrameLinkButton = ''
               var adLinkClickHandler = ''
               if (frame.link) {
-                // Link indicator badge for ad frames
-                adLinkIndicators =
-                  '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
+                // Calculate button size based on aspect ratio
+                var isLandscape = story.format === 'landscape'
+                var aspectRatio = width / height
+                var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-                // Click to open hint for ad frames
-                adLinkIndicators +=
-                  '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
+                // Button size calculations based on aspect ratio
+                var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+                var buttonFontSize = isWide ? '12px' : '15px'
+                var buttonLeft = isWide ? '50%' : '16px'
+                var buttonRight = isWide ? 'auto' : '16px'
+                var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+                var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-                // Add click handler for the entire ad slide
+                // Use frame-specific link text or default
+                var linkButtonText =
+                  frame.linkText && frame.linkText.trim()
+                    ? frame.linkText.trim()
+                    : 'Read More'
+
+                // Create clickable link button
+                adFrameLinkButton =
+                  '<a href="' +
+                  escapeAttr(frame.link) +
+                  '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
+                  idx +
+                  '" style="position:absolute;left:' +
+                  buttonLeft +
+                  ';right:' +
+                  buttonRight +
+                  ';bottom:32px;z-index:15;display:block;text-decoration:none;transform:' +
+                  buttonTransform +
+                  ';max-width:' +
+                  buttonMaxWidth +
+                  ';"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+                  buttonPadding +
+                  ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+                  buttonFontSize +
+                  ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);">' +
+                  escapeHtml(linkButtonText) +
+                  '</div></a>'
+
+                // Add click handler for the entire ad slide (fallback)
                 adLinkClickHandler =
-                  'onclick="event.stopPropagation();handleFrameLink(\'' +
-                  frame.link +
-                  '\')" style="cursor:pointer;"'
+                  'onclick="event.stopPropagation();document.getElementById(\'snappy-frame-link-btn-' +
+                  idx +
+                  '\')?.click();" style="cursor:pointer;"'
               }
 
               return (
@@ -1202,7 +1327,7 @@
                 '<div id="' +
                 frame.adConfig.adId +
                 '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-                adLinkIndicators +
+                adFrameLinkButton +
                 '</div>'
               )
             }
@@ -1223,6 +1348,11 @@
                   ';" />'
               }
             }
+            // Track text element position for button placement
+            var textElementBottom = null
+            var textElementLeft = null
+            var textElementWidth = null
+
             var elementsHtml = (frame.elements || [])
               .map(function (el) {
                 var style = ''
@@ -1238,12 +1368,23 @@
                     width,
                     height,
                     story.format,
-                    story.deviceFrame
+                    story.deviceFrame,
+                    !!frame.link
                   )
                   elementWidth = textPos.width
                   elementHeight = textPos.height
                   elementLeft = textPos.left
                   elementTop = textPos.top
+
+                  // Store text element position for button placement
+                  // Since height is auto, estimate actual height (at least min-height)
+                  var estimatedHeight = Math.max(
+                    elementHeight,
+                    Math.max(24, Math.round(el.height || 0))
+                  )
+                  textElementBottom = elementTop + estimatedHeight
+                  textElementLeft = elementLeft
+                  textElementWidth = elementWidth
                 }
 
                 style =
@@ -1319,37 +1460,92 @@
                 '</div>'
             }
 
-            // CTA
-            var cta = ''
-            if (story.ctaType) {
+            // Frame Link Button - Replace CTA with frame-specific link button
+            var frameLinkButton = ''
+            var linkClickHandler = ''
+            if (frame.link) {
+              // Calculate button size based on aspect ratio
+              var isLandscape = story.format === 'landscape'
+              var aspectRatio = width / height
+              var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
+
+              // Button size calculations based on aspect ratio
+              var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+              var buttonFontSize = isWide ? '12px' : '15px'
+              var buttonMaxWidth = isWide ? '80%' : 'auto'
+
+              // Position button below text element with gap
+              var buttonGap = 24 // Gap between text and button
+              var buttonTop =
+                textElementBottom !== null
+                  ? textElementBottom + buttonGap
+                  : height - 100 // Fallback if no text element
+
+              // Calculate button horizontal position based on text element or aspect ratio
+              var buttonLeft = ''
+              var buttonTransform = ''
+              var buttonMarginLeft = ''
+
+              if (textElementLeft !== null && textElementWidth !== null) {
+                // Center button relative to text element
+                var buttonWidth = isWide
+                  ? Math.min(textElementWidth, width * 0.8)
+                  : Math.min(textElementWidth, width - 32)
+                buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
+                buttonTransform = 'translateX(-50%)'
+                buttonMarginLeft = '0'
+              } else {
+                // Fallback: center based on aspect ratio
+                buttonLeft = isWide ? '50%' : '16px'
+                buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+                buttonMarginLeft = isWide ? '0' : '0'
+              }
+
+              // Use frame-specific link text or default
+              var linkButtonText =
+                frame.linkText && frame.linkText.trim()
+                  ? frame.linkText.trim()
+                  : 'Read More'
+
+              // Create clickable link button with proper event handling
+              frameLinkButton =
+                '<a href="' +
+                escapeAttr(frame.link) +
+                '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
+                idx +
+                '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+                escapeAttr(frame.link) +
+                "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+                buttonLeft +
+                ';margin-left:' +
+                buttonMarginLeft +
+                ';top:' +
+                buttonTop +
+                'px;z-index:60;display:block;text-decoration:none;transform:' +
+                buttonTransform +
+                ';max-width:' +
+                buttonMaxWidth +
+                ';pointer-events:auto;cursor:pointer;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+                buttonPadding +
+                ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+                buttonFontSize +
+                ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+                escapeHtml(linkButtonText) +
+                '</div></a>'
+
+              // Remove parent slide click handler when button exists (navigation still works via nav areas)
+              linkClickHandler = ''
+            } else if (story.ctaType) {
+              // Fallback to story-level CTA if no frame link
               var ctaText = ''
               if (story.ctaType === 'redirect') ctaText = 'Visit Link'
               if (story.ctaType === 'form') ctaText = 'Fill Form'
               if (story.ctaType === 'promo') ctaText = 'Get Promo'
               if (story.ctaType === 'sell') ctaText = 'Buy Now'
-              cta =
+              frameLinkButton =
                 '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
                 ctaText +
                 '</div></div>'
-            }
-
-            // Frame Link Indicators and Click Handler
-            var linkIndicators = ''
-            var linkClickHandler = ''
-            if (frame.link) {
-              // Link indicator badge
-              linkIndicators =
-                '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
-
-              // Click to open hint
-              linkIndicators +=
-                '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
-
-              // Add click handler for the entire slide
-              linkClickHandler =
-                'onclick="event.stopPropagation();handleFrameLink(\'' +
-                escapeAttr(frame.link) +
-                '\')" style="cursor:pointer;"'
             }
 
             // Progress bar
@@ -1382,8 +1578,7 @@
               '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
               elementsHtml +
               '</div>' +
-              cta +
-              linkIndicators +
+              frameLinkButton +
               '</div>'
             )
           })

@@ -37,11 +37,59 @@ export class RSSService {
 
         // Try to extract image from various sources
         if (item['mediaContent'] && item['mediaContent'].length > 0) {
-          const mediaItem = item['mediaContent'].find((media: any) =>
-            media.$.type?.startsWith('image/')
-          );
+          // Debug logging for mediaContent structure
+          console.log('Found mediaContent:', JSON.stringify(item['mediaContent'], null, 2));
+
+          // First, try to find media:content with image type or medium="image"
+          const mediaItem = item['mediaContent'].find((media: any) => {
+            if (!media.$) {
+              // Check if URL is directly on the media object
+              if (media.url) return true;
+              return false;
+            }
+            // Check for type starting with "image/"
+            if (media.$.type?.startsWith('image/')) return true;
+            // Check for medium="image" attribute
+            if (media.$.medium === 'image') return true;
+            // Check for type="image" (some feeds use this)
+            if (media.$.type === 'image') return true;
+            // Check if there's a URL attribute (might be an image by default)
+            if (media.$.url) return true;
+            return false;
+          });
+
           if (mediaItem) {
-            imageUrl = mediaItem.$.url;
+            // Try different possible URL locations
+            imageUrl =
+              mediaItem.$?.url || mediaItem.$?.['media:url'] || mediaItem.url || mediaItem.$?.src;
+
+            // Debug logging
+            if (imageUrl) {
+              console.log('Found image URL from mediaContent:', imageUrl);
+            } else {
+              console.log('mediaContent found but no URL:', JSON.stringify(mediaItem, null, 2));
+            }
+          }
+
+          // If still no image, try to find any media:content with a URL (fallback)
+          if (!imageUrl) {
+            const anyMediaItem = item['mediaContent'].find((media: any) => {
+              if (media.$) {
+                return media.$.url || media.$['media:url'] || media.$.src;
+              }
+              return media.url || media.src;
+            });
+            if (anyMediaItem) {
+              imageUrl =
+                anyMediaItem.$?.url ||
+                anyMediaItem.$?.['media:url'] ||
+                anyMediaItem.$?.src ||
+                anyMediaItem.url ||
+                anyMediaItem.src;
+              if (imageUrl) {
+                console.log('Found image URL from mediaContent (fallback):', imageUrl);
+              }
+            }
           }
         }
 

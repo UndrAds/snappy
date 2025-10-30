@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image, X, Link } from 'lucide-react'
+import { Image as ImageIcon, X, Link } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -114,6 +114,7 @@ export default function StoryFrame({
   deviceFrame = 'mobile',
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
+  const [dominantColor, setDominantColor] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
@@ -628,7 +629,7 @@ export default function StoryFrame({
 
         {element.type === 'image' && !element.mediaUrl && (
           <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-border bg-muted">
-            <Image className="h-8 w-8 text-muted-foreground" />
+            <ImageIcon className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
 
@@ -693,6 +694,69 @@ export default function StoryFrame({
 
     return style
   }
+
+  // Extract dominant color from an image URL using a small canvas sample
+  const extractDominantColor = useCallback(async (url: string) => {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new window.Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          try {
+            const sampleSize = 32
+            const canvas = document.createElement('canvas')
+            canvas.width = sampleSize
+            canvas.height = sampleSize
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return reject(new Error('Canvas context unavailable'))
+            ctx.drawImage(img, 0, 0, sampleSize, sampleSize)
+            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data
+            let r = 0,
+              g = 0,
+              b = 0,
+              count = 0
+            for (let i = 0; i < data.length; i += 4) {
+              const alpha = data[i + 3]
+              if (alpha < 10) continue
+              r += data[i]
+              g += data[i + 1]
+              b += data[i + 2]
+              count++
+            }
+            if (count > 0) {
+              const avgR = Math.round(r / count)
+              const avgG = Math.round(g / count)
+              const avgB = Math.round(b / count)
+              setDominantColor(`rgb(${avgR}, ${avgG}, ${avgB})`)
+            }
+            resolve()
+          } catch (e) {
+            reject(e)
+          }
+        }
+        img.onerror = () => reject(new Error('Image load error'))
+        img.src = url
+      })
+    } catch {
+      // Silently ignore; fallback styling will be used
+    }
+  }, [])
+
+  const toRgba = (rgb: string, alpha: number) => {
+    // expects "rgb(r, g, b)"
+    const m = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+    if (!m) return `rgba(0,0,0,${alpha})`
+    return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`
+  }
+
+  // Trigger extraction when background image URL changes (covers cache cases where onLoad may not fire)
+  useEffect(() => {
+    if (background?.type === 'image' && background.value) {
+      extractDominantColor(background.value)
+    } else {
+      setDominantColor(null)
+    }
+  }, [background?.type, background?.value, extractDominantColor])
 
   // Calculate frame dimensions based on format and device frame
   const getFrameDimensions = () => {
@@ -771,6 +835,20 @@ export default function StoryFrame({
         {/* Render background image with all tweaks if type is image */}
         {background?.type === 'image' && background.value && (
           <>
+            {/* Dominant color gradient base (behind blurred image) */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: -2,
+                background: dominantColor
+                  ? `linear-gradient(135deg, ${toRgba(dominantColor, 0.6)}, ${toRgba(dominantColor, 0.3)})`
+                  : 'linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))',
+              }}
+            />
             {/* Blurred background image to fill empty areas */}
             <img
               src={background.value}
@@ -782,15 +860,61 @@ export default function StoryFrame({
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                filter: 'blur(20px) brightness(0.8)',
+                filter: 'blur(28px) brightness(0.9) saturate(110%)',
                 zIndex: -1,
+              }}
+            />
+            {/* Glassmorphic overlay to add depth */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: -1,
+                backgroundColor: dominantColor
+                  ? toRgba(dominantColor, 0.12)
+                  : 'rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(8px) saturate(120%)',
+                WebkitBackdropFilter: 'blur(8px) saturate(120%)',
+                border: '1px solid rgba(255,255,255,0.06)',
               }}
             />
             {/* Main background image */}
             <img
               src={background.value}
               alt="Background"
+              onLoad={() => extractDominantColor(background.value)}
               style={getBackgroundImageStyle()}
+            />
+            {/* Subtle vignette/tint overlay above main image for ambient feel */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 1,
+                pointerEvents: 'none',
+                background: `radial-gradient(60% 60% at 50% 50%, transparent 60%, rgba(0,0,0,0.18) 100%)`,
+                mixBlendMode: 'normal',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 1,
+                pointerEvents: 'none',
+                backgroundColor: dominantColor
+                  ? toRgba(dominantColor, 0.06)
+                  : 'rgba(255,255,255,0.04)',
+              }}
             />
           </>
         )}

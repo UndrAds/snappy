@@ -685,6 +685,21 @@
       // Handle regular story frames
       var bg = ''
       var bgImg = ''
+      // Compute background transforms from saved frame background settings
+      var bgZoom = 1,
+        bgX = 0,
+        bgY = 0,
+        bgRot = 0
+      if (frame.background) {
+        if (typeof frame.background.zoom === 'number')
+          bgZoom = frame.background.zoom / 100
+        if (typeof frame.background.offsetX === 'number')
+          bgX = frame.background.offsetX
+        if (typeof frame.background.offsetY === 'number')
+          bgY = frame.background.offsetY
+        if (typeof frame.background.rotation === 'number')
+          bgRot = frame.background.rotation
+      }
       if (frame.background) {
         if (frame.background.type === 'color') {
           bg = 'background:' + frame.background.value + ';'
@@ -700,7 +715,15 @@
             // Foreground: main image using contain so it is not over-zoomed
             '<img src="' +
             frame.background.value +
-            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%);z-index:1;border-radius:' +
+            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%) translate(' +
+            bgX +
+            'px, ' +
+            bgY +
+            'px) rotate(' +
+            bgRot +
+            'deg) scale(' +
+            bgZoom +
+            ');z-index:1;border-radius:' +
             frameStyle.innerBorderRadius +
             ';" />'
         }
@@ -1357,6 +1380,21 @@
             // Handle regular story frames
             var bg = ''
             var bgImg = ''
+            // Compute background transforms from saved frame background settings
+            var bgZoom = 1,
+              bgX = 0,
+              bgY = 0,
+              bgRot = 0
+            if (frame.background) {
+              if (typeof frame.background.zoom === 'number')
+                bgZoom = frame.background.zoom / 100
+              if (typeof frame.background.offsetX === 'number')
+                bgX = frame.background.offsetX
+              if (typeof frame.background.offsetY === 'number')
+                bgY = frame.background.offsetY
+              if (typeof frame.background.rotation === 'number')
+                bgRot = frame.background.rotation
+            }
             if (frame.background) {
               if (frame.background.type === 'color') {
                 bg = 'background:' + frame.background.value + ';'
@@ -1372,7 +1410,15 @@
                   // Foreground: main image using contain so it is not over-zoomed
                   '<img src="' +
                   frame.background.value +
-                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%);z-index:1;border-radius:' +
+                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%) translate(' +
+                  bgX +
+                  'px, ' +
+                  bgY +
+                  'px) rotate(' +
+                  bgRot +
+                  'deg) scale(' +
+                  bgZoom +
+                  ');z-index:1;border-radius:' +
                   frameStyle.innerBorderRadius +
                   ';" />'
               }

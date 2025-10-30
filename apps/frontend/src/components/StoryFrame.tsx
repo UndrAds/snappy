@@ -664,8 +664,8 @@ export default function StoryFrame({
 
     let style: React.CSSProperties = {
       position: 'absolute',
-      left: 0,
-      top: 0,
+      left: '50%',
+      top: '50%',
       width: '100%',
       height: '100%',
       objectFit: 'contain',
@@ -679,10 +679,12 @@ export default function StoryFrame({
       style.opacity = background.opacity / 100
     }
 
-    // Calculate transforms
+    // Calculate transforms: scale (zoom) and pan (offsets), keeping contain as the base
+    const userZoom = background.zoom !== undefined ? background.zoom / 100 : 1.0
     const rotation = background.rotation || 0
-    // At contain base, we skip extra scaling and panning to avoid clipping
-    style.transform = rotation ? `rotate(${rotation}deg)` : undefined
+    const x = background.offsetX || 0
+    const y = background.offsetY || 0
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${userZoom})`
 
     // Filter/Skins
     if (background.filter) {

@@ -21,7 +21,8 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { Upload, Save, Info, Rss, Smartphone, Monitor } from 'lucide-react'
-import { storyAPI, uploadAPI } from '@/lib/api'
+import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
+import RSSProgressLoader from '@/components/RSSProgressLoader'
 import { Story } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
 import {
@@ -38,6 +39,8 @@ export default function EditStoryPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [showProgressLoader, setShowProgressLoader] = useState(false)
+  const [originalRSSConfig, setOriginalRSSConfig] = useState<any | null>(null)
 
   // Load story data
   useEffect(() => {
@@ -53,6 +56,12 @@ export default function EditStoryPage() {
 
       if (response.success && response.data) {
         setStory(response.data)
+        // Capture original RSS config snapshot for change detection
+        if (response.data.storyType === 'dynamic') {
+          setOriginalRSSConfig((response.data as any).rssConfig || null)
+        } else {
+          setOriginalRSSConfig(null)
+        }
       } else {
         toast.error('Story not found')
         navigate('/')
@@ -139,13 +148,32 @@ export default function EditStoryPage() {
 
       if (response.success) {
         toast.success('Story updated successfully!')
-        navigate(`/editor/${story.uniqueId}`, {
-          state: {
-            storyId: story.id,
-            uniqueId: story.uniqueId,
-            fromCreate: false,
-          },
-        })
+
+        // If dynamic and RSS config changed, trigger update and show progress modal
+        const isDynamic = story.storyType === 'dynamic'
+        const currentRSS: any = (story as any).rssConfig || null
+        const rssChanged =
+          isDynamic && hasRSSConfigChanged(originalRSSConfig, currentRSS)
+
+        if (isDynamic && rssChanged) {
+          try {
+            // Trigger RSS processing for the updated config
+            await rssAPI.triggerRSSUpdate(story.id)
+          } catch (e) {
+            // Even if trigger fails, still show the modal to poll status (backend may have auto-triggered)
+            console.error('Failed to trigger RSS update explicitly:', e)
+          }
+
+          setShowProgressLoader(true)
+        } else {
+          navigate(`/editor/${story.uniqueId}`, {
+            state: {
+              storyId: story.id,
+              uniqueId: story.uniqueId,
+              fromCreate: false,
+            },
+          })
+        }
       } else {
         toast.error('Failed to update story')
       }
@@ -155,6 +183,23 @@ export default function EditStoryPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // Helper: compare RSS config changes
+  const hasRSSConfigChanged = (
+    originalCfg: any | null,
+    currentCfg: any | null
+  ) => {
+    const o = originalCfg || {}
+    const c = currentCfg || {}
+    return (
+      o.feedUrl !== c.feedUrl ||
+      Number(o.updateIntervalMinutes ?? 0) !==
+        Number(c.updateIntervalMinutes ?? 0) ||
+      Number(o.maxPosts ?? 0) !== Number(c.maxPosts ?? 0) ||
+      Boolean(o.allowRepetition) !== Boolean(c.allowRepetition) ||
+      Boolean(o.isActive) !== Boolean(c.isActive)
+    )
   }
 
   const FileUpload = ({
@@ -736,6 +781,40 @@ export default function EditStoryPage() {
           </div>
         </div>
       </div>
+
+      {/* RSS Progress Loader for dynamic updates */}
+      {showProgressLoader && story?.id && (
+        <RSSProgressLoader
+          storyId={story.id}
+          onComplete={() => {
+            setShowProgressLoader(false)
+            // Refresh original snapshot to new config
+            setOriginalRSSConfig((story as any).rssConfig || null)
+            navigate(`/editor/${story.uniqueId}`, {
+              state: {
+                storyId: story.id,
+                uniqueId: story.uniqueId,
+                fromCreate: false,
+                isDynamic: true,
+              },
+            })
+          }}
+          onError={() => {
+            setShowProgressLoader(false)
+            toast.error(
+              'RSS processing failed. You can still edit the story manually.'
+            )
+            navigate(`/editor/${story.uniqueId}`, {
+              state: {
+                storyId: story.id,
+                uniqueId: story.uniqueId,
+                fromCreate: false,
+                isDynamic: true,
+              },
+            })
+          }}
+        />
+      )}
     </div>
   )
 }

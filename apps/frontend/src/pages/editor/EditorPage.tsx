@@ -780,6 +780,7 @@ export default function EditorPage() {
                 loadStory()
               }
             }}
+            variant="navbar"
           />
         ) : undefined
       }

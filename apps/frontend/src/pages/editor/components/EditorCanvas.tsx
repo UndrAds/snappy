@@ -68,6 +68,7 @@ interface EditorCanvasProps {
   totalSlides?: number
   format?: StoryFormat
   deviceFrame?: DeviceFrame
+  isDynamicStory?: boolean
 }
 
 export default function EditorCanvas({
@@ -88,6 +89,7 @@ export default function EditorCanvas({
   totalSlides,
   format = 'portrait',
   deviceFrame = 'mobile',
+  isDynamicStory = false,
 }: EditorCanvasProps) {
   const handleAddElement = () => {
     const newElement: CanvasElement = {
@@ -160,6 +162,7 @@ export default function EditorCanvas({
           totalSlides={totalSlides}
           format={format}
           deviceFrame={deviceFrame}
+          isDynamicStory={isDynamicStory}
         />
 
         {/* Quick Add Elements - Alternative to the buttons inside the frame */}

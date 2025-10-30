@@ -852,6 +852,7 @@ export default function EditorPage() {
         totalSlides={frames.length}
         format={storyDataState.format}
         deviceFrame={storyDataState.deviceFrame}
+        isDynamicStory={isDynamicStory}
       />
 
       <PropertyPanel

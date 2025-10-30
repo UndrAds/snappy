@@ -7,6 +7,7 @@
   var lastRequestTime = 0
   var REQUEST_THROTTLE = 1000 // Minimum 1 second between requests
   var storyDataCache = new Map() // Cache for story data to prevent duplicate API calls
+  var CACHE_TTL_MS = 30000 // 30s TTL to avoid stale format/deviceFrame after edits
 
   // Wait for DOM to be ready
   function initializeEmbeds() {
@@ -197,13 +198,17 @@
     regularContainer.id = 'snappy-regular-' + storyId
 
     // Check if story data is already cached
-    var storyData = storyDataCache.get(storyId)
+    var cachedEntry = storyDataCache.get(storyId)
 
-    if (storyData) {
-      // Use cached data
+    if (
+      cachedEntry &&
+      cachedEntry.data &&
+      Date.now() - cachedEntry.ts <= CACHE_TTL_MS
+    ) {
+      // Use cached data within TTL
       console.log('Using cached story data for:', storyId)
       processFloaterWithData(
-        storyData,
+        cachedEntry.data,
         element,
         apiBaseUrl,
         direction,
@@ -214,8 +219,8 @@
         autoHideDelay
       )
     } else {
-      // Fetch the story data to get format and device frame
-      fetch(apiBaseUrl + '/api/stories/public/' + storyId)
+      // Fetch the story data to get format and device frame (cache-bust with ts)
+      fetch(apiBaseUrl + '/api/stories/public/' + storyId + '?ts=' + Date.now())
         .then(function (response) {
           if (!response.ok) {
             throw new Error('Story not found - Status: ' + response.status)
@@ -228,8 +233,8 @@
           }
 
           var storyData = apiResponse.data
-          // Cache the story data
-          storyDataCache.set(storyId, storyData)
+          // Cache the story data with timestamp
+          storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
           processFloaterWithData(
             storyData,
@@ -561,35 +566,23 @@
       deviceFrame,
       hasFrameLink
     ) {
-      var isLandscapeVideoPlayer =
-        format === 'landscape' && deviceFrame === 'video-player'
-      var isPortraitMobile = format === 'portrait' && deviceFrame === 'mobile'
-
       // Text positioning - button will be positioned below text dynamically
       var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
 
       var textWidth, textLeft, textBottom, textHeight
 
-      if (isLandscapeVideoPlayer) {
-        // Landscape video player: 50% width, centered, bottom with padding
-        textWidth = Math.round(containerWidth * 0.5)
-        textLeft = Math.round((containerWidth - textWidth) / 2)
-        textBottom = textBottomPadding
-        // Height stays dynamic based on content, but ensure minimum
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
-      } else if (isPortraitMobile) {
-        // Portrait mobile: 90% width, centered, bottom with padding
+      if (format === 'portrait') {
+        // Portrait (mobile and video-player): 90% width, centered, bottom with padding
         textWidth = Math.round(containerWidth * 0.9)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        // Height stays dynamic based on content, but ensure minimum
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+        textHeight = Math.max(60, Math.round(containerHeight * 0.15))
       } else {
-        // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
-        textWidth = Math.round(containerWidth * 0.85)
+        // Landscape (mobile and video-player): 50% width, centered, bottom with padding
+        textWidth = Math.round(containerWidth * 0.5)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+        textHeight = Math.max(60, Math.round(containerHeight * 0.15))
       }
 
       // Convert bottom to top position (since we use top in CSS)
@@ -1135,8 +1128,8 @@
           console.log('Format from API:', storyData.format)
           console.log('Device Frame from API:', storyData.deviceFrame)
 
-          // Cache the story data to prevent duplicate API calls
-          storyDataCache.set(storyId, storyData)
+          // Cache the story data with timestamp to prevent staleness
+          storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
           var frames = storyData.frames || []
           var story = {
@@ -1234,36 +1227,23 @@
             deviceFrame,
             hasFrameLink
           ) {
-            var isLandscapeVideoPlayer =
-              format === 'landscape' && deviceFrame === 'video-player'
-            var isPortraitMobile =
-              format === 'portrait' && deviceFrame === 'mobile'
-
             // Text positioning - button will be positioned below text dynamically
             var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
 
             var textWidth, textLeft, textBottom, textHeight
 
-            if (isLandscapeVideoPlayer) {
-              // Landscape video player: 50% width, centered, bottom with padding
-              textWidth = Math.round(containerWidth * 0.5)
-              textLeft = Math.round((containerWidth - textWidth) / 2)
-              textBottom = textBottomPadding
-              // Height stays dynamic based on content, but ensure minimum
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
-            } else if (isPortraitMobile) {
-              // Portrait mobile: 90% width, centered, bottom with padding
+            if (format === 'portrait') {
+              // Portrait (mobile and video-player): 90% width, centered, bottom with padding
               textWidth = Math.round(containerWidth * 0.9)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              // Height stays dynamic based on content, but ensure minimum
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+              textHeight = Math.max(60, Math.round(containerHeight * 0.15))
             } else {
-              // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
-              textWidth = Math.round(containerWidth * 0.85)
+              // Landscape (mobile and video-player): 50% width, centered, bottom with padding
+              textWidth = Math.round(containerWidth * 0.5)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+              textHeight = Math.max(60, Math.round(containerHeight * 0.15))
             }
 
             // Convert bottom to top position (since we use top in CSS)

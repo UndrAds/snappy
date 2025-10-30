@@ -715,18 +715,14 @@ export class StoryService {
         const frameHeight = story.format === 'portrait' ? 550 : 288; // Frame height
         // Landscape (horizontal video player) should use 14px bold
         const fontSize = story.format === 'portrait' ? 18 : 14;
-        const horizontalPadding = 20; // Left and right margins (portrait default)
         const ctaHeight = 60; // Space reserved for CTA button
         const bottomPadding = 20; // Padding from CTA area
 
-        // Calculate text width
-        // For landscape (horizontal video player), make the text narrower with equal side margins
-        const rightMargin = 40; // Extra margin from right edge (portrait default)
-        // Use fixed 70% width for landscape to ensure comfortable side gaps
+        // Calculate text width based on orientation only
+        // - Portrait: treat like mobile; centered with side padding (10% each side)
+        // - Landscape: centered with comfortable width (50%)
         const textWidth =
-          story.format === 'landscape'
-            ? Math.floor(frameWidth * 0.5)
-            : frameWidth - horizontalPadding - rightMargin;
+          story.format === 'portrait' ? Math.floor(frameWidth * 0.9) : Math.floor(frameWidth * 0.5);
 
         // Estimate text height based on text length and font size
         // Rough calculation: average characters per line, with line height of 1.2
@@ -741,11 +737,8 @@ export class StoryService {
         // Position above CTA button area
         const textY = frameHeight - ctaHeight - textHeight - bottomPadding;
 
-        // Compute X position (center horizontally for landscape)
-        const textX =
-          story.format === 'landscape'
-            ? Math.floor((frameWidth - textWidth) / 2)
-            : horizontalPadding; // portrait keeps left margin
+        // Compute X position (center horizontally for both orientations)
+        const textX = Math.floor((frameWidth - textWidth) / 2);
 
         const textElement = await prisma.storyElement.create({
           data: {

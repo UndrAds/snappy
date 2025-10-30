@@ -77,6 +77,8 @@ interface StoryFrameProps {
   // Format and device frame props
   format?: StoryFormat
   deviceFrame?: DeviceFrame
+  // Dynamic story flag to auto-layout text based on orientation
+  isDynamicStory?: boolean
 }
 
 export default function StoryFrame({
@@ -112,6 +114,7 @@ export default function StoryFrame({
   // Format and device frame props
   format = 'portrait',
   deviceFrame = 'mobile',
+  isDynamicStory = false,
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [dominantColor, setDominantColor] = useState<string | null>(null)
@@ -414,12 +417,54 @@ export default function StoryFrame({
 
   const renderElement = (element: CanvasElement) => {
     const isSelected = selectedElementId === element.id
+    // Auto layout for dynamic stories: bottom-centered text based on orientation
+    let computedLeft = element.x
+    let computedTop = element.y
+    let computedWidth = element.width
+    let computedHeight = element.height
+
+    if (isDynamicStory && element.type === 'text') {
+      // Determine container pixel dimensions based on format/deviceFrame
+      const getFramePixelSize = () => {
+        if (format === 'portrait') {
+          if (deviceFrame === 'mobile') {
+            return { width: 288, height: 550 }
+          } else {
+            return { width: 320, height: 600 }
+          }
+        } else {
+          if (deviceFrame === 'mobile') {
+            return { width: 400, height: 225 }
+          } else {
+            return { width: 480, height: 270 }
+          }
+        }
+      }
+
+      const { width: cw, height: ch } = getFramePixelSize()
+      const bottomPadding = 20
+      const buttonSpace = link ? 80 : 0
+      const textWidth =
+        format === 'portrait' ? Math.round(cw * 0.9) : Math.round(cw * 0.5)
+      const textHeight = Math.max(60, Math.round(ch * 0.15))
+      const textLeft = Math.round((cw - textWidth) / 2)
+      const textTop = Math.max(
+        80,
+        ch - bottomPadding - buttonSpace - textHeight
+      )
+
+      computedLeft = textLeft
+      computedTop = textTop
+      computedWidth = textWidth
+      computedHeight = textHeight
+    }
+
     const style = {
       position: 'absolute' as const,
-      left: element.x,
-      top: element.y,
-      width: element.width,
-      height: element.height,
+      left: computedLeft,
+      top: computedTop,
+      width: computedWidth,
+      height: computedHeight,
       fontSize: element.style.fontSize,
       fontFamily: element.style.fontFamily,
       fontWeight: element.style.fontWeight,

@@ -35,17 +35,7 @@ router.get(
   StoryController.getStoryById
 );
 
-router.put(
-  '/:id',
-  [param('id').notEmpty().withMessage('Story ID is required'), validateRequest],
-  StoryController.updateStory
-);
-
-router.delete(
-  '/:id',
-  [param('id').notEmpty().withMessage('Story ID is required'), validateRequest],
-  StoryController.deleteStory
-);
+// Move frame routes BEFORE the generic '/:id' routes to avoid path shadowing
 
 // Save complete story from editor
 router.post('/save-complete', StoryController.saveCompleteStory);
@@ -71,6 +61,19 @@ router.delete(
   '/frames/:frameId',
   [param('frameId').notEmpty().withMessage('Frame ID is required'), validateRequest],
   StoryController.deleteStoryFrame
+);
+// Story update/delete routes (after frame routes to prevent '/frames/...'
+// from being captured by '/:id')
+router.put(
+  '/:id',
+  [param('id').notEmpty().withMessage('Story ID is required'), validateRequest],
+  StoryController.updateStory
+);
+
+router.delete(
+  '/:id',
+  [param('id').notEmpty().withMessage('Story ID is required'), validateRequest],
+  StoryController.deleteStory
 );
 
 // Story element routes

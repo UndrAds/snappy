@@ -86,6 +86,7 @@ export class StoryService {
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         storyType: data.storyType || 'static',
+        defaultDurationMs: (data as any).defaultDurationMs ?? 2500,
         rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
         userId,
       },
@@ -238,15 +239,40 @@ export class StoryService {
     userId: string,
     data: UpdateStoryRequest
   ): Promise<Story> {
+    // Whitelist only valid columns for Story update
+    const updateData: any = {};
+    if (typeof (data as any).title !== 'undefined') updateData.title = (data as any).title;
+    if (typeof (data as any).publisherName !== 'undefined')
+      updateData.publisherName = (data as any).publisherName;
+    if (typeof (data as any).publisherPic !== 'undefined')
+      updateData.publisherPic = (data as any).publisherPic;
+    if (typeof (data as any).largeThumbnail !== 'undefined')
+      updateData.largeThumbnail = (data as any).largeThumbnail;
+    if (typeof (data as any).smallThumbnail !== 'undefined')
+      updateData.smallThumbnail = (data as any).smallThumbnail;
+    if (typeof (data as any).ctaType !== 'undefined') updateData.ctaType = (data as any).ctaType;
+    if (typeof (data as any).ctaValue !== 'undefined') updateData.ctaValue = (data as any).ctaValue;
+    if (typeof (data as any).ctaText !== 'undefined') updateData.ctaText = (data as any).ctaText;
+    if (typeof (data as any).status !== 'undefined') updateData.status = (data as any).status;
+    if (typeof (data as any).format !== 'undefined') updateData.format = (data as any).format;
+    if (typeof (data as any).deviceFrame !== 'undefined')
+      updateData.deviceFrame = (data as any).deviceFrame;
+    if (typeof (data as any).storyType !== 'undefined')
+      updateData.storyType = (data as any).storyType;
+    if (typeof (data as any).defaultDurationMs !== 'undefined')
+      updateData.defaultDurationMs = (data as any).defaultDurationMs;
+    if (typeof (data as any).rssConfig !== 'undefined') {
+      updateData.rssConfig = (data as any).rssConfig
+        ? JSON.parse(JSON.stringify((data as any).rssConfig))
+        : null;
+    }
+
     const story = await prisma.story.update({
       where: {
         id: storyId,
         userId, // Ensure user owns the story
       },
-      data: {
-        ...data,
-        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : undefined,
-      },
+      data: updateData,
       include: {
         frames: {
           include: {
@@ -260,11 +286,33 @@ export class StoryService {
       },
     });
 
+    // If requested, apply default duration to all frames
+    if (
+      (data as any).applyDefaultDurationToAll &&
+      typeof (data as any).defaultDurationMs === 'number'
+    ) {
+      await prisma.storyFrame.updateMany({
+        where: { storyId },
+        data: { durationMs: (data as any).defaultDurationMs as number },
+      });
+    }
+
     return convertPrismaStoryToSharedType(story);
   }
 
   // Delete story
   static async deleteStory(storyId: string, userId: string): Promise<void> {
+    // First cancel any scheduled RSS updates and clear status
+    try {
+      const { SchedulerService } = await import('./schedulerService');
+      const scheduler = new SchedulerService();
+      await scheduler.cancelRSSUpdates(storyId);
+      await scheduler.clearProcessingStatus(storyId);
+      await scheduler.cleanup();
+    } catch (e) {
+      console.warn('Warning: failed to cancel RSS updates for deleted story', storyId, e);
+    }
+
     await prisma.story.delete({
       where: {
         id: storyId,
@@ -294,6 +342,7 @@ export class StoryService {
         name: data.name || null,
         link: data.link || null,
         linkText: data.linkText || null,
+        durationMs: (data as any).durationMs ?? 2500,
         storyId,
       },
       include: {
@@ -311,18 +360,30 @@ export class StoryService {
     userId: string,
     data: UpdateStoryFrameRequest
   ): Promise<StoryFrame> {
-    const frame = await prisma.storyFrame.update({
+    // Ensure the frame belongs to a story owned by the user
+    await prisma.storyFrame.findFirstOrThrow({
       where: {
         id: frameId,
-        story: {
-          userId, // Ensure user owns the story
-        },
+        story: { userId },
       },
-      data,
-      include: {
-        elements: true,
-        background: true,
-      },
+    });
+
+    // Build update payload, only include fields that are defined
+    const updateData: any = {};
+    if (typeof (data as any).name !== 'undefined') updateData.name = (data as any).name;
+    if (typeof (data as any).link !== 'undefined') updateData.link = (data as any).link;
+    if (typeof (data as any).linkText !== 'undefined') updateData.linkText = (data as any).linkText;
+    if (typeof (data as any).order !== 'undefined') updateData.order = (data as any).order;
+    if (typeof (data as any).hasContent !== 'undefined')
+      updateData.hasContent = (data as any).hasContent;
+    if (typeof (data as any).adConfig !== 'undefined') updateData.adConfig = (data as any).adConfig;
+    if (typeof (data as any).durationMs !== 'undefined')
+      updateData.durationMs = (data as any).durationMs;
+
+    const frame = await prisma.storyFrame.update({
+      where: { id: frameId },
+      data: updateData,
+      include: { elements: true, background: true },
     });
 
     return frame as unknown as StoryFrame;
@@ -498,6 +559,7 @@ export class StoryService {
           link: frame.link || null,
           linkText: frame.linkText || null,
           adConfig: frame.adConfig || null,
+          durationMs: frame.durationMs ?? story.defaultDurationMs ?? 2500,
           storyId: dbStory.id,
         },
       });

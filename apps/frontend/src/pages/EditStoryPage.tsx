@@ -41,6 +41,7 @@ export default function EditStoryPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [showProgressLoader, setShowProgressLoader] = useState(false)
   const [originalRSSConfig, setOriginalRSSConfig] = useState<any | null>(null)
+  const [applyDefaultToAll, setApplyDefaultToAll] = useState(false)
 
   // Load story data
   useEffect(() => {
@@ -144,6 +145,8 @@ export default function EditStoryPage() {
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
             : null,
+        defaultDurationMs: (story as any).defaultDurationMs || 2500,
+        applyDefaultDurationToAll: applyDefaultToAll || false,
       })
 
       if (response.success) {
@@ -630,7 +633,7 @@ export default function EditStoryPage() {
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Update thumbnails for your story
+                Update thumbnails and default settings for your story
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -648,6 +651,69 @@ export default function EditStoryPage() {
                 }
                 currentUrl={story.smallThumbnail}
               />
+              <div className="space-y-2">
+                <Label>Default Frame Duration</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[5000, 10000, 15000, 20000, 30000].map((ms) => (
+                    <Button
+                      key={ms}
+                      type="button"
+                      variant={
+                        ((story as any).defaultDurationMs || 2500) === ms
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() =>
+                        setStory((prev) =>
+                          prev
+                            ? ({ ...prev, defaultDurationMs: ms } as any)
+                            : prev
+                        )
+                      }
+                    >
+                      {ms / 1000}s
+                    </Button>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      className="w-24"
+                      value={Math.round(
+                        ((story as any).defaultDurationMs || 2500) / 1000
+                      )}
+                      onChange={(e) =>
+                        setStory((prev) =>
+                          prev
+                            ? ({
+                                ...prev,
+                                defaultDurationMs:
+                                  Math.max(1, Number(e.target.value) || 5) *
+                                  1000,
+                              } as any)
+                            : prev
+                        )
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      seconds
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="apply-default-all"
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={applyDefaultToAll}
+                    onChange={(e) => setApplyDefaultToAll(e.target.checked)}
+                  />
+                  <Label htmlFor="apply-default-all" className="m-0">
+                    Apply to all frames (override existing)
+                  </Label>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

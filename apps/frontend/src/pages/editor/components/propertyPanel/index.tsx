@@ -21,6 +21,7 @@ export default function PropertyPanel({
   onBackgroundUpdate,
   onElementRemove,
   onFrameUpdate,
+  storyDefaultDurationMs,
 }: any) {
   let type =
     selectedElement?.type ||
@@ -40,6 +41,7 @@ export default function PropertyPanel({
           onBackgroundUpdate={onBackgroundUpdate}
           onElementRemove={onElementRemove}
           onFrameUpdate={onFrameUpdate}
+          storyDefaultDurationMs={storyDefaultDurationMs}
         />
       ) : (
         <div className="p-4 text-gray-400">No properties available.</div>

@@ -12,20 +12,45 @@ interface FramePropertyPanelProps {
     link?: string
     linkText?: string
     frameType: 'story' | 'ad'
+    durationMs?: number
   }
+  storyDefaultDurationMs?: number
   onFrameUpdate: (
     frameId: string,
-    updates: { name?: string; link?: string; linkText?: string }
+    updates: {
+      name?: string
+      link?: string
+      linkText?: string
+      durationMs?: number
+    }
   ) => void
 }
 
 export default function FramePropertyPanel({
   element,
   onFrameUpdate,
+  storyDefaultDurationMs,
 }: FramePropertyPanelProps) {
   const [name, setName] = useState(element.name || '')
   const [link, setLink] = useState(element.link || '')
   const [linkText, setLinkText] = useState(element.linkText || '')
+  const [durationMode, setDurationMode] = useState<string>(() => {
+    const ms = element.durationMs ?? 2500
+    const preset = [5000, 10000, 15000, 20000, 30000].includes(ms)
+      ? String(ms)
+      : 'custom'
+    return preset
+  })
+  const [customDurationSec, setCustomDurationSec] = useState<string>(() => {
+    const ms = element.durationMs ?? 2500
+    return [5000, 10000, 15000, 20000, 30000].includes(ms)
+      ? '5'
+      : String(Math.round(ms / 1000))
+  })
+
+  const isCustomInvalid =
+    durationMode === 'custom' &&
+    (isNaN(Number(customDurationSec)) || Number(customDurationSec) < 1)
 
   // Sync state when element changes (e.g., when switching between frames)
   useEffect(() => {
@@ -38,10 +63,24 @@ export default function FramePropertyPanel({
     setName(element.name || '')
     setLink(element.link || '')
     setLinkText(element.linkText || '')
+    const ms = element.durationMs ?? 2500
+    const preset = [5000, 10000, 15000, 20000, 30000].includes(ms)
+      ? String(ms)
+      : 'custom'
+    setDurationMode(preset)
+    setCustomDurationSec(
+      [5000, 10000, 15000, 20000, 30000].includes(ms)
+        ? '5'
+        : String(Math.round(ms / 1000))
+    )
   }, [element.id, element.name, element.link, element.linkText])
 
   const handleSave = () => {
-    onFrameUpdate(element.id, { name, link, linkText })
+    const durationMs =
+      durationMode === 'custom'
+        ? Math.max(1, Number(customDurationSec) || 5) * 1000
+        : Number(durationMode)
+    onFrameUpdate(element.id, { name, link, linkText, durationMs })
     toast.success('Frame properties updated!')
   }
 
@@ -147,8 +186,67 @@ export default function FramePropertyPanel({
         </div>
       </div>
 
+      {/* Frame Duration */}
+      <div className="space-y-2">
+        <Label htmlFor="frame-duration">Frame Duration</Label>
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">
+            Story default: {Math.round((storyDefaultDurationMs ?? 2500) / 1000)}
+            s
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[5000, 10000, 15000, 20000, 30000].map((ms) => (
+              <Button
+                key={ms}
+                type="button"
+                variant={durationMode === String(ms) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDurationMode(String(ms))}
+              >
+                {ms / 1000}s
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant={durationMode === 'custom' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDurationMode('custom')}
+            >
+              Custom
+            </Button>
+          </div>
+          {durationMode === 'custom' && (
+            <div className="flex items-center space-x-2">
+              <Input
+                type="number"
+                min={1}
+                value={customDurationSec}
+                onChange={(e) => setCustomDurationSec(e.target.value)}
+                onBlur={() => {
+                  const n = Math.max(1, Number(customDurationSec) || 1)
+                  setCustomDurationSec(String(Math.round(n)))
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">seconds</span>
+            </div>
+          )}
+          {isCustomInvalid && (
+            <p className="text-xs text-red-600">Minimum is 1 second.</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Default is based on current embed timing. Applies to this frame
+            only.
+          </p>
+        </div>
+      </div>
+
       {/* Save Button */}
-      <Button onClick={handleSave} className="w-full">
+      <Button
+        onClick={handleSave}
+        className="w-full"
+        disabled={isCustomInvalid}
+      >
         <Link className="mr-2 h-4 w-4" />
         Save Frame Properties
       </Button>

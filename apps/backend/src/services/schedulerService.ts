@@ -61,6 +61,34 @@ export class SchedulerService {
       try {
         console.log(`Processing RSS update for story: ${storyId}`);
 
+        // Verify story still exists and is eligible for RSS updates
+        const existingStory = await StoryService.getStoryById(storyId);
+        if (!existingStory) {
+          console.warn(`RSS update skipped: story ${storyId} no longer exists.`);
+          // Best-effort: cancel any recurring jobs and clear status
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          try {
+            await this.clearProcessingStatus(storyId);
+          } catch {}
+          return;
+        }
+        if (!existingStory.rssConfig || existingStory.storyType !== 'dynamic') {
+          console.warn(`RSS update skipped: story ${storyId} is not dynamic or has no rssConfig.`);
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          return;
+        }
+        if (existingStory.rssConfig && existingStory.rssConfig.isActive === false) {
+          console.warn(`RSS update skipped: story ${storyId} RSS is inactive.`);
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          return;
+        }
+
         // Update processing status
         await this.updateProcessingStatus(storyId, {
           storyId,

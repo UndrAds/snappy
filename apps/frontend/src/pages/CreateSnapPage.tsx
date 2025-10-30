@@ -56,6 +56,7 @@ interface SnapData {
   deviceFrame: DeviceFrame
   storyType: StoryType
   rssConfig?: RSSConfig
+  defaultDurationMs?: number
 }
 
 export default function CreateSnapPage() {
@@ -86,6 +87,7 @@ export default function CreateSnapPage() {
     deviceFrame: 'mobile' as const,
     storyType: 'static' as const,
     rssConfig: undefined,
+    defaultDurationMs: 2500,
   })
 
   const [previewUrls, setPreviewUrls] = useState<{
@@ -317,6 +319,7 @@ export default function CreateSnapPage() {
         deviceFrame: snapData.deviceFrame,
         storyType: snapData.storyType,
         rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
+        defaultDurationMs: snapData.defaultDurationMs || 2500,
       })
 
       if (storyResponse.success && storyResponse.data) {
@@ -339,6 +342,7 @@ export default function CreateSnapPage() {
             ctaText: snapData.cta.text || undefined,
             format: snapData.format,
             deviceFrame: snapData.deviceFrame,
+            defaultDurationMs: snapData.defaultDurationMs || 2500,
           }
 
           navigate(`/editor/${storyResponse.data.uniqueId}`, {
@@ -707,7 +711,7 @@ export default function CreateSnapPage() {
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Upload thumbnails for your story
+                Upload thumbnails for your story and set defaults
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -725,6 +729,55 @@ export default function CreateSnapPage() {
                 }
                 previewUrl={previewUrls.smallThumbnail}
               />
+              <div className="space-y-2">
+                <Label>Default Frame Duration</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[5000, 10000, 15000, 20000, 30000].map((ms) => (
+                    <Button
+                      key={ms}
+                      type="button"
+                      variant={
+                        (snapData.defaultDurationMs || 2500) === ms
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() =>
+                        setSnapData((prev) => ({
+                          ...prev,
+                          defaultDurationMs: ms,
+                        }))
+                      }
+                    >
+                      {ms / 1000}s
+                    </Button>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      className="w-24"
+                      value={Math.round(
+                        (snapData.defaultDurationMs || 2500) / 1000
+                      )}
+                      onChange={(e) =>
+                        setSnapData((prev) => ({
+                          ...prev,
+                          defaultDurationMs:
+                            Math.max(1, Number(e.target.value) || 5) * 1000,
+                        }))
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      seconds
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Used for all new frames by default. Frames can override this
+                  in editor.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

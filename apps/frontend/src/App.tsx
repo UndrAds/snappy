@@ -50,7 +50,7 @@ function App() {
           <Route path="/editor/preview" element={<PreviewPage />} />
           <Route path="/test-embed" element={<TestEmbedPage />} />
         </Routes>
-        <Toaster />
+        <Toaster position="top-right" closeButton offset={64} />
       </div>
     </ThemeProvider>
   )

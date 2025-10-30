@@ -66,6 +66,7 @@ export interface Story {
   format: StoryFormat;
   deviceFrame: DeviceFrame;
   storyType: StoryType;
+  defaultDurationMs?: number;
   rssConfig?: RSSConfig;
   userId: string;
   createdAt: string;
@@ -87,6 +88,7 @@ export interface CreateStoryRequest {
   storyType?: StoryType;
   rssConfig?: RSSConfig;
   uniqueId?: string; // Optional: allow providing a specific unique ID
+  defaultDurationMs?: number;
 }
 
 export interface UpdateStoryRequest {
@@ -104,6 +106,8 @@ export interface UpdateStoryRequest {
   storyType?: StoryType;
   rssConfig?: RSSConfig;
   uniqueId?: string; // Optional: allow updating the unique ID
+  defaultDurationMs?: number;
+  applyDefaultDurationToAll?: boolean; // If true, set all frames' durationMs to story default
 }
 
 export interface StoryFrame {
@@ -114,6 +118,7 @@ export interface StoryFrame {
   name?: string;
   link?: string; // Optional link URL for the frame
   linkText?: string; // Custom link text (defaults to "Link")
+  durationMs?: number; // Per-frame duration in milliseconds
   storyId: string;
   createdAt: string;
   updatedAt: string;
@@ -178,6 +183,7 @@ export interface CreateStoryFrameRequest {
   name?: string;
   link?: string;
   linkText?: string;
+  durationMs?: number;
 }
 
 export interface UpdateStoryFrameRequest {
@@ -186,6 +192,7 @@ export interface UpdateStoryFrameRequest {
   name?: string;
   link?: string;
   linkText?: string;
+  durationMs?: number;
 }
 
 export interface CreateStoryElementRequest {

@@ -44,6 +44,7 @@ interface StoryFrame {
   name?: string
   link?: string // Optional link URL for the frame
   linkText?: string // Optional link text for the frame
+  durationMs?: number
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
@@ -72,6 +73,7 @@ interface StoryData {
   ctaValue: string
   format?: 'portrait' | 'landscape'
   deviceFrame?: 'mobile' | 'video-player'
+  defaultDurationMs?: number
 }
 
 declare global {
@@ -98,6 +100,7 @@ export default function EditorPage() {
       ctaValue: '',
       format: 'portrait',
       deviceFrame: 'mobile',
+      defaultDurationMs: 2500,
     }
   )
   const fromCreate = location.state?.fromCreate || false
@@ -110,6 +113,7 @@ export default function EditorPage() {
       type: 'story',
       elements: [],
       hasContent: false,
+      durationMs: 2500,
       background: location.state?.storyData?.thumbnail
         ? {
             type: 'image' as const,
@@ -176,6 +180,7 @@ export default function EditorPage() {
             format: (story.format as 'portrait' | 'landscape') || 'portrait',
             deviceFrame:
               (story.deviceFrame as 'mobile' | 'video-player') || 'mobile',
+            defaultDurationMs: (story as any).defaultDurationMs || 2500,
           })
 
           // Convert database frames to editor frames
@@ -199,6 +204,7 @@ export default function EditorPage() {
                 name: frame.name,
                 link: frame.link, // Add frame link from database
                 linkText: frame.linkText, // Add frame linkText from database
+                durationMs: frame.durationMs ?? 2500,
                 adConfig: frame.adConfig,
                 background: frame.background
                   ? {
@@ -311,6 +317,7 @@ export default function EditorPage() {
               format: (story.format as 'portrait' | 'landscape') || 'portrait',
               deviceFrame:
                 (story.deviceFrame as 'mobile' | 'video-player') || 'mobile',
+              defaultDurationMs: (story as any).defaultDurationMs || 2500,
             })
 
             // Convert database frames to editor frames
@@ -325,6 +332,7 @@ export default function EditorPage() {
                 name: frame.name,
                 link: frame.link, // Add frame link from database
                 linkText: frame.linkText, // Add frame linkText from database
+                durationMs: frame.durationMs ?? 2500,
                 adConfig: frame.adConfig,
                 background: frame.background
                   ? {
@@ -358,6 +366,7 @@ export default function EditorPage() {
                 type: 'story',
                 elements: [],
                 hasContent: false,
+                durationMs: 2500,
                 background: story.largeThumbnail
                   ? {
                       type: 'image' as const,
@@ -419,6 +428,7 @@ export default function EditorPage() {
       type: frameType,
       elements: [],
       hasContent: false,
+      durationMs: 2500,
       background:
         frameType === 'story'
           ? {
@@ -707,6 +717,7 @@ export default function EditorPage() {
           ctaValue: storyDataState.ctaValue || undefined,
           format: storyDataState.format,
           deviceFrame: storyDataState.deviceFrame,
+          defaultDurationMs: storyDataState.defaultDurationMs || 2500,
         },
         frames: frames.map((frame, index) => ({
           ...frame,
@@ -854,6 +865,7 @@ export default function EditorPage() {
                     id: selectedFrame.id,
                     type: 'ad',
                     adConfig: selectedFrame.adConfig,
+                    durationMs: selectedFrame.durationMs ?? 2500,
                   }
                 : selectedFrame && !selectedElement
                   ? (() => {
@@ -871,6 +883,7 @@ export default function EditorPage() {
                         link: selectedFrame.link,
                         linkText: selectedFrame.linkText,
                         frameType: selectedFrame.type,
+                        durationMs: selectedFrame.durationMs ?? 2500,
                       }
                     })()
                   : undefined
@@ -895,6 +908,7 @@ export default function EditorPage() {
             toast.error('Failed to save frame update')
           }
         }}
+        storyDefaultDurationMs={storyDataState.defaultDurationMs}
       />
       <EmbedModal
         open={embedOpen}

@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
-import { Moon, Sun, User, LogOut, Plus, ChevronDown } from 'lucide-react'
+import { Moon, Sun, User, LogOut, Plus, ChevronDown, Home } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,12 @@ export default function DashboardLayout() {
   }
 
   const menuItems = [
+    {
+      id: 'home',
+      label: 'Home',
+      icon: Home,
+      path: '/',
+    },
     {
       id: 'create',
       label: 'Create Snap',
@@ -63,11 +69,12 @@ export default function DashboardLayout() {
         {/* Top Bar - App Logo */}
         <div className="border-b p-4">
           <div className="flex items-center justify-center">
-            <h1
+            <button
               className={`text-xl font-bold text-primary ${!sidebarOpen && 'hidden'}`}
+              onClick={() => navigate('/')}
             >
               Snappy
-            </h1>
+            </button>
           </div>
         </div>
 

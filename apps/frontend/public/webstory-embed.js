@@ -691,9 +691,16 @@
         } else if (frame.background.type === 'image') {
           bg = 'background:#000;'
           bgImg =
+            // Background: blurred cover fill layer
             '<img src="' +
             frame.background.value +
-            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;border-radius:' +
+            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;filter:blur(20px) brightness(0.85);border-radius:' +
+            frameStyle.innerBorderRadius +
+            ';" />' +
+            // Foreground: main image using contain so it is not over-zoomed
+            '<img src="' +
+            frame.background.value +
+            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%);z-index:1;border-radius:' +
             frameStyle.innerBorderRadius +
             ';" />'
         }
@@ -1356,9 +1363,16 @@
               } else if (frame.background.type === 'image') {
                 bg = 'background:#000;'
                 bgImg =
+                  // Background: blurred cover fill layer
                   '<img src="' +
                   frame.background.value +
-                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;border-radius:' +
+                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;filter:blur(20px) brightness(0.85);border-radius:' +
+                  frameStyle.innerBorderRadius +
+                  ';" />' +
+                  // Foreground: main image using contain so it is not over-zoomed
+                  '<img src="' +
+                  frame.background.value +
+                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%);z-index:1;border-radius:' +
                   frameStyle.innerBorderRadius +
                   ';" />'
               }

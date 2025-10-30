@@ -659,32 +659,18 @@ export default function StoryFrame({
     if (!background || background.type !== 'image' || !background.value)
       return {}
 
-    // Get frame dimensions for proper scaling
-    const getFramePixelDimensions = () => {
-      if (format === 'portrait') {
-        if (deviceFrame === 'mobile') {
-          return { width: 288, height: 550 }
-        } else {
-          return { width: 320, height: 568 }
-        }
-      } else {
-        if (deviceFrame === 'mobile') {
-          return { width: 550, height: 288 }
-        } else {
-          return { width: 568, height: 320 }
-        }
-      }
-    }
-
-    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+    // Using full container size with object-fit: contain; no need for pixel dimensions
 
     let style: React.CSSProperties = {
       position: 'absolute',
-      left: '50%',
-      top: '50%',
-      objectFit: 'none', // Changed from 'cover' to 'none' to allow panning
+      left: 0,
+      top: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'contain',
       zIndex: 0,
       pointerEvents: 'none',
+      transformOrigin: 'center center',
     }
 
     // Opacity
@@ -692,32 +678,10 @@ export default function StoryFrame({
       style.opacity = background.opacity / 100
     }
 
-    // Calculate zoom and sizing
-    const userZoom = background.zoom !== undefined ? background.zoom / 100 : 1.0
+    // Calculate transforms
     const rotation = background.rotation || 0
-    const x = background.offsetX || 0
-    const y = background.offsetY || 0
-
-    // Calculate the minimum scale needed to cover the frame
-    // This ensures the image always covers the frame like object-fit: cover
-    const minScaleToCover =
-      Math.max(frameWidth, frameHeight) / Math.min(frameWidth, frameHeight)
-
-    // Add a safety buffer (20% extra) to ensure complete coverage with no gaps
-    const safetyBuffer = 1.2
-    const safeCoverScale = minScaleToCover * safetyBuffer
-
-    // Use a base size that ensures coverage
-    const baseSize = Math.max(frameWidth, frameHeight) * 2
-    style.width = `${baseSize}px`
-    style.height = `${baseSize}px`
-
-    // Apply the safe cover scale as the base, then apply user zoom on top
-    // This ensures the image always covers the frame with a safety margin
-    const finalZoom = safeCoverScale * userZoom
-
-    // Apply transforms: center, pan, rotate, zoom
-    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${finalZoom})`
+    // At contain base, we skip extra scaling and panning to avoid clipping
+    style.transform = rotation ? `rotate(${rotation}deg)` : undefined
 
     // Filter/Skins
     if (background.filter) {
@@ -812,10 +776,14 @@ export default function StoryFrame({
               src={background.value}
               alt="Background Blur"
               style={{
-                ...getBackgroundImageStyle(),
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
                 filter: 'blur(20px) brightness(0.8)',
                 zIndex: -1,
-                transform: 'translate(-50%, -50%) scale(1.2)', // Slightly larger to cover edges
               }}
             />
             {/* Main background image */}

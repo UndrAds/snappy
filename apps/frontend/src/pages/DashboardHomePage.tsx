@@ -123,6 +123,20 @@ export default function DashboardHomePage() {
     })
   }
 
+  // Choose a thumbnail: prefer first image background from frames, fallback to publisherPic
+  const getStoryThumbnailUrl = (story: Story): string | undefined => {
+    // Try first frame with image background
+    const frames: any[] = (story as any).frames || []
+    for (const f of frames) {
+      if (f?.background?.type === 'image' && f?.background?.value) {
+        return f.background.value
+      }
+    }
+    // Fallback to publisherPic if available
+    if (story.publisherPic) return story.publisherPic
+    return undefined
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -246,19 +260,22 @@ export default function DashboardHomePage() {
               <CardContent className="space-y-4">
                 {/* Thumbnail */}
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
-                  {story.largeThumbnail ? (
-                    <img
-                      src={story.largeThumbnail}
-                      alt={story.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <div className="text-sm text-muted-foreground">
-                        No thumbnail
+                  {(() => {
+                    const thumb = getStoryThumbnailUrl(story)
+                    return thumb ? (
+                      <img
+                        src={thumb}
+                        alt={story.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-sm text-muted-foreground">
+                          No thumbnail
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                   {/* Removed status/draft badge */}
                 </div>
 

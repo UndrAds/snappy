@@ -43,10 +43,7 @@ interface SnapData {
     name: string
     profilePic: File | null
   }
-  thumbnails: {
-    large: File | null
-    small: File | null
-  }
+  // thumbnails removed
   cta: {
     type: 'redirect' | 'form' | 'promo' | 'sell' | null
     value: string
@@ -62,10 +59,7 @@ interface SnapData {
 export default function CreateSnapPage() {
   const defaultPublisherPic =
     'https://ui-avatars.com/api/?name=John+Doe&background=random'
-  const defaultLargeThumbnail =
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
-  const defaultSmallThumbnail =
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=200&q=80'
+  // default thumbnails removed
 
   const navigate = useNavigate()
   const [snapData, setSnapData] = useState<SnapData>({
@@ -74,10 +68,7 @@ export default function CreateSnapPage() {
       name: 'John Doe',
       profilePic: null, // File upload will still work, but preview will use default
     },
-    thumbnails: {
-      large: null,
-      small: null,
-    },
+    // thumbnails removed
     cta: {
       type: null,
       value: '',
@@ -92,12 +83,8 @@ export default function CreateSnapPage() {
 
   const [previewUrls, setPreviewUrls] = useState<{
     publisherPic?: string
-    largeThumbnail?: string
-    smallThumbnail?: string
   }>({
     publisherPic: defaultPublisherPic,
-    largeThumbnail: defaultLargeThumbnail,
-    smallThumbnail: defaultSmallThumbnail,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -132,10 +119,7 @@ export default function CreateSnapPage() {
     }))
   }
 
-  const handleFileUpload = async (
-    type: 'publisherPic' | 'largeThumbnail' | 'smallThumbnail',
-    file: File
-  ) => {
+  const handlePublisherPicUpload = async (file: File) => {
     try {
       setIsLoading(true)
 
@@ -144,28 +128,12 @@ export default function CreateSnapPage() {
 
       if (response.success && response.data) {
         const url = response.data.url
-        setPreviewUrls((prev) => ({
-          ...prev,
-          [type]: url,
-        }))
+        setPreviewUrls((prev) => ({ ...prev, publisherPic: url }))
 
-        if (type === 'publisherPic') {
-          setSnapData((prev) => ({
-            ...prev,
-            publisher: {
-              ...prev.publisher,
-              profilePic: file,
-            },
-          }))
-        } else {
-          setSnapData((prev) => ({
-            ...prev,
-            thumbnails: {
-              ...prev.thumbnails,
-              [type === 'largeThumbnail' ? 'large' : 'small']: file,
-            },
-          }))
-        }
+        setSnapData((prev) => ({
+          ...prev,
+          publisher: { ...prev.publisher, profilePic: file },
+        }))
 
         toast.success('File uploaded successfully!')
       } else {
@@ -271,14 +239,7 @@ export default function CreateSnapPage() {
       toast.error('Please upload a publisher profile picture')
       return
     }
-    if (!snapData.thumbnails.large && !previewUrls.largeThumbnail) {
-      toast.error('Please upload a large thumbnail')
-      return
-    }
-    if (!snapData.thumbnails.small && !previewUrls.smallThumbnail) {
-      toast.error('Please upload a small thumbnail')
-      return
-    }
+    // thumbnail requirements removed
     if (snapData.cta.type && !snapData.cta.value.trim()) {
       toast.error('Please enter a CTA value')
       return
@@ -310,8 +271,6 @@ export default function CreateSnapPage() {
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,
-        largeThumbnail: previewUrls.largeThumbnail,
-        smallThumbnail: previewUrls.smallThumbnail,
         ctaType: snapData.cta.type || undefined,
         ctaValue: snapData.cta.value || undefined,
         ctaText: snapData.cta.text || undefined,
@@ -334,8 +293,8 @@ export default function CreateSnapPage() {
             storyTitle: snapData.name,
             publisherName: snapData.publisher.name,
             publisherPic: previewUrls.publisherPic,
-            thumbnail: previewUrls.largeThumbnail,
-            background: previewUrls.largeThumbnail,
+            thumbnail: '',
+            background: '',
             ctaType: snapData.cta.type || undefined,
             ctaValue: snapData.cta.value || undefined,
             ctaText: snapData.cta.text || undefined,
@@ -699,35 +658,21 @@ export default function CreateSnapPage() {
               </div>
               <FileUpload
                 label="Publisher Profile Picture"
-                onFileSelect={(file) => handleFileUpload('publisherPic', file)}
+                onFileSelect={(file) => handlePublisherPicUpload(file)}
                 previewUrl={previewUrls.publisherPic}
               />
             </CardContent>
           </Card>
 
-          {/* Story Configuration */}
+          {/* Story Configuration (thumbnails removed) */}
           <Card>
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Upload thumbnails for your story and set defaults
+                Set default settings for your story
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FileUpload
-                label="Large Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('largeThumbnail', file)
-                }
-                previewUrl={previewUrls.largeThumbnail}
-              />
-              <FileUpload
-                label="Small Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('smallThumbnail', file)
-                }
-                previewUrl={previewUrls.smallThumbnail}
-              />
               <div className="space-y-2">
                 <Label>Default Frame Duration</Label>
                 <div className="flex flex-wrap gap-2">
@@ -868,7 +813,7 @@ export default function CreateSnapPage() {
               publisherName={snapData.publisher.name}
               storyTitle={snapData.name}
               publisherPic={previewUrls.publisherPic}
-              mainContent={previewUrls.largeThumbnail}
+              mainContent={undefined}
               ctaType={snapData.cta.type}
               ctaValue={snapData.cta.value}
               ctaText={snapData.cta.text}

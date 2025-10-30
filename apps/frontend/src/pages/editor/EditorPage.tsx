@@ -173,8 +173,8 @@ export default function EditorPage() {
             storyTitle: story.title,
             publisherName: story.publisherName,
             publisherPic: story.publisherPic || '',
-            thumbnail: story.largeThumbnail || '',
-            background: story.largeThumbnail || '',
+            thumbnail: '',
+            background: '',
             ctaType: story.ctaType as any,
             ctaValue: story.ctaValue || '',
             format: (story.format as 'portrait' | 'landscape') || 'portrait',
@@ -310,8 +310,8 @@ export default function EditorPage() {
               storyTitle: story.title,
               publisherName: story.publisherName,
               publisherPic: story.publisherPic || '',
-              thumbnail: story.largeThumbnail || '',
-              background: story.largeThumbnail || '',
+              thumbnail: '',
+              background: '',
               ctaType: story.ctaType as any,
               ctaValue: story.ctaValue || '',
               format: (story.format as 'portrait' | 'landscape') || 'portrait',
@@ -367,22 +367,12 @@ export default function EditorPage() {
                 elements: [],
                 hasContent: false,
                 durationMs: 2500,
-                background: story.largeThumbnail
-                  ? {
-                      type: 'image' as const,
-                      value: story.largeThumbnail,
-                      opacity: 100, // Set default opacity to 100
-                      zoom: 100, // Set default zoom to 100%
-                      rotation: 0,
-                      offsetX: 0,
-                      offsetY: 0,
-                    }
-                  : {
-                      type: 'color' as const,
-                      value:
-                        'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-                      opacity: 100, // Set default opacity to 100
-                    },
+                background: {
+                  type: 'color' as const,
+                  value:
+                    'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+                  opacity: 100,
+                },
               }
               setFrames([defaultFrame])
               setSelectedFrameId('1')

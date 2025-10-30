@@ -78,8 +78,7 @@ export class StoryService {
         uniqueId,
         publisherName: data.publisherName,
         publisherPic: data.publisherPic || null,
-        largeThumbnail: data.largeThumbnail || null,
-        smallThumbnail: data.smallThumbnail || null,
+        // Thumbnails removed from implementation
         ctaType: data.ctaType || null,
         ctaValue: data.ctaValue || null,
         ctaText: data.ctaText || null,
@@ -248,10 +247,7 @@ export class StoryService {
       updateData.publisherName = (data as any).publisherName;
     if (typeof (data as any).publisherPic !== 'undefined')
       updateData.publisherPic = (data as any).publisherPic;
-    if (typeof (data as any).largeThumbnail !== 'undefined')
-      updateData.largeThumbnail = (data as any).largeThumbnail;
-    if (typeof (data as any).smallThumbnail !== 'undefined')
-      updateData.smallThumbnail = (data as any).smallThumbnail;
+    // Thumbnails removed from implementation
     if (typeof (data as any).ctaType !== 'undefined') updateData.ctaType = (data as any).ctaType;
     if (typeof (data as any).ctaValue !== 'undefined') updateData.ctaValue = (data as any).ctaValue;
     if (typeof (data as any).ctaText !== 'undefined') updateData.ctaText = (data as any).ctaText;

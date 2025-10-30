@@ -88,10 +88,7 @@ export default function EditStoryPage() {
     )
   }
 
-  const handleFileUpload = async (
-    type: 'publisherPic' | 'largeThumbnail' | 'smallThumbnail',
-    file: File
-  ) => {
+  const handlePublisherPicUpload = async (file: File) => {
     if (!story) return
 
     try {
@@ -105,7 +102,7 @@ export default function EditStoryPage() {
           prev
             ? {
                 ...prev,
-                [type === 'publisherPic' ? 'publisherPic' : type]: url,
+                publisherPic: url,
               }
             : null
         )
@@ -132,8 +129,6 @@ export default function EditStoryPage() {
         title: story.title,
         publisherName: story.publisherName,
         publisherPic: story.publisherPic,
-        largeThumbnail: story.largeThumbnail,
-        smallThumbnail: story.smallThumbnail,
         ctaType: story.ctaType || undefined,
         ctaValue: story.ctaValue || undefined,
         ctaText: story.ctaText || undefined,
@@ -333,7 +328,7 @@ export default function EditStoryPage() {
               </div>
               <FileUpload
                 label="Publisher Profile Picture"
-                onFileSelect={(file) => handleFileUpload('publisherPic', file)}
+                onFileSelect={(file) => handlePublisherPicUpload(file)}
                 currentUrl={story.publisherPic}
               />
             </CardContent>
@@ -625,29 +620,15 @@ export default function EditStoryPage() {
             </CardContent>
           </Card>
 
-          {/* Story Configuration */}
+          {/* Story Configuration (thumbnails removed) */}
           <Card>
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Update thumbnails and default settings for your story
+                Update default settings for your story
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FileUpload
-                label="Large Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('largeThumbnail', file)
-                }
-                currentUrl={story.largeThumbnail}
-              />
-              <FileUpload
-                label="Small Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('smallThumbnail', file)
-                }
-                currentUrl={story.smallThumbnail}
-              />
               <div className="space-y-2">
                 <Label>Default Frame Duration</Label>
                 <div className="flex flex-wrap gap-2">

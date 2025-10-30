@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
-import { Type, RotateCcw } from 'lucide-react'
+import { Type, RotateCcw, Slash } from 'lucide-react'
 import PropertyControl from './PropertyControl'
 import { propertyControlsConfig } from './config'
 
@@ -72,73 +72,7 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
               })
             }
           />
-          {/* Text Preview */}
-          {element.content && (
-            <div className="mt-2 rounded border bg-gray-50 p-2">
-              <Label className="text-xs text-gray-600">Preview:</Label>
-              <div
-                className="mt-1 text-center"
-                style={{
-                  fontSize: Math.min(element.style?.fontSize || 16, 14),
-                  fontFamily: element.style?.fontFamily || 'Arial',
-                  fontWeight: element.style?.fontWeight || 'normal',
-                  color: element.style?.color || '#000000',
-                  backgroundColor: (() => {
-                    const bgColor =
-                      element.style?.backgroundColor || 'transparent'
-                    const bgOpacity = element.style?.backgroundOpacity || 100
-
-                    // If opacity is 0, return transparent
-                    if (bgOpacity === 0) return 'transparent'
-
-                    if (!bgColor || bgColor === 'transparent')
-                      return 'transparent'
-
-                    // Apply opacity to background color for preview
-                    if (bgColor.startsWith('rgba(')) {
-                      const rgbaMatch = bgColor.match(
-                        /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/
-                      )
-                      if (rgbaMatch) {
-                        const [, r, g, b] = rgbaMatch
-                        return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
-                      }
-                    }
-                    if (bgColor.startsWith('#')) {
-                      const hex = bgColor.replace('#', '')
-                      const r = parseInt(hex.substr(0, 2), 16)
-                      const g = parseInt(hex.substr(2, 2), 16)
-                      const b = parseInt(hex.substr(4, 2), 16)
-                      return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
-                    }
-                    if (bgColor.startsWith('rgb(')) {
-                      const rgbMatch = bgColor.match(
-                        /rgb\((\d+),\s*(\d+),\s*(\d+)\)/
-                      )
-                      if (rgbMatch) {
-                        const [, r, g, b] = rgbMatch
-                        return `rgba(${r}, ${g}, ${b}, ${bgOpacity / 100})`
-                      }
-                    }
-                    return bgColor
-                  })(),
-                  borderRadius: '6px',
-                  padding: '8px',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  hyphens: 'auto',
-                  lineHeight: '1.2',
-                  maxWidth: '100%',
-                  opacity:
-                    (element.style?.textOpacity ??
-                      element.style?.opacity ??
-                      100) / 100,
-                }}
-              >
-                {element.content}
-              </div>
-            </div>
-          )}
+          {/* Removed Text Preview */}
         </div>
         <div>
           <Label className="text-xs">Font Family</Label>
@@ -206,18 +140,34 @@ export default function PropertyPanelText({ element, onElementUpdate }: any) {
         <div>
           <Label className="text-xs">Background Color</Label>
           <div className="mt-1 grid grid-cols-4 gap-2">
-            {backgroundColors.map((color) => (
-              <div
-                key={color.value}
-                className={`h-8 w-8 cursor-pointer rounded border ${color.bgClass} transition-transform hover:scale-110 ${
-                  element.style?.backgroundColor === color.value
-                    ? 'ring-2 ring-blue-500'
-                    : ''
-                }`}
-                onClick={() => updateStyle({ backgroundColor: color.value })}
-                title={color.name}
-              />
-            ))}
+            {backgroundColors.map((color) => {
+              const isSelected = element.style?.backgroundColor === color.value
+              const commonClasses = `h-8 w-8 cursor-pointer rounded border transition-transform hover:scale-110 ${
+                isSelected ? 'ring-2 ring-blue-500' : ''
+              }`
+              if (color.value === 'transparent') {
+                return (
+                  <div
+                    key={color.value}
+                    className={`${commonClasses} flex items-center justify-center bg-transparent`}
+                    onClick={() =>
+                      updateStyle({ backgroundColor: color.value })
+                    }
+                    title={color.name}
+                  >
+                    <Slash className="h-5 w-5 text-gray-500" />
+                  </div>
+                )
+              }
+              return (
+                <div
+                  key={color.value}
+                  className={`${commonClasses} ${color.bgClass}`}
+                  onClick={() => updateStyle({ backgroundColor: color.value })}
+                  title={color.name}
+                />
+              )
+            })}
           </div>
         </div>
 

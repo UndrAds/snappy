@@ -29,7 +29,9 @@ export default function LoginPage() {
 
     try {
       await login(formData)
-      navigate('/')
+      toast.success('Welcome back!')
+      // Force a full redirect so auth state re-initializes and dashboard loads
+      window.location.href = '/'
     } catch (err: any) {
       const status = err.response?.status
       const message = err.response?.data?.error?.message || 'Login failed'

@@ -10,6 +10,7 @@ interface EditorLayoutProps {
   onEmbed?: () => void
   storyTitle?: string
   isSaving?: boolean
+  rssTimer?: ReactNode
 }
 
 export default function EditorLayout({
@@ -19,6 +20,7 @@ export default function EditorLayout({
   onEmbed,
   storyTitle,
   isSaving = false,
+  rssTimer,
 }: EditorLayoutProps) {
   const navigate = useNavigate()
 
@@ -50,6 +52,12 @@ export default function EditorLayout({
         </div>
 
         <div className="flex items-center space-x-2">
+          {rssTimer && (
+            <>
+              {rssTimer}
+              <div className="h-6 w-px bg-border"></div>
+            </>
+          )}
           <Button variant="ghost" size="sm" onClick={onPreview}>
             <Eye className="h-4 w-4" />
             <span className="ml-2">Preview</span>

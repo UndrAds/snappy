@@ -11,4 +11,5 @@ export const config: Environment = {
   JWT_SECRET: process.env['JWT_SECRET'] || 'your-super-secret-jwt-key-change-this-in-production',
   JWT_EXPIRES_IN: process.env['JWT_EXPIRES_IN'] || '7d',
   CORS_ORIGIN: process.env['CORS_ORIGIN'] || 'http://localhost:5173',
+  REDIS_URL: process.env['REDIS_URL'] || 'redis://localhost:6379',
 } as const;

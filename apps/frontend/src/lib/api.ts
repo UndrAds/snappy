@@ -206,6 +206,55 @@ export const storyAPI = {
   },
 }
 
+// RSS API
+export const rssAPI = {
+  // Validate RSS feed URL
+  validateFeedUrl: async (
+    feedUrl: string
+  ): Promise<ApiResponse<{ isValid: boolean }>> => {
+    const response = await api.post('/api/rss/validate-feed', { feedUrl })
+    return response.data
+  },
+
+  // Get RSS processing status
+  getProcessingStatus: async (storyId: string): Promise<ApiResponse<any>> => {
+    const response = await api.get(`/api/rss/processing-status/${storyId}`)
+    return response.data
+  },
+
+  // Update RSS configuration
+  updateRSSConfig: async (
+    storyId: string,
+    rssConfig: any
+  ): Promise<ApiResponse<Story>> => {
+    const response = await api.put(`/api/rss/config/${storyId}`, { rssConfig })
+    return response.data
+  },
+
+  // Toggle RSS updates
+  toggleRSSUpdates: async (
+    storyId: string,
+    isActive: boolean
+  ): Promise<ApiResponse<Story>> => {
+    const response = await api.put(`/api/rss/toggle/${storyId}`, { isActive })
+    return response.data
+  },
+
+  // Trigger manual RSS update
+  triggerRSSUpdate: async (
+    storyId: string
+  ): Promise<ApiResponse<{ message: string }>> => {
+    const response = await api.post(`/api/rss/trigger-update/${storyId}`)
+    return response.data
+  },
+
+  // Get queue statistics
+  getQueueStats: async (): Promise<ApiResponse<any>> => {
+    const response = await api.get('/api/rss/queue-stats')
+    return response.data
+  },
+}
+
 // Upload API
 export const uploadAPI = {
   // Upload single file

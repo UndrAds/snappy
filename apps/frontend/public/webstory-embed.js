@@ -103,13 +103,26 @@
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
     var autoplay = element.getAttribute('data-autoplay') === 'true'
+    var loop = element.getAttribute('data-loop') === 'true'
     var apiBaseUrl = element.getAttribute('data-api-url') || ''
 
     if (!storyId) return
 
-    // Get dimensions from the element's style or use defaults
-    var width = element.style.width || element.offsetWidth
-    var height = element.style.height || element.offsetHeight
+    // Get dimensions from data attributes first, then element style, then defaults
+    var width = element.getAttribute('data-width')
+    var height = element.getAttribute('data-height')
+
+    if (width) {
+      width = parseInt(width)
+    } else {
+      width = element.style.width || element.offsetWidth
+    }
+
+    if (height) {
+      height = parseInt(height)
+    } else {
+      height = element.style.height || element.offsetHeight
+    }
 
     // If no dimensions specified, use default mobile story dimensions
     if (!width || width === 0) {
@@ -137,7 +150,15 @@
     `
 
     // Fetch and render story
-    fetchAndRenderStory(storyId, apiBaseUrl, element, autoplay, false, null)
+    fetchAndRenderStory(
+      storyId,
+      apiBaseUrl,
+      element,
+      autoplay,
+      false,
+      null,
+      loop
+    )
   }
 
   function processFloaterEmbed(element) {
@@ -289,7 +310,7 @@
     `
 
     // Render the story in the regular container first (reuse the fetched data)
-    renderStoryDirectly(storyData, regularContainer, false, false)
+    renderStoryDirectly(storyData, regularContainer, false, false, null, false)
 
     // Create floater container with calculated dimensions
     var floaterContainer = document.createElement('div')
@@ -421,11 +442,18 @@
     }
 
     // Render story into the story container with floater scaling (reuse the fetched data)
-    renderStoryDirectly(storyData, storyContainer, false, true, {
-      isFloater: true,
-      scaleFactor: dimensions.width / width,
-      floaterDimensions: dimensions,
-    })
+    renderStoryDirectly(
+      storyData,
+      storyContainer,
+      false,
+      true,
+      {
+        isFloater: true,
+        scaleFactor: dimensions.width / width,
+        floaterDimensions: dimensions,
+      },
+      false
+    )
 
     // Start scroll detection
     window.addEventListener('scroll', checkScroll)
@@ -440,11 +468,33 @@
     container,
     autoplay,
     isFloater,
-    floaterOptions
+    floaterOptions,
+    loop
   ) {
+    // Default loop to false if not provided
+    if (loop === undefined) loop = false
     console.log('Rendering story directly with data:', storyData)
 
     var frames = storyData.frames || []
+    // Escapers for safe inline HTML
+    function escapeHtml(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+    }
+    function escapeAttr(str) {
+      if (str == null) return ''
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    }
     var story = {
       storyTitle: storyData.title,
       publisherName: storyData.publisherName,
@@ -501,6 +551,62 @@
     iframe.style.zIndex = '1'
     var slideDuration = 2500
 
+    // Helper function to calculate text element position and size based on format/deviceFrame
+    function calculateTextElementPosition(
+      el,
+      containerWidth,
+      containerHeight,
+      format,
+      deviceFrame,
+      hasFrameLink
+    ) {
+      var isLandscapeVideoPlayer =
+        format === 'landscape' && deviceFrame === 'video-player'
+      var isPortraitMobile = format === 'portrait' && deviceFrame === 'mobile'
+
+      // Text positioning - button will be positioned below text dynamically
+      var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+
+      var textWidth, textLeft, textBottom, textHeight
+
+      if (isLandscapeVideoPlayer) {
+        // Landscape video player: 50% width, centered, bottom with padding
+        textWidth = Math.round(containerWidth * 0.5)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = textBottomPadding
+        // Height stays dynamic based on content, but ensure minimum
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      } else if (isPortraitMobile) {
+        // Portrait mobile: 90% width, centered, bottom with padding
+        textWidth = Math.round(containerWidth * 0.9)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = textBottomPadding
+        // Height stays dynamic based on content, but ensure minimum
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      } else {
+        // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
+        textWidth = Math.round(containerWidth * 0.85)
+        textLeft = Math.round((containerWidth - textWidth) / 2)
+        textBottom = textBottomPadding
+        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+      }
+
+      // Convert bottom to top position (since we use top in CSS)
+      // Position from bottom, accounting for button space if needed
+      var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
+      var textTop = containerHeight - textBottom - textHeight - buttonSpace
+
+      return {
+        left: textLeft,
+        top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+        width: textWidth,
+        height: textHeight,
+      }
+    }
+
+    // Store button data for creating buttons outside slides
+    var buttonData = []
+
     // Build the story UI (same as in fetchAndRenderStory)
     var slides = frames.map(function (frame, idx) {
       // Handle ad frames
@@ -518,23 +624,45 @@
             .join('') +
           '</div>'
 
-        // Frame Link Indicators and Click Handler for ad frames
-        var adLinkIndicators = ''
+        // Frame Link Button for ad frames - store data instead of creating HTML
         var adLinkClickHandler = ''
         if (frame.link) {
-          // Link indicator badge for ad frames
-          adLinkIndicators =
-            '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
+          // Calculate button size based on aspect ratio
+          var isLandscape = story.format === 'landscape'
+          var aspectRatio = width / height
+          var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-          // Click to open hint for ad frames
-          adLinkIndicators +=
-            '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
+          // Button size calculations based on aspect ratio
+          var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+          var buttonFontSize = isWide ? '12px' : '15px'
+          var buttonLeft = isWide ? '50%' : '16px'
+          var buttonRight = isWide ? 'auto' : '16px'
+          var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+          var buttonMaxWidth = isWide ? '80%' : 'auto'
+          var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
 
-          // Add click handler for the entire ad slide
-          adLinkClickHandler =
-            'onclick="event.stopPropagation();handleFrameLink(\'' +
-            frame.link +
-            '\')" style="cursor:pointer;"'
+          // Use frame-specific link text or default
+          var linkButtonText =
+            frame.linkText && frame.linkText.trim()
+              ? frame.linkText.trim()
+              : 'Read More'
+
+          // Store button data instead of creating HTML
+          buttonData.push({
+            idx: idx,
+            link: frame.link,
+            text: linkButtonText,
+            left: buttonLeft,
+            top: buttonTop,
+            transform: buttonTransform,
+            marginLeft: '0',
+            maxWidth: buttonMaxWidth,
+            padding: buttonPadding,
+            fontSize: buttonFontSize,
+          })
+
+          // Remove parent slide click handler when button exists (navigation still works via nav areas)
+          adLinkClickHandler = ''
         }
 
         return (
@@ -549,7 +677,6 @@
           '<div id="' +
           frame.adConfig.adId +
           '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-          adLinkIndicators +
           '</div>'
         )
       }
@@ -570,19 +697,57 @@
             ';" />'
         }
       }
+      // Track text element position for button placement
+      var textElementBottom = null
+      var textElementLeft = null
+      var textElementWidth = null
+
       var elementsHtml = (frame.elements || [])
         .map(function (el) {
-          var style =
+          var style = ''
+          var elementWidth = el.width
+          var elementHeight = el.height
+          var elementLeft = el.x
+          var elementTop = el.y
+
+          // For text elements, calculate position based on format/deviceFrame
+          if (el.type === 'text') {
+            var textPos = calculateTextElementPosition(
+              el,
+              width,
+              height,
+              story.format,
+              story.deviceFrame,
+              !!frame.link
+            )
+            elementWidth = textPos.width
+            elementHeight = textPos.height
+            elementLeft = textPos.left
+            elementTop = textPos.top
+
+            // Store text element position for button placement
+            // Since height is auto, estimate actual height (at least min-height)
+            var estimatedHeight = Math.max(
+              elementHeight,
+              Math.max(24, Math.round(el.height || 0))
+            )
+            textElementBottom = elementTop + estimatedHeight
+            textElementLeft = elementLeft
+            textElementWidth = elementWidth
+          }
+
+          style =
             'position:absolute;left:' +
-            el.x +
+            elementLeft +
             'px;top:' +
-            el.y +
+            elementTop +
             'px;width:' +
-            el.width +
+            elementWidth +
             'px;height:' +
-            el.height +
+            elementHeight +
             'px;'
           if (el.type === 'text') {
+            var minH = Math.max(24, Math.round(elementHeight || 0))
             style +=
               'color:' +
               (el.style.color || '#fff') +
@@ -596,8 +761,17 @@
               (el.style.backgroundColor || 'transparent') +
               ';opacity:' +
               (el.style.opacity || 100) / 100 +
-              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;'
-            return '<div style="' + style + '">' + (el.content || '') + '</div>'
+              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+              'height:auto;min-height:' +
+              minH +
+              'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
+            return (
+              '<div style="' +
+              style +
+              '">' +
+              escapeHtml(el.content || '') +
+              '</div>'
+            )
           }
           if (el.type === 'image') {
             return (
@@ -623,9 +797,9 @@
               '" style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;object-fit:cover;" />'
             : '<div style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;">PP</div>') +
           '<div style="flex:1;"><div style="color:#fff;font-weight:600;font-size:15px;">' +
-          (story.publisherName || '') +
+          escapeHtml(story.publisherName || '') +
           '</div><div style="color:#fff;opacity:0.8;font-size:12px;">' +
-          (story.storyTitle || '') +
+          escapeHtml(story.storyTitle || '') +
           '</div></div>' +
           '<div style="color:#fff;font-size:12px;">' +
           (idx + 1) +
@@ -635,37 +809,90 @@
           '</div>'
       }
 
-      // CTA
-      var cta = ''
-      if (story.ctaType) {
+      // Frame Link Button - Replace CTA with frame-specific link button
+      var frameLinkButton = ''
+      var linkClickHandler = ''
+      if (frame.link) {
+        // Calculate button size based on aspect ratio
+        var isLandscape = story.format === 'landscape'
+        var aspectRatio = width / height
+        var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
+
+        // Button size calculations based on aspect ratio
+        var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+        var buttonFontSize = isWide ? '12px' : '15px'
+        var buttonMaxWidth = isWide ? '80%' : 'auto'
+
+        // Position button below text element with gap
+        var buttonGap = 24 // Gap between text and button
+        var buttonTop =
+          textElementBottom !== null
+            ? textElementBottom + buttonGap
+            : height - 100 // Fallback if no text element
+
+        // Calculate button horizontal position based on text element or aspect ratio
+        var buttonLeft = ''
+        var buttonTransform = ''
+        var buttonMarginLeft = ''
+
+        if (textElementLeft !== null && textElementWidth !== null) {
+          // Center button relative to text element
+          var buttonWidth = isWide
+            ? Math.min(textElementWidth, width * 0.8)
+            : Math.min(textElementWidth, width - 32)
+          buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
+          buttonTransform = 'translateX(-50%)'
+          buttonMarginLeft = '0'
+        } else {
+          // Fallback: center based on aspect ratio
+          buttonLeft = isWide ? '50%' : '16px'
+          buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+          buttonMarginLeft = isWide ? '0' : '0'
+        }
+
+        // Use frame-specific link text or default
+        var linkButtonText =
+          frame.linkText && frame.linkText.trim()
+            ? frame.linkText.trim()
+            : 'Read More'
+
+        // Create clickable link button with proper event handling
+        frameLinkButton =
+          '<a href="' +
+          escapeAttr(frame.link) +
+          '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
+          idx +
+          '" onclick="event.stopPropagation();" style="position:absolute;left:' +
+          buttonLeft +
+          ';margin-left:' +
+          buttonMarginLeft +
+          ';top:' +
+          buttonTop +
+          'px;z-index:20;display:block;text-decoration:none;transform:' +
+          buttonTransform +
+          ';max-width:' +
+          buttonMaxWidth +
+          ';pointer-events:auto;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+          buttonPadding +
+          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+          buttonFontSize +
+          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+          escapeHtml(linkButtonText) +
+          '</div></a>'
+
+        // Remove parent slide click handler when button exists (navigation still works via nav areas)
+        linkClickHandler = ''
+      } else if (story.ctaType) {
+        // Fallback to story-level CTA if no frame link
         var ctaText = ''
         if (story.ctaType === 'redirect') ctaText = 'Visit Link'
         if (story.ctaType === 'form') ctaText = 'Fill Form'
         if (story.ctaType === 'promo') ctaText = 'Get Promo'
         if (story.ctaType === 'sell') ctaText = 'Buy Now'
-        cta =
+        frameLinkButton =
           '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
           ctaText +
           '</div></div>'
-      }
-
-      // Frame Link Indicators and Click Handler
-      var linkIndicators = ''
-      var linkClickHandler = ''
-      if (frame.link) {
-        // Link indicator badge
-        linkIndicators =
-          '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
-
-        // Click to open hint
-        linkIndicators +=
-          '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
-
-        // Add click handler for the entire slide
-        linkClickHandler =
-          'onclick="event.stopPropagation();handleFrameLink(\'' +
-          frame.link +
-          '\')" style="cursor:pointer;"'
       }
 
       // Progress bar
@@ -695,32 +922,65 @@
         progress +
         header +
         bgImg +
-        '<div style="position:relative;width:100%;height:100%;">' +
+        '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
         elementsHtml +
         '</div>' +
-        cta +
-        linkIndicators +
         '</div>'
       )
     })
+
+    // Create buttons container outside slides
+    var buttonsHtml = buttonData
+      .map(function (btn) {
+        return (
+          '<a href="' +
+          escapeAttr(btn.link) +
+          '" target="_blank" rel="noopener noreferrer" class="snappy-frame-link-btn" data-frame-idx="' +
+          btn.idx +
+          '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+          escapeAttr(btn.link) +
+          "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+          btn.left +
+          ';margin-left:' +
+          btn.marginLeft +
+          ';top:' +
+          btn.top +
+          'px;z-index:70;display:none;text-decoration:none;transform:' +
+          btn.transform +
+          ';max-width:' +
+          btn.maxWidth +
+          ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+          btn.padding +
+          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+          btn.fontSize +
+          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+          escapeHtml(btn.text) +
+          '</div></a>'
+        )
+      })
+      .join('')
 
     var html =
       `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
       html,body{margin:0;padding:0;overflow:hidden;background:#111;width:100vw;height:100vh;}
       body{width:100vw;height:100vh;}
-      .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;}
+      .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;position:absolute;top:0;left:0;}
       .slide.active{opacity:1;pointer-events:auto;z-index:1;}
-      .slide.has-link{pointer-events:auto;cursor:pointer;z-index:100;}
+      .slide.has-link.active{pointer-events:auto;cursor:pointer;z-index:2;}
       .nav-btn{display:none;}
       .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
       .nav-area.left{left:0;}
       .nav-area.right{right:0;}
       #snappy-cta-btn > div { cursor: pointer; }
+      .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
+      .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
+      .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
       .ad-frame { background: #000; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
     </style><script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script></head><body><div style="width:100vw;height:100vh;position:relative;margin:0 auto;background:#111;border-radius:` +
       frameStyle.innerBorderRadius +
       `;overflow:hidden;">
     ${slides.join('')}
+    ${buttonsHtml}
     <div class="nav-area left" id="navLeft"></div><div class="nav-area right" id="navRight"></div>
     </div><script>
     // Initialize Google Publisher Tag
@@ -783,7 +1043,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){if(url){window.open(url,'_blank','noopener,noreferrer');}}show(idx);if(${autoplay}){resetAutoplay();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -799,8 +1059,11 @@
     container,
     autoplay,
     isFloater,
-    floaterOptions
+    floaterOptions,
+    loop
   ) {
+    // Default loop to false if not provided
+    if (loop === undefined) loop = false
     // Prevent duplicate requests for the same story
     var requestKey = storyId + '-' + (isFloater ? 'floater' : 'regular')
     if (pendingRequests.has(requestKey)) {
@@ -859,9 +1122,39 @@
           console.log('Final format:', story.format)
           console.log('Final deviceFrame:', story.deviceFrame)
 
-          // Get container dimensions
-          var width = container.style.width || container.offsetWidth || 360
-          var height = container.style.height || container.offsetHeight || 700
+          // Determine ideal container dimensions from story format/device frame
+          var idealDims = calculateRegularContainerDimensions(
+            story.format,
+            story.deviceFrame
+          )
+
+          // If container has no explicit size or is using defaults, set appropriate size
+          var currentWidth = container.style.width || container.offsetWidth
+          var currentHeight = container.style.height || container.offsetHeight
+          if (!currentWidth || !currentHeight) {
+            container.style.width = idealDims.width + 'px'
+            container.style.height = idealDims.height + 'px'
+          } else {
+            // If it's still at portrait defaults (360x640), switch to ideal
+            var cw =
+              typeof currentWidth === 'string' && currentWidth.includes('px')
+                ? parseInt(currentWidth)
+                : currentWidth
+            var ch =
+              typeof currentHeight === 'string' && currentHeight.includes('px')
+                ? parseInt(currentHeight)
+                : currentHeight
+            if ((cw === 360 && ch === 640) || cw === 0 || ch === 0) {
+              container.style.width = idealDims.width + 'px'
+              container.style.height = idealDims.height + 'px'
+            }
+          }
+
+          // Get container dimensions (after possible adjustment)
+          var width =
+            container.style.width || container.offsetWidth || idealDims.width
+          var height =
+            container.style.height || container.offsetHeight || idealDims.height
 
           // Ensure dimensions are in pixels
           if (typeof width === 'string' && width.includes('px')) {
@@ -901,7 +1194,85 @@
           iframe.style.zIndex = '1'
           var slideDuration = 2500
 
+          // Helper function to calculate text element position and size based on format/deviceFrame
+          function calculateTextElementPosition(
+            el,
+            containerWidth,
+            containerHeight,
+            format,
+            deviceFrame,
+            hasFrameLink
+          ) {
+            var isLandscapeVideoPlayer =
+              format === 'landscape' && deviceFrame === 'video-player'
+            var isPortraitMobile =
+              format === 'portrait' && deviceFrame === 'mobile'
+
+            // Text positioning - button will be positioned below text dynamically
+            var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+
+            var textWidth, textLeft, textBottom, textHeight
+
+            if (isLandscapeVideoPlayer) {
+              // Landscape video player: 50% width, centered, bottom with padding
+              textWidth = Math.round(containerWidth * 0.5)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = textBottomPadding
+              // Height stays dynamic based on content, but ensure minimum
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            } else if (isPortraitMobile) {
+              // Portrait mobile: 90% width, centered, bottom with padding
+              textWidth = Math.round(containerWidth * 0.9)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = textBottomPadding
+              // Height stays dynamic based on content, but ensure minimum
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            } else {
+              // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
+              textWidth = Math.round(containerWidth * 0.85)
+              textLeft = Math.round((containerWidth - textWidth) / 2)
+              textBottom = textBottomPadding
+              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+            }
+
+            // Convert bottom to top position (since we use top in CSS)
+            // Position from bottom, accounting for button space if needed
+            var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
+            var textTop =
+              containerHeight - textBottom - textHeight - buttonSpace
+
+            return {
+              left: textLeft,
+              top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+              width: textWidth,
+              height: textHeight,
+            }
+          }
+
           // Build the story UI
+          // Escapers for safe inline HTML
+          function escapeHtml(str) {
+            if (str == null) return ''
+            return String(str)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/\"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+          }
+          function escapeAttr(str) {
+            if (str == null) return ''
+            return String(str)
+              .replace(/&/g, '&amp;')
+              .replace(/\"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+          }
+
+          // Store button data for creating buttons outside slides
+          var buttonData = []
+
           var slides = frames.map(function (frame, idx) {
             // Handle ad frames
             if (frame.type === 'ad' && frame.adConfig) {
@@ -918,23 +1289,45 @@
                   .join('') +
                 '</div>'
 
-              // Frame Link Indicators and Click Handler for ad frames
-              var adLinkIndicators = ''
+              // Frame Link Button for ad frames - store data instead of creating HTML
               var adLinkClickHandler = ''
               if (frame.link) {
-                // Link indicator badge for ad frames
-                adLinkIndicators =
-                  '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
+                // Calculate button size based on aspect ratio
+                var isLandscape = story.format === 'landscape'
+                var aspectRatio = width / height
+                var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-                // Click to open hint for ad frames
-                adLinkIndicators +=
-                  '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
+                // Button size calculations based on aspect ratio
+                var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+                var buttonFontSize = isWide ? '12px' : '15px'
+                var buttonLeft = isWide ? '50%' : '16px'
+                var buttonRight = isWide ? 'auto' : '16px'
+                var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+                var buttonMaxWidth = isWide ? '80%' : 'auto'
+                var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
 
-                // Add click handler for the entire ad slide
-                adLinkClickHandler =
-                  'onclick="event.stopPropagation();handleFrameLink(\'' +
-                  frame.link +
-                  '\')" style="cursor:pointer;"'
+                // Use frame-specific link text or default
+                var linkButtonText =
+                  frame.linkText && frame.linkText.trim()
+                    ? frame.linkText.trim()
+                    : 'Read More'
+
+                // Store button data instead of creating HTML
+                buttonData.push({
+                  idx: idx,
+                  link: frame.link,
+                  text: linkButtonText,
+                  left: buttonLeft,
+                  top: buttonTop,
+                  transform: buttonTransform,
+                  marginLeft: '0',
+                  maxWidth: buttonMaxWidth,
+                  padding: buttonPadding,
+                  fontSize: buttonFontSize,
+                })
+
+                // Remove parent slide click handler when button exists (navigation still works via nav areas)
+                adLinkClickHandler = ''
               }
 
               return (
@@ -949,7 +1342,6 @@
                 '<div id="' +
                 frame.adConfig.adId +
                 '" class="ad-frame" style="width:100%;height:100%;"></div>' +
-                adLinkIndicators +
                 '</div>'
               )
             }
@@ -970,19 +1362,57 @@
                   ';" />'
               }
             }
+            // Track text element position for button placement
+            var textElementBottom = null
+            var textElementLeft = null
+            var textElementWidth = null
+
             var elementsHtml = (frame.elements || [])
               .map(function (el) {
-                var style =
+                var style = ''
+                var elementWidth = el.width
+                var elementHeight = el.height
+                var elementLeft = el.x
+                var elementTop = el.y
+
+                // For text elements, calculate position based on format/deviceFrame
+                if (el.type === 'text') {
+                  var textPos = calculateTextElementPosition(
+                    el,
+                    width,
+                    height,
+                    story.format,
+                    story.deviceFrame,
+                    !!frame.link
+                  )
+                  elementWidth = textPos.width
+                  elementHeight = textPos.height
+                  elementLeft = textPos.left
+                  elementTop = textPos.top
+
+                  // Store text element position for button placement
+                  // Since height is auto, estimate actual height (at least min-height)
+                  var estimatedHeight = Math.max(
+                    elementHeight,
+                    Math.max(24, Math.round(el.height || 0))
+                  )
+                  textElementBottom = elementTop + estimatedHeight
+                  textElementLeft = elementLeft
+                  textElementWidth = elementWidth
+                }
+
+                style =
                   'position:absolute;left:' +
-                  el.x +
+                  elementLeft +
                   'px;top:' +
-                  el.y +
+                  elementTop +
                   'px;width:' +
-                  el.width +
+                  elementWidth +
                   'px;height:' +
-                  el.height +
+                  elementHeight +
                   'px;'
                 if (el.type === 'text') {
+                  var minH = Math.max(24, Math.round(elementHeight || 0))
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
@@ -996,12 +1426,15 @@
                     (el.style.backgroundColor || 'transparent') +
                     ';opacity:' +
                     (el.style.opacity || 100) / 100 +
-                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;'
+                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+                    'height:auto;min-height:' +
+                    minH +
+                    'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
                   return (
                     '<div style="' +
                     style +
                     '">' +
-                    (el.content || '') +
+                    escapeHtml(el.content || '') +
                     '</div>'
                   )
                 }
@@ -1029,9 +1462,9 @@
                     '" style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;object-fit:cover;" />'
                   : '<div style="height:32px;width:32px;border-radius:50%;border:2px solid #fff;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;">PP</div>') +
                 '<div style="flex:1;"><div style="color:#fff;font-weight:600;font-size:15px;">' +
-                (story.publisherName || '') +
+                escapeHtml(story.publisherName || '') +
                 '</div><div style="color:#fff;opacity:0.8;font-size:12px;">' +
-                (story.storyTitle || '') +
+                escapeHtml(story.storyTitle || '') +
                 '</div></div>' +
                 '<div style="color:#fff;font-size:12px;">' +
                 (idx + 1) +
@@ -1041,37 +1474,80 @@
                 '</div>'
             }
 
-            // CTA
-            var cta = ''
-            if (story.ctaType) {
+            // Store button data for creating buttons outside slides
+            var frameLinkButton = ''
+            var linkClickHandler = ''
+            if (frame.link) {
+              // Calculate button size based on aspect ratio
+              var isLandscape = story.format === 'landscape'
+              var aspectRatio = width / height
+              var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
+
+              // Button size calculations based on aspect ratio
+              var buttonPadding = isWide ? '8px 16px' : '12px 24px'
+              var buttonFontSize = isWide ? '12px' : '15px'
+              var buttonMaxWidth = isWide ? '80%' : 'auto'
+
+              // Position button below text element with gap
+              var buttonGap = 24 // Gap between text and button
+              var buttonTop =
+                textElementBottom !== null
+                  ? textElementBottom + buttonGap
+                  : height - 100 // Fallback if no text element
+
+              // Calculate button horizontal position based on text element or aspect ratio
+              var buttonLeft = ''
+              var buttonTransform = ''
+              var buttonMarginLeft = ''
+
+              if (textElementLeft !== null && textElementWidth !== null) {
+                // Center button relative to text element
+                var buttonWidth = isWide
+                  ? Math.min(textElementWidth, width * 0.8)
+                  : Math.min(textElementWidth, width - 32)
+                buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
+                buttonTransform = 'translateX(-50%)'
+                buttonMarginLeft = '0'
+              } else {
+                // Fallback: center based on aspect ratio
+                buttonLeft = isWide ? '50%' : '16px'
+                buttonTransform = isWide ? 'translateX(-50%)' : 'none'
+                buttonMarginLeft = isWide ? '0' : '0'
+              }
+
+              // Use frame-specific link text or default
+              var linkButtonText =
+                frame.linkText && frame.linkText.trim()
+                  ? frame.linkText.trim()
+                  : 'Read More'
+
+              // Store button data instead of creating HTML
+              buttonData.push({
+                idx: idx,
+                link: frame.link,
+                text: linkButtonText,
+                left: buttonLeft,
+                top: buttonTop,
+                transform: buttonTransform,
+                marginLeft: buttonMarginLeft,
+                maxWidth: buttonMaxWidth,
+                padding: buttonPadding,
+                fontSize: buttonFontSize,
+              })
+
+              // Remove parent slide click handler when button exists (navigation still works via nav areas)
+              linkClickHandler = ''
+            } else if (story.ctaType) {
+              // Fallback to story-level CTA if no frame link
               var ctaText = ''
               if (story.ctaType === 'redirect') ctaText = 'Visit Link'
               if (story.ctaType === 'form') ctaText = 'Fill Form'
               if (story.ctaType === 'promo') ctaText = 'Get Promo'
               if (story.ctaType === 'sell') ctaText = 'Buy Now'
-              cta =
+              frameLinkButton =
                 '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
                 ctaText +
                 '</div></div>'
-            }
-
-            // Frame Link Indicators and Click Handler
-            var linkIndicators = ''
-            var linkClickHandler = ''
-            if (frame.link) {
-              // Link indicator badge
-              linkIndicators =
-                '<div style="position:absolute;right:12px;top:64px;z-index:50;"><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:rgba(59,130,246,0.9);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span style="font-size:10px;font-weight:600;">Link</span></div></div>'
-
-              // Click to open hint
-              linkIndicators +=
-                '<div style="position:absolute;bottom:12px;right:12px;z-index:50;"><div style="border-radius:999px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);padding:4px 8px;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);"><span style="font-size:10px;font-weight:600;">Click to open</span></div></div>'
-
-              // Add click handler for the entire slide
-              linkClickHandler =
-                'onclick="event.stopPropagation();handleFrameLink(\'' +
-                frame.link +
-                '\')" style="cursor:pointer;"'
             }
 
             // Progress bar
@@ -1101,32 +1577,65 @@
               progress +
               header +
               bgImg +
-              '<div style="position:relative;width:100%;height:100%;">' +
+              '<div style="position:relative;width:100%;height:100%;z-index:10;">' +
               elementsHtml +
               '</div>' +
-              cta +
-              linkIndicators +
               '</div>'
             )
           })
+
+          // Create buttons container outside slides
+          var buttonsHtml = buttonData
+            .map(function (btn) {
+              return (
+                '<a href="' +
+                escapeAttr(btn.link) +
+                '" target="_blank" rel="noopener noreferrer" class="snappy-frame-link-btn" data-frame-idx="' +
+                btn.idx +
+                '" onclick="event.stopPropagation(); event.preventDefault(); window.open(\'' +
+                escapeAttr(btn.link) +
+                "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
+                btn.left +
+                ';margin-left:' +
+                btn.marginLeft +
+                ';top:' +
+                btn.top +
+                'px;z-index:70;display:none;text-decoration:none;transform:' +
+                btn.transform +
+                ';max-width:' +
+                btn.maxWidth +
+                ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+                btn.padding +
+                ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
+                btn.fontSize +
+                ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
+                escapeHtml(btn.text) +
+                '</div></a>'
+              )
+            })
+            .join('')
 
           var html =
             `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
           html,body{margin:0;padding:0;overflow:hidden;background:#111;width:100vw;height:100vh;}
           body{width:100vw;height:100vh;}
-          .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;}
+          .slide{transition:opacity 0.3s;opacity:0;pointer-events:none;width:100%;height:100%;position:absolute;top:0;left:0;}
           .slide.active{opacity:1;pointer-events:auto;z-index:1;}
-          .slide.has-link{pointer-events:auto;cursor:pointer;z-index:100;}
+          .slide.has-link.active{pointer-events:auto;cursor:pointer;z-index:2;}
           .nav-btn{display:none;}
           .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
           .nav-area.left{left:0;}
           .nav-area.right{right:0;}
           #snappy-cta-btn > div { cursor: pointer; }
+          .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
+          .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
+          .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
           .ad-frame { background: #000; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         </style><script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script></head><body><div style="width:100vw;height:100vh;position:relative;margin:0 auto;background:#111;border-radius:` +
             frameStyle.innerBorderRadius +
             `;overflow:hidden;">
         ${slides.join('')}
+        ${buttonsHtml}
         <div class="nav-area left" id="navLeft"></div><div class="nav-area right" id="navRight"></div>
         </div><script>
         // Initialize Google Publisher Tag
@@ -1189,7 +1698,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});animateProgressBar(i);attachCTAHandler();}function next(){if(idx<slides.length-1){idx++;show(idx);if(${autoplay}){resetAutoplay();}}}function prev(){if(idx>0){idx--;show(idx);if(${autoplay}){resetAutoplay();}}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(idx<slides.length-1){idx++;show(idx);resetAutoplay();}},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){if(url){window.open(url,'_blank','noopener,noreferrer');}}show(idx);if(${autoplay}){resetAutoplay();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
         </script></body></html>`
 
           iframe.srcdoc = html

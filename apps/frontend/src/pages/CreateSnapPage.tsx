@@ -17,11 +17,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Upload, Save, Smartphone, Monitor } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Switch } from '@/components/ui/switch'
+import { Upload, Save, Smartphone, Monitor, Info, Rss } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
-import { storyAPI, uploadAPI } from '@/lib/api'
-import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
+import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
+import type {
+  StoryFormat,
+  DeviceFrame,
+  StoryType,
+  RSSConfig,
+} from '@snappy/shared-types'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import RSSProgressLoader from '@/components/RSSProgressLoader'
 
 interface SnapData {
   name: string
@@ -40,6 +54,8 @@ interface SnapData {
   }
   format: StoryFormat
   deviceFrame: DeviceFrame
+  storyType: StoryType
+  rssConfig?: RSSConfig
 }
 
 export default function CreateSnapPage() {
@@ -68,6 +84,8 @@ export default function CreateSnapPage() {
     },
     format: 'portrait' as const,
     deviceFrame: 'mobile' as const,
+    storyType: 'static' as const,
+    rssConfig: undefined,
   })
 
   const [previewUrls, setPreviewUrls] = useState<{
@@ -81,6 +99,19 @@ export default function CreateSnapPage() {
   })
 
   const [isLoading, setIsLoading] = useState(false)
+  const [rssConfig, setRssConfig] = useState<RSSConfig>({
+    feedUrl: '',
+    updateIntervalMinutes: 60,
+    maxPosts: 10,
+    allowRepetition: false,
+    isActive: true,
+  })
+  const [isValidatingFeed, setIsValidatingFeed] = useState(false)
+  const [showProgressLoader, setShowProgressLoader] = useState(false)
+  const [currentStoryId, setCurrentStoryId] = useState<string | null>(null)
+  const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
+    string | null
+  >(null)
 
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
@@ -170,6 +201,46 @@ export default function CreateSnapPage() {
     }))
   }
 
+  const handleStoryTypeChange = (value: StoryType) => {
+    setSnapData((prev) => ({
+      ...prev,
+      storyType: value,
+    }))
+  }
+
+  const handleRssConfigChange = (field: keyof RSSConfig, value: any) => {
+    setRssConfig((prev: RSSConfig) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  const validateRSSFeed = async () => {
+    if (!rssConfig.feedUrl) {
+      toast.error('Please enter an RSS feed URL')
+      return false
+    }
+
+    try {
+      setIsValidatingFeed(true)
+      const response = await rssAPI.validateFeedUrl(rssConfig.feedUrl)
+
+      if (response.success && response.data?.isValid) {
+        toast.success('RSS feed is valid!')
+        return true
+      } else {
+        toast.error('Invalid RSS feed URL')
+        return false
+      }
+    } catch (error) {
+      console.error('RSS validation error:', error)
+      toast.error('Failed to validate RSS feed')
+      return false
+    } finally {
+      setIsValidatingFeed(false)
+    }
+  }
+
   const handleFormatChange = (format: StoryFormat) => {
     setSnapData((prev) => ({
       ...prev,
@@ -211,11 +282,29 @@ export default function CreateSnapPage() {
       return
     }
 
+    // Validate RSS configuration if dynamic story
+    if (snapData.storyType === 'dynamic') {
+      if (!rssConfig.feedUrl.trim()) {
+        toast.error('Please enter an RSS feed URL')
+        return
+      }
+      if (rssConfig.updateIntervalMinutes < 5) {
+        toast.error('Update interval must be at least 5 minutes')
+        return
+      }
+      if (rssConfig.maxPosts < 1 || rssConfig.maxPosts > 50) {
+        toast.error('Max posts must be between 1 and 50')
+        return
+      }
+    }
+
     try {
       setIsLoading(true)
 
-      // Create story in backend
-      const storyResponse = await storyAPI.createStory({
+      let storyResponse
+
+      // Create story (both static and dynamic)
+      storyResponse = await storyAPI.createStory({
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,
@@ -226,34 +315,43 @@ export default function CreateSnapPage() {
         ctaText: snapData.cta.text || undefined,
         format: snapData.format,
         deviceFrame: snapData.deviceFrame,
+        storyType: snapData.storyType,
+        rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
       })
 
       if (storyResponse.success && storyResponse.data) {
-        // Prepare the data to pass to editor
-        const editorData = {
-          storyTitle: snapData.name,
-          publisherName: snapData.publisher.name,
-          publisherPic: previewUrls.publisherPic,
-          thumbnail: previewUrls.largeThumbnail, // This is the thumbnail for preview
-          background: previewUrls.largeThumbnail, // This becomes the background of the story
-          ctaType: snapData.cta.type || undefined,
-          ctaValue: snapData.cta.value || undefined,
-          ctaText: snapData.cta.text || undefined,
-          format: snapData.format,
-          deviceFrame: snapData.deviceFrame,
+        if (snapData.storyType === 'dynamic') {
+          // Show progress loader for dynamic stories
+          setCurrentStoryId(storyResponse.data.id)
+          setCurrentStoryUniqueId(storyResponse.data.uniqueId)
+          setShowProgressLoader(true)
+          toast.success('Dynamic story created! Processing RSS feed...')
+        } else {
+          // Navigate directly to editor for static stories
+          const editorData = {
+            storyTitle: snapData.name,
+            publisherName: snapData.publisher.name,
+            publisherPic: previewUrls.publisherPic,
+            thumbnail: previewUrls.largeThumbnail,
+            background: previewUrls.largeThumbnail,
+            ctaType: snapData.cta.type || undefined,
+            ctaValue: snapData.cta.value || undefined,
+            ctaText: snapData.cta.text || undefined,
+            format: snapData.format,
+            deviceFrame: snapData.deviceFrame,
+          }
+
+          navigate(`/editor/${storyResponse.data.uniqueId}`, {
+            state: {
+              storyData: editorData,
+              storyId: storyResponse.data.id,
+              uniqueId: storyResponse.data.uniqueId,
+              fromCreate: true,
+            },
+          })
+
+          toast.success('Snap saved successfully! Moving to edit mode...')
         }
-
-        // Navigate to editor with the data
-        navigate(`/editor/${storyResponse.data.uniqueId}`, {
-          state: {
-            storyData: editorData,
-            storyId: storyResponse.data.id,
-            uniqueId: storyResponse.data.uniqueId,
-            fromCreate: true,
-          },
-        })
-
-        toast.success('Snap saved successfully! Moving to edit mode...')
       } else {
         toast.error('Failed to create story')
       }
@@ -263,6 +361,31 @@ export default function CreateSnapPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleProgressComplete = () => {
+    if (currentStoryUniqueId && currentStoryId) {
+      // Navigate to editor after RSS processing is complete
+      // Use uniqueId in the URL path, and pass both storyId and uniqueId in state
+      navigate(`/editor/${currentStoryUniqueId}`, {
+        state: {
+          storyId: currentStoryId,
+          uniqueId: currentStoryUniqueId,
+          fromCreate: true,
+          isDynamic: true,
+        },
+      })
+    }
+    setShowProgressLoader(false)
+    setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
+  }
+
+  const handleProgressError = () => {
+    setShowProgressLoader(false)
+    setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
+    toast.error('RSS processing failed. You can still edit the story manually.')
   }
 
   const FileUpload = ({
@@ -323,7 +446,7 @@ export default function CreateSnapPage() {
       {/* Main Content */}
       <div className="flex flex-1 space-x-6 overflow-hidden">
         {/* Left Panel - Configuration */}
-        <div className="flex-1 space-y-6 overflow-y-auto">
+        <div className="flex-1 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">Create Snap</h2>
             <p className="text-muted-foreground">
@@ -349,6 +472,143 @@ export default function CreateSnapPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Story Type Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Story Type
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="max-w-xs space-y-2">
+                        <p className="font-semibold">Static Story:</p>
+                        <p className="text-sm">
+                          Create frames manually. Content doesn't change
+                          automatically.
+                        </p>
+                        <p className="font-semibold">Dynamic Story:</p>
+                        <p className="text-sm">
+                          Automatically updates from RSS feed at specified
+                          intervals.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
+              <CardDescription>
+                Choose whether your story will be static or dynamic
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup
+                value={snapData.storyType}
+                onValueChange={handleStoryTypeChange}
+                className="flex space-x-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="static" id="static" />
+                  <Label htmlFor="static">Static Story</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="dynamic" id="dynamic" />
+                  <Label htmlFor="dynamic">Dynamic Story</Label>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          {/* RSS Configuration - Only show for dynamic stories */}
+          {snapData.storyType === 'dynamic' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Rss className="h-5 w-5" />
+                  RSS Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure RSS feed settings for automatic updates
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rss-url">RSS Feed URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="rss-url"
+                      placeholder="https://example.com/feed.xml"
+                      value={rssConfig.feedUrl}
+                      onChange={(e) =>
+                        handleRssConfigChange('feedUrl', e.target.value)
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={validateRSSFeed}
+                      disabled={isValidatingFeed}
+                    >
+                      {isValidatingFeed ? 'Validating...' : 'Validate'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="update-interval">
+                      Update Interval (minutes)
+                    </Label>
+                    <Input
+                      id="update-interval"
+                      type="number"
+                      min="5"
+                      max="1440"
+                      value={rssConfig.updateIntervalMinutes}
+                      onChange={(e) =>
+                        handleRssConfigChange(
+                          'updateIntervalMinutes',
+                          parseInt(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="max-posts">Max Posts</Label>
+                    <Input
+                      id="max-posts"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={rssConfig.maxPosts}
+                      onChange={(e) =>
+                        handleRssConfigChange(
+                          'maxPosts',
+                          parseInt(e.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="allow-repetition"
+                    checked={rssConfig.allowRepetition}
+                    onCheckedChange={(checked) =>
+                      handleRssConfigChange('allowRepetition', checked)
+                    }
+                  />
+                  <Label htmlFor="allow-repetition">
+                    Allow repetition to reach max posts
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Format and Device Selection */}
           <Card>
@@ -550,7 +810,7 @@ export default function CreateSnapPage() {
         </div>
 
         {/* Right Panel - Mobile Preview */}
-        <div className="w-96 flex-shrink-0 px-4">
+        <div className="w-124 flex-shrink-0 px-4">
           <div className="sticky flex h-full flex-col items-center justify-center">
             <StoryFrame
               publisherName={snapData.publisher.name}
@@ -585,6 +845,15 @@ export default function CreateSnapPage() {
           </Button>
         </div>
       </div>
+
+      {/* RSS Progress Loader */}
+      {showProgressLoader && currentStoryId && (
+        <RSSProgressLoader
+          storyId={currentStoryId}
+          onComplete={handleProgressComplete}
+          onError={handleProgressError}
+        />
+      )}
     </div>
   )
 }

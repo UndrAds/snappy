@@ -6,6 +6,7 @@ import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
 import PropertyPanel from './components/propertyPanel'
 import EmbedModal from './components/EmbedModal'
+import RSSUpdateTimer from '@/components/RSSUpdateTimer'
 import { storyAPI } from '@/lib/api'
 
 interface CanvasElement {
@@ -42,6 +43,7 @@ interface StoryFrame {
   hasContent: boolean
   name?: string
   link?: string // Optional link URL for the frame
+  linkText?: string // Optional link text for the frame
   background?: {
     type: 'color' | 'image' | 'video'
     value: string
@@ -135,6 +137,113 @@ export default function EditorPage() {
   const [currentStoryId, setCurrentStoryId] = useState<string | undefined>(
     storyId
   )
+  const [isDynamicStory, setIsDynamicStory] = useState(false)
+  const [rssConfig, setRssConfig] = useState<any>(null)
+
+  // Load story function
+  const loadStory = async () => {
+    // Load story if:
+    // 1. uniqueId is provided AND not from create (normal edit flow)
+    // 2. OR uniqueId is provided AND coming from RSS processing (isDynamic)
+    const shouldLoadStory =
+      uniqueId && (!fromCreate || location.state?.isDynamic)
+    if (shouldLoadStory) {
+      try {
+        setIsLoading(true)
+        const response = await storyAPI.getStoryByUniqueId(uniqueId)
+
+        if (response.success && response.data) {
+          const story = response.data
+
+          // Set the story ID for saving
+          setCurrentStoryId(story.id)
+
+          // Check if this is a dynamic story
+          setIsDynamicStory(story.storyType === 'dynamic')
+          if (story.storyType === 'dynamic' && story.rssConfig) {
+            setRssConfig(story.rssConfig)
+          }
+
+          // Update story data
+          setStoryDataState({
+            storyTitle: story.title,
+            publisherName: story.publisherName,
+            publisherPic: story.publisherPic || '',
+            thumbnail: story.largeThumbnail || '',
+            background: story.largeThumbnail || '',
+            ctaType: story.ctaType as any,
+            ctaValue: story.ctaValue || '',
+            format: (story.format as 'portrait' | 'landscape') || 'portrait',
+            deviceFrame:
+              (story.deviceFrame as 'mobile' | 'video-player') || 'mobile',
+          })
+
+          // Convert database frames to editor frames
+          if (story.frames && story.frames.length > 0) {
+            console.log('Loaded frames from backend:', story.frames)
+            const editorFrames = story.frames.map((frame: any) => {
+              console.log('Mapping frame from backend:', {
+                frameId: frame.id,
+                frameName: frame.name,
+                frameLink: frame.link,
+                frameLinkText: frame.linkText,
+                hasLink: !!frame.link,
+                hasLinkText: !!frame.linkText,
+              })
+              return {
+                id: frame.id,
+                order: frame.order,
+                type: frame.type || 'story',
+                elements: frame.elements || [],
+                hasContent: frame.hasContent,
+                name: frame.name,
+                link: frame.link, // Add frame link from database
+                linkText: frame.linkText, // Add frame linkText from database
+                adConfig: frame.adConfig,
+                background: frame.background
+                  ? {
+                      type: frame.background.type as
+                        | 'color'
+                        | 'image'
+                        | 'video',
+                      value: frame.background.value,
+                      opacity: frame.background.opacity ?? 100,
+                      rotation: frame.background.rotation ?? 0,
+                      zoom: frame.background.zoom ?? 100,
+                      filter: frame.background.filter,
+                      offsetX: frame.background.offsetX ?? 0,
+                      offsetY: frame.background.offsetY ?? 0,
+                    }
+                  : undefined,
+              }
+            })
+
+            console.log('Editor frames after mapping:', editorFrames)
+            if (editorFrames.length > 0) {
+              console.log('First editor frame:', {
+                id: editorFrames[0].id,
+                name: editorFrames[0].name,
+                link: editorFrames[0].link,
+                linkText: editorFrames[0].linkText,
+                hasLink: !!editorFrames[0].link,
+                hasLinkText: !!editorFrames[0].linkText,
+              })
+            }
+
+            setFrames(editorFrames)
+            if (editorFrames.length > 0) {
+              setSelectedFrameId(editorFrames[0].id)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading story:', error)
+        toast.error('Failed to load story')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+  }
 
   // Update initial frame when coming from create page
   useEffect(() => {
@@ -165,9 +274,15 @@ export default function EditorPage() {
   }, [fromCreate, location.state?.storyData?.thumbnail])
 
   // Load story data if uniqueId is provided in URL
+  // For dynamic stories created from RSS, we need to load even if fromCreate is true
   useEffect(() => {
     const loadStory = async () => {
-      if (uniqueId && !fromCreate) {
+      // Load story if:
+      // 1. uniqueId is provided AND not from create (normal edit flow)
+      // 2. OR uniqueId is provided AND coming from RSS processing (isDynamic)
+      const shouldLoadStory =
+        uniqueId && (!fromCreate || location.state?.isDynamic)
+      if (shouldLoadStory) {
         try {
           setIsLoading(true)
           const response = await storyAPI.getStoryByUniqueId(uniqueId)
@@ -177,6 +292,12 @@ export default function EditorPage() {
 
             // Set the story ID for saving
             setCurrentStoryId(story.id)
+
+            // Check if this is a dynamic story
+            setIsDynamicStory(story.storyType === 'dynamic')
+            if (story.storyType === 'dynamic' && story.rssConfig) {
+              setRssConfig(story.rssConfig)
+            }
 
             // Update story data
             setStoryDataState({
@@ -202,6 +323,8 @@ export default function EditorPage() {
                 elements: frame.elements || [],
                 hasContent: frame.hasContent,
                 name: frame.name,
+                link: frame.link, // Add frame link from database
+                linkText: frame.linkText, // Add frame linkText from database
                 adConfig: frame.adConfig,
                 background: frame.background
                   ? {
@@ -256,7 +379,14 @@ export default function EditorPage() {
               setSelectedFrameId('1')
             }
 
-            toast.success(`Loaded story: ${story.title}`)
+            // Show success message
+            if (location.state?.isDynamic && fromCreate) {
+              toast.success(
+                `RSS feed processed! Loaded ${story.frames?.length || 0} frames for "${story.title}"`
+              )
+            } else {
+              toast.success(`Loaded story: ${story.title}`)
+            }
           } else {
             toast.error('Story not found')
           }
@@ -270,16 +400,17 @@ export default function EditorPage() {
     }
 
     loadStory()
-  }, [uniqueId, fromCreate])
+  }, [uniqueId, fromCreate, location.state?.isDynamic])
 
   // Show welcome message if coming from create page
+  // Only show for static stories (dynamic stories show message after loading)
   useEffect(() => {
-    if (fromCreate && storyDataState) {
+    if (fromCreate && storyDataState && !location.state?.isDynamic) {
       toast.success(
         `Welcome to the editor! You can now customize your story "${storyDataState.storyTitle}"`
       )
     }
-  }, [fromCreate, storyDataState])
+  }, [fromCreate, storyDataState, location.state?.isDynamic])
 
   const addNewFrame = (frameType: 'story' | 'ad' = 'story') => {
     const newFrame: StoryFrame = {
@@ -638,6 +769,21 @@ export default function EditorPage() {
       onEmbed={handleEmbed}
       storyTitle={storyDataState?.storyTitle}
       isSaving={isSaving}
+      rssTimer={
+        isDynamicStory && rssConfig && currentStoryId ? (
+          <RSSUpdateTimer
+            storyId={currentStoryId}
+            rssConfig={rssConfig}
+            onUpdateTriggered={() => {
+              // Refresh story data when RSS update is triggered
+              if (uniqueId) {
+                loadStory()
+              }
+            }}
+            variant="navbar"
+          />
+        ) : undefined
+      }
     >
       <EditorSidebar
         frames={frames}
@@ -710,25 +856,44 @@ export default function EditorPage() {
                     adConfig: selectedFrame.adConfig,
                   }
                 : selectedFrame && !selectedElement
-                  ? {
-                      id: selectedFrame.id,
-                      type: 'frame',
-                      name: selectedFrame.name,
-                      link: selectedFrame.link,
-                      frameType: selectedFrame.type,
-                    }
+                  ? (() => {
+                      console.log('Creating selectedElement for frame:', {
+                        frameId: selectedFrame.id,
+                        frameName: selectedFrame.name,
+                        frameLink: selectedFrame.link,
+                        frameLinkText: selectedFrame.linkText,
+                      })
+                      console.log('Full selectedFrame object:', selectedFrame)
+                      return {
+                        id: selectedFrame.id,
+                        type: 'frame',
+                        name: selectedFrame.name,
+                        link: selectedFrame.link,
+                        linkText: selectedFrame.linkText,
+                        frameType: selectedFrame.type,
+                      }
+                    })()
                   : undefined
         }
         background={selectedFrame?.background}
         onElementUpdate={updateElement}
         onBackgroundUpdate={updateBackground}
         onElementRemove={removeElement}
-        onFrameUpdate={(frameId: string, updates: any) => {
+        onFrameUpdate={async (frameId: string, updates: any) => {
+          // Update local state immediately for UI responsiveness
           setFrames((prev) =>
             prev.map((frame) =>
               frame.id === frameId ? { ...frame, ...updates } : frame
             )
           )
+
+          // Save to database
+          try {
+            await storyAPI.updateStoryFrame(frameId, updates)
+          } catch (error) {
+            console.error('Failed to save frame update:', error)
+            toast.error('Failed to save frame update')
+          }
         }}
       />
       <EmbedModal

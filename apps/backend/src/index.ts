@@ -13,6 +13,8 @@ import userRoutes from './routes/users';
 import storyRoutes from './routes/stories';
 import uploadRoutes from './routes/uploads';
 import contentRoutes from './routes/content';
+import rssRoutes from './routes/rss';
+import { SchedulerService } from './services/schedulerService';
 
 const app = express();
 const PORT = config.PORT;
@@ -68,6 +70,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
+app.use('/api/rss', rssRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -81,9 +84,14 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
 
+    // Initialize RSS scheduler
+    const schedulerService = new SchedulerService();
+    await schedulerService.initializeScheduler();
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT} in ${config.NODE_ENV} mode`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      console.log(`📡 RSS scheduler initialized`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

@@ -11,6 +11,8 @@ import {
   UpdateStoryElementRequest,
   StoryBackground,
   CreateStoryBackgroundRequest,
+  RSSFeedItem,
+  RSSConfig,
 } from '@snappy/shared-types';
 import crypto from 'crypto';
 
@@ -22,23 +24,33 @@ function convertPrismaStoryToSharedType(prismaStory: any): Story {
     ...prismaStory,
     createdAt: prismaStory.createdAt.toISOString(),
     updatedAt: prismaStory.updatedAt.toISOString(),
-    frames: prismaStory.frames?.map((frame: any) => ({
-      ...frame,
-      createdAt: frame.createdAt.toISOString(),
-      updatedAt: frame.updatedAt.toISOString(),
-      elements: frame.elements?.map((element: any) => ({
-        ...element,
-        createdAt: element.createdAt.toISOString(),
-        updatedAt: element.updatedAt.toISOString(),
-      })),
-      background: frame.background
-        ? {
-            ...frame.background,
-            createdAt: frame.background.createdAt.toISOString(),
-            updatedAt: frame.background.updatedAt.toISOString(),
-          }
-        : undefined,
-    })),
+    frames: prismaStory.frames?.map((frame: any) => {
+      console.log('Converting frame to shared type:', {
+        frameId: frame.id,
+        frameName: frame.name,
+        frameLink: frame.link,
+        frameLinkText: frame.linkText,
+        hasLink: !!frame.link,
+        hasLinkText: !!frame.linkText,
+      });
+      return {
+        ...frame,
+        createdAt: frame.createdAt.toISOString(),
+        updatedAt: frame.updatedAt.toISOString(),
+        elements: frame.elements?.map((element: any) => ({
+          ...element,
+          createdAt: element.createdAt.toISOString(),
+          updatedAt: element.updatedAt.toISOString(),
+        })),
+        background: frame.background
+          ? {
+              ...frame.background,
+              createdAt: frame.background.createdAt.toISOString(),
+              updatedAt: frame.background.updatedAt.toISOString(),
+            }
+          : undefined,
+      };
+    }),
   } as Story;
 }
 
@@ -73,6 +85,8 @@ export class StoryService {
         ctaText: data.ctaText || null,
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
+        storyType: data.storyType || 'static',
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
         userId,
       },
       include: {
@@ -87,6 +101,49 @@ export class StoryService {
         },
       },
     });
+
+    // Handle dynamic story setup
+    if (data.storyType === 'dynamic' && data.rssConfig) {
+      try {
+        console.log(`Setting up dynamic story ${story.id} with RSS config:`, {
+          feedUrl: data.rssConfig.feedUrl,
+          updateIntervalMinutes: data.rssConfig.updateIntervalMinutes,
+          maxPosts: data.rssConfig.maxPosts,
+          allowRepetition: data.rssConfig.allowRepetition,
+          isActive: data.rssConfig.isActive,
+        });
+
+        const { SchedulerService } = await import('./schedulerService');
+        const schedulerService = new SchedulerService();
+
+        // Schedule RSS updates (includes immediate processing)
+        await schedulerService.scheduleRSSUpdate(story.id, data.rssConfig);
+
+        console.log(`✅ Dynamic story ${story.id} created and RSS processing scheduled`);
+
+        // Wait a moment for the job to process
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Check if frames were created
+        const storyWithFrames = await prisma.story.findUnique({
+          where: { id: story.id },
+          include: { frames: true },
+        });
+
+        console.log(`📊 Story ${story.id} now has ${storyWithFrames?.frames?.length || 0} frames`);
+        if (
+          storyWithFrames?.frames &&
+          storyWithFrames.frames.length > 0 &&
+          storyWithFrames.frames[0]
+        ) {
+          console.log(`🔗 First frame link: ${storyWithFrames.frames[0].link}`);
+          console.log(`🔗 First frame linkText: ${storyWithFrames.frames[0].linkText}`);
+        }
+      } catch (error) {
+        console.error('❌ Error setting up dynamic story RSS processing:', error);
+        // Don't fail the story creation if RSS setup fails
+      }
+    }
 
     return convertPrismaStoryToSharedType(story);
   }
@@ -114,6 +171,20 @@ export class StoryService {
         },
       },
     });
+
+    if (story && story.frames && story.frames.length > 0) {
+      console.log(
+        'Raw Prisma story frames:',
+        story.frames.map((frame: any) => ({
+          id: frame.id,
+          name: frame.name,
+          link: frame.link,
+          linkText: frame.linkText,
+          hasLink: !!frame.link,
+          hasLinkText: !!frame.linkText,
+        }))
+      );
+    }
 
     return story ? convertPrismaStoryToSharedType(story) : null;
   }
@@ -172,7 +243,10 @@ export class StoryService {
         id: storyId,
         userId, // Ensure user owns the story
       },
-      data,
+      data: {
+        ...data,
+        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : undefined,
+      },
       include: {
         frames: {
           include: {
@@ -466,5 +540,237 @@ export class StoryService {
 
     // Return updated story
     return (await this.getStoryById(dbStory.id, userId)) as Story;
+  }
+
+  // Get all active dynamic stories
+  static async getActiveDynamicStories(): Promise<Story[]> {
+    const stories = await prisma.story.findMany({
+      where: {
+        storyType: 'dynamic',
+      },
+      include: {
+        frames: {
+          include: {
+            elements: true,
+            background: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+    });
+
+    // Filter out stories with null rssConfig
+    const activeStories = stories.filter((story: any) => story.rssConfig !== null);
+
+    return activeStories.map((story: any) => convertPrismaStoryToSharedType(story));
+  }
+
+  // Update RSS configuration for a story
+  static async updateStoryRSSConfig(storyId: string, rssConfig: RSSConfig): Promise<void> {
+    await prisma.story.update({
+      where: { id: storyId },
+      data: { rssConfig: JSON.parse(JSON.stringify(rssConfig)) },
+    });
+  }
+
+  // Generate frames from RSS feed items
+  static async generateFramesFromRSS(storyId: string, feedItems: RSSFeedItem[]): Promise<number> {
+    try {
+      console.log(`Starting frame generation for story ${storyId} with ${feedItems.length} items`);
+
+      // Get the story to understand its format
+      const story = await prisma.story.findUnique({
+        where: { id: storyId },
+      });
+
+      if (!story) {
+        throw new Error('Story not found');
+      }
+
+      console.log(`Found story: ${story.title}, clearing existing frames...`);
+
+      // Clear existing frames
+      const deletedCount = await prisma.storyFrame.deleteMany({
+        where: { storyId },
+      });
+
+      console.log(`Deleted ${deletedCount.count} existing frames`);
+
+      let framesGenerated = 0;
+
+      // Create frames for each RSS item
+      for (let i = 0; i < feedItems.length; i++) {
+        const item = feedItems[i];
+        if (!item) continue;
+
+        // Debug logging for frame creation
+        console.log(`Creating frame ${i + 1} for RSS item:`, {
+          title: item.title,
+          link: item.link,
+          hasLink: !!item.link,
+          imageUrl: item.imageUrl,
+          hasImage: !!item.imageUrl,
+        });
+
+        // Create frame with RSS title as name and link
+        const frame = await prisma.storyFrame.create({
+          data: {
+            order: i,
+            type: 'story',
+            hasContent: true,
+            name: item.title, // Use RSS item title as frame name
+            link: item.link || null, // Use RSS item link as frame link
+            linkText: 'Read More', // Default link text for RSS frames
+            storyId,
+          },
+        });
+
+        console.log(`Created frame with link:`, frame.link);
+
+        // Create background with RSS image
+        if (item.imageUrl) {
+          await prisma.storyBackground.create({
+            data: {
+              type: 'image',
+              value: item.imageUrl,
+              frameId: frame.id,
+              // Add proper background properties for panning and zooming
+              zoom: 100, // Default zoom level
+              offsetX: 0, // Default X offset for panning
+              offsetY: 0, // Default Y offset for panning
+              rotation: 0, // Default rotation
+              opacity: 100, // Default opacity
+            },
+          });
+        }
+
+        // Create title text element with dynamic sizing
+        const frameWidth = story.format === 'portrait' ? 288 : 550; // Frame width
+        const frameHeight = story.format === 'portrait' ? 550 : 288; // Frame height
+        // Landscape (horizontal video player) should use 14px bold
+        const fontSize = story.format === 'portrait' ? 18 : 14;
+        const horizontalPadding = 20; // Left and right margins (portrait default)
+        const ctaHeight = 60; // Space reserved for CTA button
+        const bottomPadding = 20; // Padding from CTA area
+
+        // Calculate text width
+        // For landscape (horizontal video player), make the text narrower with equal side margins
+        const rightMargin = 40; // Extra margin from right edge (portrait default)
+        // Use fixed 70% width for landscape to ensure comfortable side gaps
+        const textWidth =
+          story.format === 'landscape'
+            ? Math.floor(frameWidth * 0.5)
+            : frameWidth - horizontalPadding - rightMargin;
+
+        // Estimate text height based on text length and font size
+        // Rough calculation: average characters per line, with line height of 1.2
+        const avgCharsPerLine = textWidth / (fontSize * 0.6); // Rough character width estimation
+        const estimatedLines = Math.ceil(item.title.length / avgCharsPerLine);
+        const lineHeight = fontSize * 1.2;
+        // Reduce overall height for landscape to occupy less vertical space
+        const verticalPadding = story.format === 'landscape' ? 16 : 60;
+        const minHeight = story.format === 'landscape' ? 48 : 80;
+        const textHeight = Math.max(estimatedLines * lineHeight + verticalPadding, minHeight);
+
+        // Position above CTA button area
+        const textY = frameHeight - ctaHeight - textHeight - bottomPadding;
+
+        // Compute X position (center horizontally for landscape)
+        const textX =
+          story.format === 'landscape'
+            ? Math.floor((frameWidth - textWidth) / 2)
+            : horizontalPadding; // portrait keeps left margin
+
+        const textElement = await prisma.storyElement.create({
+          data: {
+            type: 'text',
+            x: textX,
+            y: textY, // Position above CTA area
+            width: textWidth, // Width with right margin
+            height: textHeight, // Dynamic height based on text
+            content: item.title,
+            frameId: frame.id,
+            style: {
+              fontSize: fontSize,
+              fontFamily: 'Arial, sans-serif',
+              fontWeight: 'bold',
+              color: '#FFFFFF',
+              backgroundColor: '#000000',
+              textOpacity: 100, // 100% text opacity
+              backgroundOpacity: 100, // 100% background opacity
+              textAlign: 'center', // Center text within the element
+              padding: '8px',
+              lineHeight: 1.2, // Line height for better text wrapping
+              wordWrap: 'break-word', // Allow text to wrap
+            },
+          },
+        });
+
+        console.log(`Created text element for frame ${frame.id}:`, {
+          title: item.title,
+          position: { x: textElement.x, y: textElement.y },
+          size: { width: textElement.width, height: textElement.height },
+          frameFormat: story.format,
+        });
+
+        framesGenerated++;
+      }
+
+      console.log(`Generated ${framesGenerated} frames for story ${storyId}`);
+
+      // Final verification - check if frames were actually saved
+      const verificationFrames = await prisma.storyFrame.findMany({
+        where: { storyId },
+        select: { id: true, name: true, link: true, linkText: true },
+      });
+
+      console.log(
+        `Final verification - ${verificationFrames.length} frames in database:`,
+        verificationFrames.map((frame: any) => ({
+          id: frame.id,
+          name: frame.name,
+          link: frame.link,
+          linkText: frame.linkText,
+          hasLink: !!frame.link,
+          hasLinkText: !!frame.linkText,
+        }))
+      );
+
+      return framesGenerated;
+    } catch (error) {
+      console.error('Error generating frames from RSS:', error);
+      throw error;
+    }
+  }
+
+  // Get RSS processing status for a story
+  static async getRSSProcessingStatus(_storyId: string): Promise<any> {
+    // This will be implemented with Redis integration
+    return null;
+  }
+
+  // Validate RSS configuration
+  static async validateRSSConfig(rssConfig: RSSConfig): Promise<boolean> {
+    try {
+      // Basic validation
+      if (!rssConfig.feedUrl || !rssConfig.feedUrl.startsWith('http')) {
+        return false;
+      }
+
+      if (rssConfig.updateIntervalMinutes < 5) {
+        return false; // Minimum 5 minutes
+      }
+
+      if (rssConfig.maxPosts < 1 || rssConfig.maxPosts > 50) {
+        return false; // Reasonable limits
+      }
+
+      return true;
+    } catch (error) {
+      console.error('RSS config validation error:', error);
+      return false;
+    }
   }
 }

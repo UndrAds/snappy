@@ -93,6 +93,7 @@ export default function PreviewPage() {
           background={frame.background}
           adConfig={frame.adConfig}
           link={frame.link}
+          linkText={frame.linkText}
           isEditMode={false}
           showPublisherInfo
           showCTA

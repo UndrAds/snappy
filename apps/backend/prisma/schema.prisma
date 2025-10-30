@@ -39,9 +39,13 @@ model Story {
   status      String   @default("draft") // 'draft' | 'published' | 'archived'
   format      String   @default("portrait") // 'portrait' | 'landscape'
   deviceFrame String   @default("mobile") // 'mobile' | 'video-player'
+  storyType   String   @default("static") // 'static' | 'dynamic'
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // RSS/Dynamic story configuration
+  rssConfig   Json?    // RSS configuration for dynamic stories
 
   // Relations
   user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)

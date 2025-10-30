@@ -91,7 +91,7 @@ export default function DashboardLayout() {
                   !sidebarOpen && 'justify-center'
                 } ${
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
+                    ? 'bg-primary/10 text-primary shadow-sm hover:bg-primary/15'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}
                 onClick={() => handleMenuClick(item.path)}

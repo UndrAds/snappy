@@ -319,7 +319,6 @@ export default function CreateSnapPage() {
         deviceFrame: snapData.deviceFrame,
         storyType: snapData.storyType,
         rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
-        defaultDurationMs: snapData.defaultDurationMs || 2500,
       })
 
       if (storyResponse.success && storyResponse.data) {
@@ -887,7 +886,6 @@ export default function CreateSnapPage() {
       {/* Bottom Bar - Static */}
       <div className="border-t bg-background px-6 py-3">
         <div className="flex justify-end space-x-4">
-          <Button variant="outline">Save Draft</Button>
           <Button
             onClick={handleSaveAndEdit}
             className="flex items-center space-x-2"

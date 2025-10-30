@@ -83,6 +83,8 @@ export class StoryService {
         ctaType: data.ctaType || null,
         ctaValue: data.ctaValue || null,
         ctaText: data.ctaText || null,
+        // Default to 'published' unless explicitly provided as 'draft' via caller
+        // Do not override status; rely on Prisma default and ignore draft logic
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         storyType: data.storyType || 'static',

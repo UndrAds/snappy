@@ -102,18 +102,7 @@ export default function DashboardHomePage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-      case 'archived':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-    }
-  }
+  // Removed status badge logic
 
   const getStoryTypeColor = (storyType: string) => {
     switch (storyType) {
@@ -270,11 +259,7 @@ export default function DashboardHomePage() {
                       </div>
                     </div>
                   )}
-                  <div className="absolute right-2 top-2">
-                    <Badge className={getStatusColor(story.status)}>
-                      {story.status}
-                    </Badge>
-                  </div>
+                  {/* Removed status/draft badge */}
                 </div>
 
                 {/* Story Details */}

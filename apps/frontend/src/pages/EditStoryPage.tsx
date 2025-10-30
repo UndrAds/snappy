@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Badge } from '@/components/ui/badge'
 import { Upload, Save, Info, Rss, Smartphone, Monitor } from 'lucide-react'
 import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
 import RSSProgressLoader from '@/components/RSSProgressLoader'
@@ -145,8 +144,6 @@ export default function EditStoryPage() {
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
             : null,
-        defaultDurationMs: (story as any).defaultDurationMs || 2500,
-        applyDefaultDurationToAll: applyDefaultToAll || false,
       })
 
       if (response.success) {
@@ -829,13 +826,11 @@ export default function EditStoryPage() {
       <div className="border-t bg-background px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Badge variant="outline">{story.status}</Badge>
             <span className="text-sm text-muted-foreground">
               Last updated: {new Date(story.updatedAt).toLocaleDateString()}
             </span>
           </div>
           <div className="flex space-x-4">
-            <Button variant="outline">Save Draft</Button>
             <Button
               onClick={handleSaveAndEdit}
               className="flex items-center space-x-2"

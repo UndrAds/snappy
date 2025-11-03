@@ -44,11 +44,6 @@ interface SnapData {
     profilePic: File | null
   }
   // thumbnails removed
-  cta: {
-    type: 'redirect' | 'form' | 'promo' | 'sell' | null
-    value: string
-    text: string
-  }
   format: StoryFormat
   deviceFrame: DeviceFrame
   storyType: StoryType
@@ -69,11 +64,6 @@ export default function CreateSnapPage() {
       profilePic: null, // File upload will still work, but preview will use default
     },
     // thumbnails removed
-    cta: {
-      type: null,
-      value: '',
-      text: '',
-    },
     format: 'portrait' as const,
     deviceFrame: 'mobile' as const,
     storyType: 'static' as const,
@@ -147,29 +137,7 @@ export default function CreateSnapPage() {
     }
   }
 
-  const handleCtaChange = (type: string, value: string) => {
-    setSnapData((prev) => ({
-      ...prev,
-      cta: {
-        type:
-          type === 'none'
-            ? null
-            : (type as 'redirect' | 'form' | 'promo' | 'sell' | null),
-        value: type === 'none' ? '' : value,
-        text: prev.cta.text, // Preserve existing text
-      },
-    }))
-  }
-
-  const handleCtaTextChange = (text: string) => {
-    setSnapData((prev) => ({
-      ...prev,
-      cta: {
-        ...prev.cta,
-        text,
-      },
-    }))
-  }
+  // CTA removed: story-level CTA no longer supported
 
   const handleStoryTypeChange = (value: StoryType) => {
     setSnapData((prev) => ({
@@ -240,10 +208,7 @@ export default function CreateSnapPage() {
       return
     }
     // thumbnail requirements removed
-    if (snapData.cta.type && !snapData.cta.value.trim()) {
-      toast.error('Please enter a CTA value')
-      return
-    }
+    // No story-level CTA validation
 
     // Validate RSS configuration if dynamic story
     if (snapData.storyType === 'dynamic') {
@@ -271,9 +236,6 @@ export default function CreateSnapPage() {
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,
-        ctaType: snapData.cta.type || undefined,
-        ctaValue: snapData.cta.value || undefined,
-        ctaText: snapData.cta.text || undefined,
         format: snapData.format,
         deviceFrame: snapData.deviceFrame,
         storyType: snapData.storyType,
@@ -295,9 +257,6 @@ export default function CreateSnapPage() {
             publisherPic: previewUrls.publisherPic,
             thumbnail: '',
             background: '',
-            ctaType: snapData.cta.type || undefined,
-            ctaValue: snapData.cta.value || undefined,
-            ctaText: snapData.cta.text || undefined,
             format: snapData.format,
             deviceFrame: snapData.deviceFrame,
             defaultDurationMs: snapData.defaultDurationMs || 2500,
@@ -725,85 +684,7 @@ export default function CreateSnapPage() {
             </CardContent>
           </Card>
 
-          {/* CTA Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Call to Action</CardTitle>
-              <CardDescription>
-                Configure the action users will take
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cta-type">CTA Type</Label>
-                <Select
-                  value={snapData.cta.type || 'none'}
-                  onValueChange={(value) =>
-                    handleCtaChange(value, snapData.cta.value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select CTA type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No CTA</SelectItem>
-                    <SelectItem value="redirect">Redirect to URL</SelectItem>
-                    <SelectItem value="form">Open a Form</SelectItem>
-                    <SelectItem value="promo">Give a Promo Code</SelectItem>
-                    <SelectItem value="sell">Sell an Item</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {snapData.cta.type && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-value">
-                    {snapData.cta.type === 'redirect' && 'URL'}
-                    {snapData.cta.type === 'form' && 'Form Name'}
-                    {snapData.cta.type === 'promo' && 'Promo Code'}
-                    {snapData.cta.type === 'sell' && 'Product Name'}
-                  </Label>
-                  <Input
-                    id="cta-value"
-                    placeholder={
-                      snapData.cta.type === 'redirect'
-                        ? 'https://example.com'
-                        : snapData.cta.type === 'form'
-                          ? 'Contact Form'
-                          : snapData.cta.type === 'promo'
-                            ? 'SAVE20'
-                            : 'Product Name'
-                    }
-                    value={snapData.cta.value}
-                    onChange={(e) =>
-                      handleCtaChange(snapData.cta.type!, e.target.value)
-                    }
-                  />
-                </div>
-              )}
-              {snapData.cta.type && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-text">CTA Button Text</Label>
-                  <Input
-                    id="cta-text"
-                    placeholder={
-                      snapData.cta.type === 'redirect'
-                        ? 'Visit Link'
-                        : snapData.cta.type === 'form'
-                          ? 'Fill Form'
-                          : snapData.cta.type === 'promo'
-                            ? 'Get Promo'
-                            : 'Buy Now'
-                    }
-                    value={snapData.cta.text}
-                    onChange={(e) => handleCtaTextChange(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use default text
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* CTA removed: story-level CTA is no longer supported */}
         </div>
 
         {/* Right Panel - Mobile Preview */}
@@ -814,9 +695,6 @@ export default function CreateSnapPage() {
               storyTitle={snapData.name}
               publisherPic={previewUrls.publisherPic}
               mainContent={undefined}
-              ctaType={snapData.cta.type}
-              ctaValue={snapData.cta.value}
-              ctaText={snapData.cta.text}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

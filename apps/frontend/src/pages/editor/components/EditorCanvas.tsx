@@ -36,9 +36,6 @@ interface StoryData {
   publisherPic?: string
   thumbnail?: string
   background?: string
-  ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
-  ctaValue: string
-  ctaText?: string
   format?: StoryFormat
   deviceFrame?: DeviceFrame
 }
@@ -152,11 +149,7 @@ export default function EditorCanvas({
           publisherName={storyData?.publisherName}
           publisherPic={storyData?.publisherPic}
           mainContent={storyData?.thumbnail} // Use thumbnail as main content for preview
-          ctaType={storyData?.ctaType}
-          ctaValue={storyData?.ctaValue}
-          ctaText={storyData?.ctaText}
           showPublisherInfo={true}
-          showCTA={true}
           showProgressBar={true}
           currentSlide={currentSlide}
           totalSlides={totalSlides}

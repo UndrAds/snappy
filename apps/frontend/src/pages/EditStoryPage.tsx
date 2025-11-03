@@ -129,9 +129,6 @@ export default function EditStoryPage() {
         title: story.title,
         publisherName: story.publisherName,
         publisherPic: story.publisherPic,
-        ctaType: story.ctaType || undefined,
-        ctaValue: story.ctaValue || undefined,
-        ctaText: story.ctaText || undefined,
         format: story.format || 'portrait',
         deviceFrame: story.deviceFrame || 'mobile',
         storyType: story.storyType || 'static',
@@ -695,90 +692,7 @@ export default function EditStoryPage() {
             </CardContent>
           </Card>
 
-          {/* CTA Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Call to Action</CardTitle>
-              <CardDescription>
-                Configure the action users will take
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="cta-type">CTA Type</Label>
-                <Select
-                  value={story.ctaType || 'none'}
-                  onValueChange={(value) =>
-                    handleInputChange(
-                      'ctaType',
-                      value === 'none' ? null : (value as any)
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select CTA type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No CTA</SelectItem>
-                    <SelectItem value="redirect">Redirect to URL</SelectItem>
-                    <SelectItem value="form">Open a Form</SelectItem>
-                    <SelectItem value="promo">Give a Promo Code</SelectItem>
-                    <SelectItem value="sell">Sell an Item</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {story.ctaType && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-value">
-                    {story.ctaType === 'redirect' && 'URL'}
-                    {story.ctaType === 'form' && 'Form Name'}
-                    {story.ctaType === 'promo' && 'Promo Code'}
-                    {story.ctaType === 'sell' && 'Product Name'}
-                  </Label>
-                  <Input
-                    id="cta-value"
-                    placeholder={
-                      story.ctaType === 'redirect'
-                        ? 'https://example.com'
-                        : story.ctaType === 'form'
-                          ? 'Contact Form'
-                          : story.ctaType === 'promo'
-                            ? 'SAVE20'
-                            : 'Product Name'
-                    }
-                    value={story.ctaValue || ''}
-                    onChange={(e) =>
-                      handleInputChange('ctaValue', e.target.value)
-                    }
-                  />
-                </div>
-              )}
-              {story.ctaType && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-text">CTA Button Text</Label>
-                  <Input
-                    id="cta-text"
-                    placeholder={
-                      story.ctaType === 'redirect'
-                        ? 'Visit Link'
-                        : story.ctaType === 'form'
-                          ? 'Fill Form'
-                          : story.ctaType === 'promo'
-                            ? 'Get Promo'
-                            : 'Buy Now'
-                    }
-                    value={story.ctaText || ''}
-                    onChange={(e) =>
-                      handleInputChange('ctaText', e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use default text
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* CTA removed: story-level CTA is no longer supported */}
         </div>
 
         {/* Right Panel - Mobile Preview */}
@@ -789,9 +703,6 @@ export default function EditStoryPage() {
               storyTitle={story.title}
               publisherPic={story.publisherPic}
               mainContent={story.largeThumbnail}
-              ctaType={story.ctaType}
-              ctaValue={story.ctaValue}
-              ctaText={story.ctaText}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}

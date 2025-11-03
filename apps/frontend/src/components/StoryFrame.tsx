@@ -36,9 +36,6 @@ interface StoryFrameProps {
   storyTitle?: string
   publisherPic?: string
   mainContent?: string
-  ctaType?: 'redirect' | 'form' | 'promo' | 'sell' | null
-  ctaValue?: string
-  ctaText?: string
   currentSlide?: number
   totalSlides?: number
   showProgressBar?: boolean
@@ -72,7 +69,6 @@ interface StoryFrameProps {
 
   // Edit mode display options
   showPublisherInfo?: boolean
-  showCTA?: boolean
 
   // Format and device frame props
   format?: StoryFormat
@@ -86,9 +82,6 @@ export default function StoryFrame({
   publisherName,
   storyTitle,
   publisherPic,
-  ctaType,
-  ctaValue,
-  ctaText,
   currentSlide = 1,
   totalSlides = 4,
   showProgressBar = true,
@@ -109,7 +102,6 @@ export default function StoryFrame({
 
   // Edit mode display options
   showPublisherInfo = false,
-  showCTA = false,
 
   // Format and device frame props
   format = 'portrait',
@@ -846,8 +838,6 @@ export default function StoryFrame({
   // Determine if we should show publisher info and CTA
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
-  const shouldShowCTA =
-    (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
 
   // Handle frame click for links
   const handleFrameClick = (e: React.MouseEvent) => {
@@ -1060,36 +1050,6 @@ export default function StoryFrame({
             </div>
           )}
         </div>
-
-        {/* Bottom CTA - Show in preview mode or when showCTA is true in edit mode */}
-        {shouldShowCTA && ctaType && (
-          <div className="absolute bottom-8 left-4 right-4 z-10">
-            {ctaType === 'redirect' && ctaValue ? (
-              <a
-                href={ctaValue}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block cursor-pointer rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm transition-colors hover:bg-white"
-              >
-                <div className="text-sm font-semibold text-black">
-                  {ctaText && ctaText.trim() ? ctaText : 'Visit Link'}
-                </div>
-              </a>
-            ) : (
-              <div className="rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm">
-                <div className="text-sm font-semibold text-black">
-                  {ctaText && ctaText.trim()
-                    ? ctaText
-                    : ctaType === 'form'
-                      ? 'Fill Form'
-                      : ctaType === 'promo'
-                        ? 'Get Promo'
-                        : 'Buy Now'}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Link Indicator Overlay - Show when frame has a link */}

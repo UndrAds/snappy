@@ -504,8 +504,6 @@
       storyTitle: storyData.title,
       publisherName: storyData.publisherName,
       publisherPic: storyData.publisherPic,
-      ctaType: storyData.ctaType,
-      ctaValue: storyData.ctaValue,
       format: storyData.format || 'portrait',
       deviceFrame: storyData.deviceFrame || 'mobile',
       defaultDurationMs: storyData.defaultDurationMs || 2500,
@@ -906,17 +904,6 @@
 
         // Remove parent slide click handler when button exists (navigation still works via nav areas)
         linkClickHandler = ''
-      } else if (story.ctaType) {
-        // Fallback to story-level CTA if no frame link
-        var ctaText = ''
-        if (story.ctaType === 'redirect') ctaText = 'Visit Link'
-        if (story.ctaType === 'form') ctaText = 'Fill Form'
-        if (story.ctaType === 'promo') ctaText = 'Get Promo'
-        if (story.ctaType === 'sell') ctaText = 'Buy Now'
-        frameLinkButton =
-          '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
-          ctaText +
-          '</div></div>'
       }
 
       // Progress bar
@@ -995,7 +982,6 @@
       .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
       .nav-area.left{left:0;}
       .nav-area.right{right:0;}
-      #snappy-cta-btn > div { cursor: pointer; }
       .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
       .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
       .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
@@ -1067,7 +1053,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:(story.defaultDurationMs||2500);});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||story.defaultDurationMs||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||story.defaultDurationMs||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:(story.defaultDurationMs||2500);});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||story.defaultDurationMs||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||story.defaultDurationMs||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -1136,8 +1122,6 @@
             storyTitle: storyData.title,
             publisherName: storyData.publisherName,
             publisherPic: storyData.publisherPic,
-            ctaType: storyData.ctaType,
-            ctaValue: storyData.ctaValue,
             format: storyData.format || 'portrait',
             deviceFrame: storyData.deviceFrame || 'mobile',
           }
@@ -1578,17 +1562,6 @@
 
               // Remove parent slide click handler when button exists (navigation still works via nav areas)
               linkClickHandler = ''
-            } else if (story.ctaType) {
-              // Fallback to story-level CTA if no frame link
-              var ctaText = ''
-              if (story.ctaType === 'redirect') ctaText = 'Visit Link'
-              if (story.ctaType === 'form') ctaText = 'Fill Form'
-              if (story.ctaType === 'promo') ctaText = 'Get Promo'
-              if (story.ctaType === 'sell') ctaText = 'Buy Now'
-              frameLinkButton =
-                '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
-                ctaText +
-                '</div></div>'
             }
 
             // Progress bar
@@ -1667,7 +1640,6 @@
           .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
           .nav-area.left{left:0;}
           .nav-area.right{right:0;}
-          #snappy-cta-btn > div { cursor: pointer; }
           .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
           .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
           .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
@@ -1739,7 +1711,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:2500;});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:2500;});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
         </script></body></html>`
 
           iframe.srcdoc = html

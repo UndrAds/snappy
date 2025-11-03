@@ -9,9 +9,11 @@ interface FramePropertyPanelProps {
   element: {
     id: string
     name?: string
+    displayName?: string
     link?: string
     linkText?: string
     frameType: 'story' | 'ad'
+    order?: number
     durationMs?: number
   }
   storyDefaultDurationMs?: number
@@ -31,7 +33,9 @@ export default function FramePropertyPanel({
   onFrameUpdate,
   storyDefaultDurationMs,
 }: FramePropertyPanelProps) {
-  const [name, setName] = useState(element.name || '')
+  const [name, setName] = useState(
+    (element.name ?? element.displayName ?? '') as string
+  )
   const [link, setLink] = useState(element.link || '')
   const [linkText, setLinkText] = useState(element.linkText || '')
   const [durationMode, setDurationMode] = useState<string>(() => {
@@ -59,10 +63,11 @@ export default function FramePropertyPanel({
       elementName: element.name,
       elementLink: element.link,
       elementLinkText: element.linkText,
+      fullElement: element,
     })
-    setName(element.name || '')
-    setLink(element.link || '')
-    setLinkText(element.linkText || '')
+    setName((element.name ?? element.displayName ?? '') as string)
+    setLink(element.link ?? '')
+    setLinkText(element.linkText ?? '')
     const ms = element.durationMs ?? 2500
     const preset = [5000, 10000, 15000, 20000, 30000].includes(ms)
       ? String(ms)
@@ -73,7 +78,13 @@ export default function FramePropertyPanel({
         ? '5'
         : String(Math.round(ms / 1000))
     )
-  }, [element.id, element.name, element.link, element.linkText])
+  }, [
+    element.id,
+    element.name,
+    element.link,
+    element.linkText,
+    element.durationMs,
+  ])
 
   const handleSave = () => {
     const durationMs =

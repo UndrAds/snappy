@@ -82,6 +82,15 @@ declare global {
   }
 }
 
+// Generate UUID for local-only frames (fallback if crypto.randomUUID not available)
+function generateLocalId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback: simple random string
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+}
+
 export default function EditorPage() {
   const location = useLocation()
   const params = useParams()
@@ -106,34 +115,9 @@ export default function EditorPage() {
   const fromCreate = location.state?.fromCreate || false
   const storyId = location.state?.storyId
 
-  const [frames, setFrames] = useState<StoryFrame[]>([
-    {
-      id: '1',
-      order: 1,
-      type: 'story',
-      elements: [],
-      hasContent: false,
-      durationMs: 2500,
-      background: location.state?.storyData?.thumbnail
-        ? {
-            type: 'image' as const,
-            value: location.state.storyData.thumbnail,
-            opacity: 100, // Set default opacity to 100
-            zoom: 100, // Set default zoom to 100%
-            rotation: 0,
-            offsetX: 0,
-            offsetY: 0,
-          }
-        : {
-            type: 'color' as const,
-            value:
-              'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-            opacity: 100, // Set default opacity to 100
-          },
-    },
-  ])
-
-  const [selectedFrameId, setSelectedFrameId] = useState<string>('1')
+  // Start with empty frames - will be populated when story loads
+  const [frames, setFrames] = useState<StoryFrame[]>([])
+  const [selectedFrameId, setSelectedFrameId] = useState<string>('')
   const [selectedElementId, setSelectedElementId] = useState<string>('')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -256,18 +240,19 @@ export default function EditorPage() {
     if (
       fromCreate &&
       location.state?.storyData?.thumbnail &&
-      frames.length > 0
+      frames.length > 0 &&
+      selectedFrameId
     ) {
       setFrames((prev) =>
         prev.map((frame) =>
-          frame.id === '1'
+          frame.id === selectedFrameId
             ? {
                 ...frame,
                 background: {
                   type: 'image' as const,
                   value: location.state.storyData.thumbnail,
-                  opacity: 100, // Set default opacity to 100
-                  zoom: 100, // Set default zoom to 100%
+                  opacity: 100,
+                  zoom: 100,
                   rotation: 0,
                   offsetX: 0,
                   offsetY: 0,
@@ -277,18 +262,65 @@ export default function EditorPage() {
         )
       )
     }
-  }, [fromCreate, location.state?.storyData?.thumbnail])
+  }, [fromCreate, location.state?.storyData?.thumbnail, selectedFrameId])
+
+  // Persist local-only frames (UUIDs that aren't database IDs) when story is saved
+  useEffect(() => {
+    const persistLocalFramesIfNeeded = async () => {
+      if (!currentStoryId) return
+
+      // Check if any frame has a UUID that doesn't match database ID format
+      // Database IDs are cuid-like (typically start with 'c' and are 25 chars)
+      const localFrames = frames.filter((f) => {
+        // Database IDs: cuid format (starts with 'c' + 24 alphanumeric) or similar
+        const isDbId = typeof f.id === 'string' && /^c[a-z0-9]{24}$/i.test(f.id)
+        return !isDbId && f.id.length > 10 // UUIDs are longer, exclude very short IDs
+      })
+
+      if (localFrames.length === 0) return
+
+      try {
+        const updatedFrames: StoryFrame[] = [...frames]
+        for (const local of localFrames) {
+          const resp = await storyAPI.createStoryFrame(currentStoryId, {
+            order: local.order,
+            hasContent: local.hasContent,
+            name: (local as any).name ?? null,
+            link: (local as any).link ?? null,
+            linkText: (local as any).linkText ?? null,
+            durationMs: local.durationMs ?? 2500,
+          } as any)
+          const realId =
+            (resp as any)?.data?.id || (resp as any)?.data?.frame?.id
+          if (realId) {
+            const idx = updatedFrames.findIndex((f) => f.id === local.id)
+            if (idx >= 0) {
+              updatedFrames[idx] = { ...updatedFrames[idx], id: realId }
+              if (selectedFrameId === local.id) setSelectedFrameId(realId)
+            }
+          }
+        }
+        setFrames(updatedFrames)
+        if (localFrames.length > 0) {
+          toast.success('Local frames saved to server')
+        }
+      } catch (error) {
+        console.warn('Failed to persist local frames:', error)
+        // Will be saved on full story save
+      }
+    }
+
+    persistLocalFramesIfNeeded()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStoryId])
 
   // Load story data if uniqueId is provided in URL
-  // For dynamic stories created from RSS, we need to load even if fromCreate is true
+  // Always load when uniqueId exists (on page reload, URL navigation, etc.)
   useEffect(() => {
     const loadStory = async () => {
-      // Load story if:
-      // 1. uniqueId is provided AND not from create (normal edit flow)
-      // 2. OR uniqueId is provided AND coming from RSS processing (isDynamic)
-      const shouldLoadStory =
-        uniqueId && (!fromCreate || location.state?.isDynamic)
-      if (shouldLoadStory) {
+      // Always load story when uniqueId is provided (from URL params)
+      // This handles page reloads where location.state is lost
+      if (uniqueId) {
         try {
           setIsLoading(true)
           const response = await storyAPI.getStoryByUniqueId(uniqueId)
@@ -357,25 +389,48 @@ export default function EditorPage() {
               }))
 
               setFrames(editorFrames)
-              setSelectedFrameId(editorFrames[0]?.id || '1')
+              setSelectedFrameId(editorFrames[0]?.id || '')
             } else {
-              // If no frames exist, create a default frame with the story's background
-              const defaultFrame: StoryFrame = {
-                id: '1',
-                order: 1,
-                type: 'story',
-                elements: [],
-                hasContent: false,
-                durationMs: 2500,
-                background: {
-                  type: 'color' as const,
-                  value:
-                    'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-                  opacity: 100,
-                },
+              // If no frames exist and we have a story, create a default frame on backend
+              if (currentStoryId) {
+                try {
+                  const response = await storyAPI.createStoryFrame(
+                    currentStoryId,
+                    {
+                      order: 0,
+                      hasContent: false,
+                      name: null as any,
+                      link: null as any,
+                      linkText: null as any,
+                      durationMs: 2500,
+                    } as any
+                  )
+                  const realId =
+                    (response as any)?.data?.id ||
+                    (response as any)?.data?.frame?.id
+                  if (realId) {
+                    const defaultFrame: StoryFrame = {
+                      id: realId,
+                      order: 1,
+                      type: 'story',
+                      elements: [],
+                      hasContent: false,
+                      durationMs: 2500,
+                      background: {
+                        type: 'color' as const,
+                        value:
+                          'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
+                        opacity: 100,
+                      },
+                    }
+                    setFrames([defaultFrame])
+                    setSelectedFrameId(defaultFrame.id)
+                  }
+                } catch (error) {
+                  console.error('Failed to create default frame:', error)
+                  // Continue without default frame - user can add one manually
+                }
               }
-              setFrames([defaultFrame])
-              setSelectedFrameId('1')
             }
 
             // Show success message
@@ -399,7 +454,8 @@ export default function EditorPage() {
     }
 
     loadStory()
-  }, [uniqueId, fromCreate, location.state?.isDynamic])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueId]) // Always load when uniqueId changes (handles page reloads)
 
   // Show welcome message if coming from create page
   // Only show for static stories (dynamic stories show message after loading)
@@ -412,8 +468,8 @@ export default function EditorPage() {
   }, [fromCreate, storyDataState, location.state?.isDynamic])
 
   const addNewFrame = (frameType: 'story' | 'ad' = 'story') => {
-    const newFrame: StoryFrame = {
-      id: Date.now().toString(),
+    const createLocalFrame = (id: string): StoryFrame => ({
+      id,
       order: frames.length + 1,
       type: frameType,
       elements: [],
@@ -425,7 +481,7 @@ export default function EditorPage() {
               type: 'color',
               value:
                 'linear-gradient(to bottom right, #8b5cf6, #ec4899, #f97316)',
-              opacity: 100, // Set default opacity to 100
+              opacity: 100,
               zoom: 100,
               rotation: 0,
               offsetX: 0,
@@ -435,14 +491,51 @@ export default function EditorPage() {
       adConfig:
         frameType === 'ad'
           ? {
-              adId: '/6355419/Travel/Europe/France/Paris',
+              adId: `/ad-${Date.now()}`,
               adUnitPath: '/6355419/Travel/Europe/France/Paris',
               size: [300, 250],
             }
           : undefined,
+    })
+
+    // Best practice: Always create on backend first if storyId exists
+    if (currentStoryId) {
+      ;(async () => {
+        try {
+          const response = await storyAPI.createStoryFrame(currentStoryId, {
+            order: frames.length + 1,
+            hasContent: false,
+            name: null as any,
+            link: null as any,
+            linkText: null as any,
+            durationMs: 2500,
+          } as any)
+
+          const realId =
+            (response as any)?.data?.id || (response as any)?.data?.frame?.id
+          if (!realId) {
+            throw new Error('No frame ID returned from server')
+          }
+
+          const created = createLocalFrame(realId)
+          setFrames((prev) => [...prev, created])
+          setSelectedFrameId(created.id)
+          setSelectedElementId('')
+          toast.success(`New ${frameType} frame added!`)
+        } catch (error) {
+          console.error('Failed to create frame on server:', error)
+          toast.error('Failed to create frame on server. Please try again.')
+        }
+      })()
+      return
     }
-    setFrames((prev) => [...prev, newFrame])
-    setSelectedFrameId(newFrame.id)
+
+    // Story not saved yet: use UUID for local-only frame
+    // Will be created on backend when story is saved
+    const localId = generateLocalId()
+    const localFrame = createLocalFrame(localId)
+    setFrames((prev) => [...prev, localFrame])
+    setSelectedFrameId(localFrame.id)
     setSelectedElementId('')
     toast.success(`New ${frameType} frame added!`)
   }
@@ -867,12 +960,24 @@ export default function EditorPage() {
                         frameLinkText: selectedFrame.linkText,
                       })
                       console.log('Full selectedFrame object:', selectedFrame)
+                      // Compute display name same as sidebar
+                      const idx = frames.findIndex(
+                        (f) => f.id === selectedFrame.id
+                      )
+                      const displayName = selectedFrame.name
+                        ? selectedFrame.name
+                        : `${`${selectedFrame.type}` === 'ad' ? 'Ad Frame' : 'Story Frame'} ${
+                            (idx >= 0 ? idx : 0) + 1
+                          }`
+
                       return {
                         id: selectedFrame.id,
                         type: 'frame',
-                        name: selectedFrame.name,
-                        link: selectedFrame.link,
-                        linkText: selectedFrame.linkText,
+                        name: selectedFrame.name ?? undefined,
+                        displayName,
+                        order: selectedFrame.order,
+                        link: selectedFrame.link ?? undefined,
+                        linkText: selectedFrame.linkText ?? undefined,
                         frameType: selectedFrame.type,
                         durationMs: selectedFrame.durationMs ?? 2500,
                       }
@@ -884,6 +989,8 @@ export default function EditorPage() {
         onBackgroundUpdate={updateBackground}
         onElementRemove={removeElement}
         onFrameUpdate={async (frameId: string, updates: any) => {
+          console.log('onFrameUpdate called:', { frameId, updates })
+
           // Update local state immediately for UI responsiveness
           setFrames((prev) =>
             prev.map((frame) =>
@@ -893,10 +1000,58 @@ export default function EditorPage() {
 
           // Save to database
           try {
-            await storyAPI.updateStoryFrame(frameId, updates)
+            // Check if this is a database ID (cuid format: starts with 'c' + 24 alphanumeric)
+            // Also accept UUIDs that were persisted, or any string that looks like a database ID
+            const isDatabaseId =
+              typeof frameId === 'string' &&
+              frameId.length >= 10 &&
+              (/^c[a-z0-9]{24}$/i.test(frameId) || // CUID format
+                /^[a-z0-9]{25,}$/i.test(frameId)) // Other database ID formats
+
+            console.log('Frame ID validation:', {
+              frameId,
+              isDatabaseId,
+              length: frameId.length,
+              isCuid: /^c[a-z0-9]{24}$/i.test(frameId),
+            })
+
+            if (!isDatabaseId) {
+              // This is a local-only frame (UUID or not yet persisted)
+              // Will be persisted when story is saved, or when storyId becomes available
+              console.info(
+                'Frame update deferred (local-only frame); will persist on story save:',
+                frameId
+              )
+              return
+            }
+
+            // Whitelist payload to expected fields only
+            const payload: any = {}
+            if (Object.prototype.hasOwnProperty.call(updates, 'name'))
+              payload.name = updates.name || null // Allow empty string but convert to null for backend
+            if (Object.prototype.hasOwnProperty.call(updates, 'link'))
+              payload.link = updates.link || null
+            if (Object.prototype.hasOwnProperty.call(updates, 'linkText'))
+              payload.linkText = updates.linkText || null
+            if (Object.prototype.hasOwnProperty.call(updates, 'durationMs'))
+              payload.durationMs = updates.durationMs
+
+            console.log('Sending frame update to API:', { frameId, payload })
+            await storyAPI.updateStoryFrame(frameId, payload)
+            console.log('Frame update successful')
           } catch (error) {
             console.error('Failed to save frame update:', error)
             toast.error('Failed to save frame update')
+            // Revert local state on error
+            setFrames((prev) =>
+              prev.map((frame) => {
+                if (frame.id === frameId) {
+                  const originalFrame = frames.find((f) => f.id === frameId)
+                  return originalFrame || frame
+                }
+                return frame
+              })
+            )
           }
         }}
         storyDefaultDurationMs={storyDataState.defaultDurationMs}

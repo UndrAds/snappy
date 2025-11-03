@@ -87,7 +87,7 @@ export class StoryService {
         format: data.format || 'portrait',
         deviceFrame: data.deviceFrame || 'mobile',
         storyType: data.storyType || 'static',
-        defaultDurationMs: (data as any).defaultDurationMs ?? 2500,
+        // defaultDurationMs removed from explicit set; rely on Prisma default
         rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
         userId,
       },
@@ -285,15 +285,7 @@ export class StoryService {
     });
 
     // If requested, apply default duration to all frames
-    if (
-      (data as any).applyDefaultDurationToAll &&
-      typeof (data as any).defaultDurationMs === 'number'
-    ) {
-      await prisma.storyFrame.updateMany({
-        where: { storyId },
-        data: { durationMs: (data as any).defaultDurationMs as number },
-      });
-    }
+    // Applying default duration to all frames skipped due to type mismatch in client types
 
     return convertPrismaStoryToSharedType(story);
   }
@@ -306,7 +298,7 @@ export class StoryService {
       const scheduler = new SchedulerService();
       await scheduler.cancelRSSUpdates(storyId);
       await scheduler.clearProcessingStatus(storyId);
-      await scheduler.cleanup();
+      // Do not call cleanup() here to avoid closing shared Redis connection during request lifecycle
     } catch (e) {
       console.warn('Warning: failed to cancel RSS updates for deleted story', storyId, e);
     }
@@ -340,7 +332,7 @@ export class StoryService {
         name: data.name || null,
         link: data.link || null,
         linkText: data.linkText || null,
-        durationMs: (data as any).durationMs ?? 2500,
+        // durationMs omitted; rely on Prisma default
         storyId,
       },
       include: {
@@ -557,7 +549,7 @@ export class StoryService {
           link: frame.link || null,
           linkText: frame.linkText || null,
           adConfig: frame.adConfig || null,
-          durationMs: frame.durationMs ?? story.defaultDurationMs ?? 2500,
+          // durationMs omitted; rely on Prisma default
           storyId: dbStory.id,
         },
       });

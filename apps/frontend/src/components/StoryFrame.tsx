@@ -27,6 +27,7 @@ interface CanvasElement {
     rotation?: number
     zoom?: number
     filter?: string
+    userPositioned?: boolean
   }
 }
 
@@ -216,6 +217,7 @@ export default function StoryFrame({
         onElementUpdate(selectedElementId, {
           x: newX,
           y: newY,
+          style: { userPositioned: true },
         })
       }
     },
@@ -415,7 +417,11 @@ export default function StoryFrame({
     let computedWidth = element.width
     let computedHeight = element.height
 
-    if (isDynamicStory && element.type === 'text') {
+    if (
+      isDynamicStory &&
+      element.type === 'text' &&
+      !element.style.userPositioned
+    ) {
       // Determine container pixel dimensions based on format/deviceFrame
       const getFramePixelSize = () => {
         if (format === 'portrait') {

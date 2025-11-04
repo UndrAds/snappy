@@ -1,8 +1,49 @@
 ;(function () {
-  // Default API base URL - use current origin if available, otherwise fallback to empty string
+  // Default API base URL - use script's origin (where the script is hosted), not the page's origin
   var DEFAULT_API_BASE_URL = (function () {
     try {
-      // Try to get the origin from the current window
+      // Helper function to extract origin from a URL string
+      function extractOrigin(urlString) {
+        if (!urlString) return null
+        try {
+          var url = new URL(urlString)
+          return url.origin
+        } catch (e) {
+          // If URL parsing fails, try to extract origin manually
+          var match = urlString.match(/^https?:\/\/([^\/]+)/i)
+          if (match) {
+            var protocol =
+              urlString.indexOf('https://') === 0 ? 'https://' : 'http://'
+            return protocol + match[1]
+          }
+        }
+        return null
+      }
+
+      // First, try to use document.currentScript (most reliable for synchronous scripts)
+      if (typeof document !== 'undefined' && document.currentScript) {
+        var currentScript = document.currentScript
+        var currentSrc = currentScript.src || currentScript.getAttribute('src')
+        if (currentSrc && currentSrc.indexOf('webstory-embed.js') !== -1) {
+          var origin = extractOrigin(currentSrc)
+          if (origin) return origin
+        }
+      }
+
+      // Fallback: search through all script tags to find the one loading this script
+      if (typeof document !== 'undefined') {
+        var scripts = document.getElementsByTagName('script')
+        for (var i = 0; i < scripts.length; i++) {
+          var script = scripts[i]
+          var src = script.src || script.getAttribute('src')
+          if (src && src.indexOf('webstory-embed.js') !== -1) {
+            var origin = extractOrigin(src)
+            if (origin) return origin
+          }
+        }
+      }
+
+      // Last fallback: use window.location.origin (might not be correct if script is on different domain)
       if (
         typeof window !== 'undefined' &&
         window.location &&
@@ -11,7 +52,7 @@
         return window.location.origin
       }
     } catch (e) {
-      // If we can't access window.location (e.g., in some contexts), use empty string
+      // If we can't access anything, use empty string
     }
     return ''
   })()

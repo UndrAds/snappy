@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image as ImageIcon, X, Link } from 'lucide-react'
+import { Image as ImageIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -845,27 +845,9 @@ export default function StoryFrame({
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
 
-  // Handle frame click for links
-  const handleFrameClick = (e: React.MouseEvent) => {
-    // Only handle clicks when not in edit mode and link exists
-    if (!isEditMode && link) {
-      e.preventDefault()
-      window.open(link, '_blank', 'noopener,noreferrer')
-    }
-  }
-
   return (
     <div
-      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200 ${
-        !isEditMode && link
-          ? 'hover:shadow-3xl cursor-pointer hover:shadow-blue-500/20'
-          : ''
-      } ${
-        link && !isEditMode
-          ? 'ring-2 ring-blue-400/30 ring-offset-2 ring-offset-transparent'
-          : ''
-      }`}
-      onClick={handleFrameClick}
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200`}
     >
       {/* Mobile Frame Content */}
       <div
@@ -1058,33 +1040,32 @@ export default function StoryFrame({
         </div>
       </div>
 
-      {/* Link Indicator Overlay - Show when frame has a link */}
+      {/* CTA Button - Fixed at bottom when frame has link */}
       {link && (
-        <div className="absolute right-3 top-16 z-50">
-          <div className="flex items-center space-x-1 rounded-full bg-primary/90 px-2 py-1 text-primary-foreground shadow-lg backdrop-blur-sm">
-            <Link className="h-3 w-3" />
-            <span className="text-xs font-medium">
-              {linkText && linkText.trim() ? linkText : 'Link'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Clickable Frame Indicator - Show when in edit mode and frame has link */}
-      {isEditMode && link && (
-        <div className="absolute bottom-16 left-3 z-50">
-          <div className="rounded-full bg-green-600 px-2 py-1 text-white shadow-lg backdrop-blur-sm dark:bg-green-500">
-            <span className="text-xs font-medium">Clickable</span>
-          </div>
-        </div>
-      )}
-
-      {/* Preview Mode Link Hint - Show subtle hint in preview mode */}
-      {!isEditMode && link && (
-        <div className="absolute bottom-3 right-3 z-50">
-          <div className="rounded-full bg-white/20 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
-            <span className="text-xs font-medium">Click to open</span>
-          </div>
+        <div
+          className={`absolute bottom-4 z-50 ${
+            format === 'landscape' && deviceFrame === 'video-player'
+              ? 'left-1/2 -translate-x-1/2'
+              : 'left-4'
+          }`}
+        >
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (isEditMode) {
+                e.preventDefault()
+              }
+            }}
+            className={`inline-block rounded-full bg-white/90 px-4 py-2 text-center font-semibold text-gray-900 shadow-lg backdrop-blur-sm transition-all hover:scale-105 hover:bg-white ${
+              format === 'landscape' && deviceFrame === 'video-player'
+                ? 'px-3 py-1.5 text-xs'
+                : 'text-sm'
+            } ${isEditMode ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
+          >
+            {linkText && linkText.trim() ? linkText : 'Read More'}
+          </a>
         </div>
       )}
     </div>

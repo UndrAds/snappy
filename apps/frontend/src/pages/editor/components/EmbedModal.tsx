@@ -200,8 +200,23 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
     }, 400)
   }
 
+  // Track previous format to detect orientation changes
+  const prevFormatRef = useRef<string | null>(null)
+
   // Initialize from existing embedConfig if provided
   useEffect(() => {
+    const currentFormat = format
+    const prevFormat = prevFormatRef.current
+
+    // If format changed (portrait <-> landscape), reset size to medium for new format
+    if (prevFormat !== null && prevFormat !== currentFormat) {
+      setSize('medium')
+      const presets = getSizePresets()
+      setCustomWidth(presets.medium.width)
+      setCustomHeight(presets.medium.height)
+    }
+    prevFormatRef.current = currentFormat
+
     const cfg = (storyData as any)?.story?.embedConfig || ({} as any)
     if (cfg.type) setEmbedType(cfg.type)
     if (cfg.regular) {
@@ -218,16 +233,30 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
       if (typeof w === 'number' && typeof h === 'number') {
         const presets = getSizePresets()
         const near = (a: number, b: number) => Math.abs(a - b) <= 2
-        if (near(w, presets.large.width) && near(h, presets.large.height))
-          setSize('large')
-        else if (
-          near(w, presets.medium.width) &&
-          near(h, presets.medium.height)
-        )
+        // Check if saved size orientation matches current format; if not, reset to medium
+        const isLandscapeSize = w > h
+        const expectLandscape = currentFormat === 'landscape'
+        if (isLandscapeSize !== expectLandscape) {
+          // Orientation mismatch - reset to medium for current format
           setSize('medium')
-        else if (near(w, presets.small.width) && near(h, presets.small.height))
-          setSize('small')
-        else setSize('custom')
+          setCustomWidth(presets.medium.width)
+          setCustomHeight(presets.medium.height)
+        } else {
+          // Orientation matches - check if it matches a preset
+          if (near(w, presets.large.width) && near(h, presets.large.height))
+            setSize('large')
+          else if (
+            near(w, presets.medium.width) &&
+            near(h, presets.medium.height)
+          )
+            setSize('medium')
+          else if (
+            near(w, presets.small.width) &&
+            near(h, presets.small.height)
+          )
+            setSize('small')
+          else setSize('custom')
+        }
       }
     }
     if (cfg.floater) {
@@ -254,7 +283,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         setAutoHideDelay(cfg.floater.autoHideDelay)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storyId])
+  }, [storyId, format])
 
   // If no embedConfig present in provided storyData, fetch fresh story to hydrate settings
   useEffect(() => {
@@ -281,22 +310,33 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
               if (typeof w === 'number' && typeof h === 'number') {
                 const presets = getSizePresets()
                 const near = (a: number, b: number) => Math.abs(a - b) <= 2
-                if (
-                  near(w, presets.large.width) &&
-                  near(h, presets.large.height)
-                )
-                  setSize('large')
-                else if (
-                  near(w, presets.medium.width) &&
-                  near(h, presets.medium.height)
-                )
+                // Check if saved size orientation matches current format; if not, reset to medium
+                const isLandscapeSize = w > h
+                const expectLandscape = format === 'landscape'
+                if (isLandscapeSize !== expectLandscape) {
+                  // Orientation mismatch - reset to medium for current format
                   setSize('medium')
-                else if (
-                  near(w, presets.small.width) &&
-                  near(h, presets.small.height)
-                )
-                  setSize('small')
-                else setSize('custom')
+                  setCustomWidth(presets.medium.width)
+                  setCustomHeight(presets.medium.height)
+                } else {
+                  // Orientation matches - check if it matches a preset
+                  if (
+                    near(w, presets.large.width) &&
+                    near(h, presets.large.height)
+                  )
+                    setSize('large')
+                  else if (
+                    near(w, presets.medium.width) &&
+                    near(h, presets.medium.height)
+                  )
+                    setSize('medium')
+                  else if (
+                    near(w, presets.small.width) &&
+                    near(h, presets.small.height)
+                  )
+                    setSize('small')
+                  else setSize('custom')
+                }
               }
             }
             if (ec.floater) {
@@ -321,7 +361,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         }
       })()
     }
-  }, [open, storyId, storyData])
+  }, [open, storyId, storyData, format])
 
   // Auto-save on changes
   useEffect(() => {

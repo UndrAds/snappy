@@ -541,6 +541,22 @@
       height = parseInt(height)
     }
 
+    // Calculate scale factor based on reference dimensions
+    // Reference dimensions: portrait (360x640), landscape (640x360)
+    var referenceWidth = story.format === 'landscape' ? 640 : 360
+    var referenceHeight = story.format === 'landscape' ? 360 : 640
+    var scaleFactor = Math.min(width / referenceWidth, height / referenceHeight)
+    // Clamp scale factor to reasonable range (0.3 to 1.5)
+    scaleFactor = Math.max(0.3, Math.min(1.5, scaleFactor))
+    console.log(
+      'Scale factor:',
+      scaleFactor,
+      'for dimensions:',
+      width,
+      'x',
+      height
+    )
+
     // Calculate frame styling based on story's format and device frame
     var frameStyle = getFrameStyle(story.format, story.deviceFrame)
     console.log('Frame style calculated:', frameStyle)
@@ -579,35 +595,56 @@
       containerHeight,
       format,
       deviceFrame,
-      hasFrameLink
+      hasFrameLink,
+      scaleFactor
     ) {
-      // Text positioning - button will be positioned below text dynamically
-      var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+      // Button is fixed at bottom, text appears above it
+      // Calculate button height (approximate, scaled)
+      var baseButtonHeight = 44 // Base height for portrait, 36 for landscape (handled in button code)
+      var buttonHeight = Math.round(baseButtonHeight * scaleFactor)
+      var buttonPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+      var buttonMargin = Math.round(24 * scaleFactor) // Gap between text and button
+
+      // Text positioning - button is fixed at bottom, text appears above with margin
+      var textBottomPadding = hasFrameLink
+        ? buttonHeight + buttonMargin + buttonPadding
+        : Math.round(20 * scaleFactor)
 
       var textWidth, textLeft, textBottom, textHeight
 
+      // Base text height (scaled)
+      var baseTextHeight = 60
+      var scaledTextHeight = Math.round(baseTextHeight * scaleFactor)
+
       if (format === 'portrait') {
-        // Portrait (mobile and video-player): 90% width, centered, bottom with padding
+        // Portrait (mobile and video-player): 90% width, centered, above button
         textWidth = Math.round(containerWidth * 0.9)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        textHeight = Math.max(60, Math.round(containerHeight * 0.15))
+        // Scale text height based on aspect ratio and container height
+        textHeight = Math.max(
+          scaledTextHeight,
+          Math.round(containerHeight * 0.15 * scaleFactor)
+        )
       } else {
-        // Landscape (mobile and video-player): 50% width, centered, bottom with padding
+        // Landscape (mobile and video-player): 50% width, centered, above button
         textWidth = Math.round(containerWidth * 0.5)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        textHeight = Math.max(60, Math.round(containerHeight * 0.15))
+        // Scale text height based on aspect ratio and container height
+        textHeight = Math.max(
+          scaledTextHeight,
+          Math.round(containerHeight * 0.15 * scaleFactor)
+        )
       }
 
       // Convert bottom to top position (since we use top in CSS)
-      // Position from bottom, accounting for button space if needed
-      var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
-      var textTop = containerHeight - textBottom - textHeight - buttonSpace
+      // Position from bottom, accounting for button space
+      var textTop = containerHeight - textBottom - textHeight
 
       return {
         left: textLeft,
-        top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+        top: Math.max(Math.round(80 * scaleFactor), textTop), // Ensure text doesn't overlap with header (scaled)
         width: textWidth,
         height: textHeight,
       }
@@ -636,21 +673,33 @@
         // Frame Link Button for ad frames - store data instead of creating HTML
         var adLinkClickHandler = ''
         if (frame.link) {
-          // Calculate button size based on aspect ratio
+          // Calculate button size based on aspect ratio and scale factor
           var isLandscape = story.format === 'landscape'
           var aspectRatio = width / height
           var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-          // Button size calculations based on aspect ratio
-          var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-          var buttonFontSize = isWide ? '12px' : '15px'
-          var buttonLeft = isWide ? '50%' : '16px'
-          var buttonRight = isWide ? 'auto' : '16px'
+          // Base button sizes (reference dimensions)
+          var basePaddingV = isWide ? 8 : 12
+          var basePaddingH = isWide ? 16 : 24
+          var baseFontSize = isWide ? 12 : 15
+          var baseButtonHeight = isWide ? 36 : 44
+
+          // Apply scale factor to button sizes
+          var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+          var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+          var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+          var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+          var buttonFontSizePx = buttonFontSize + 'px'
+          var approxButtonHeight = Math.round(baseButtonHeight * scaleFactor)
+
+          var buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
+          var buttonRight = isWide ? 'auto' : 'auto'
           var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           var buttonMaxWidth = isWide ? '80%' : 'auto'
-          var approxButtonHeight = isWide ? 36 : 44
-          var buttonTopPx = height - (approxButtonHeight + 32 + 32) // top position in px
-          var buttonTop = buttonTopPx + 'px'
+
+          // Button is fixed at bottom
+          var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+          var buttonBottom = buttonBottomPadding + 'px'
 
           // Use frame-specific link text or default
           var linkButtonText =
@@ -658,23 +707,19 @@
               ? frame.linkText.trim()
               : 'Read More'
 
-          // Estimate visibility to avoid cropping outside container
-          var willOverflow =
-            buttonTopPx + approxButtonHeight > height - 8 || buttonTopPx < 0
-
           // Store button data instead of creating HTML
           buttonData.push({
             idx: idx,
             link: frame.link,
             text: linkButtonText,
             left: buttonLeft,
-            top: buttonTop,
+            bottom: buttonBottom, // Fixed at bottom
             transform: buttonTransform,
             marginLeft: '0',
             maxWidth: buttonMaxWidth,
             padding: buttonPadding,
-            fontSize: buttonFontSize,
-            hidden: willOverflow || height < 180,
+            fontSize: buttonFontSizePx,
+            hidden: false, // Ad frame buttons are always visible (unless overflow)
           })
 
           // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -764,7 +809,8 @@
               height,
               story.format,
               story.deviceFrame,
-              !!frame.link
+              !!frame.link,
+              scaleFactor
             )
             elementWidth = textPos.width
             elementHeight = textPos.height
@@ -775,7 +821,7 @@
             // Since height is auto, estimate actual height (at least min-height)
             var estimatedHeight = Math.max(
               elementHeight,
-              Math.max(24, Math.round(el.height || 0))
+              Math.max(Math.round(24 * scaleFactor), Math.round(el.height || 0))
             )
             textElementBottom = elementTop + estimatedHeight
             textElementLeft = elementLeft
@@ -793,12 +839,18 @@
             elementHeight +
             'px;'
           if (el.type === 'text') {
-            var minH = Math.max(24, Math.round(elementHeight || 0))
+            var minH = Math.max(
+              Math.round(24 * scaleFactor),
+              Math.round(elementHeight || 0)
+            )
+            // Apply scale factor to font size
+            var baseFontSize = el.style.fontSize || 18
+            var scaledFontSize = Math.round(baseFontSize * scaleFactor)
             style +=
               'color:' +
               (el.style.color || '#fff') +
               ';font-size:' +
-              (el.style.fontSize || 18) +
+              scaledFontSize +
               'px;font-family:' +
               (el.style.fontFamily || 'inherit') +
               ';font-weight:' +
@@ -807,7 +859,9 @@
               (el.style.backgroundColor || 'transparent') +
               ';opacity:' +
               (el.style.opacity || 100) / 100 +
-              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:' +
+              Math.round(2 * scaleFactor) +
+              'px;' +
               'height:auto;min-height:' +
               minH +
               'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
@@ -859,22 +913,27 @@
       var frameLinkButton = ''
       var linkClickHandler = ''
       if (frame.link) {
-        // Calculate button size based on aspect ratio
+        // Calculate button size based on aspect ratio and scale factor
         var isLandscape = story.format === 'landscape'
         var aspectRatio = width / height
         var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-        // Button size calculations based on aspect ratio
-        var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-        var buttonFontSize = isWide ? '12px' : '15px'
+        // Base button sizes (reference dimensions)
+        var basePaddingV = isWide ? 8 : 12
+        var basePaddingH = isWide ? 16 : 24
+        var baseFontSize = isWide ? 12 : 15
+
+        // Apply scale factor to button sizes
+        var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+        var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+        var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+        var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+        var buttonFontSizePx = buttonFontSize + 'px'
         var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-        // Position button below text element with gap
-        var buttonGap = 24 // Gap between text and button
-        var buttonTop =
-          textElementBottom !== null
-            ? textElementBottom + buttonGap
-            : height - 100 // Fallback if no text element
+        // Button is fixed at bottom
+        var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+        var buttonBottom = buttonBottomPadding + 'px'
 
         // Calculate button horizontal position based on text element or aspect ratio
         var buttonLeft = ''
@@ -885,13 +944,13 @@
           // Center button relative to text element
           var buttonWidth = isWide
             ? Math.min(textElementWidth, width * 0.8)
-            : Math.min(textElementWidth, width - 32)
+            : Math.min(textElementWidth, width - Math.round(32 * scaleFactor))
           buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
           buttonTransform = 'translateX(-50%)'
           buttonMarginLeft = '0'
         } else {
           // Fallback: center based on aspect ratio
-          buttonLeft = isWide ? '50%' : '16px'
+          buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
           buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           buttonMarginLeft = isWide ? '0' : '0'
         }
@@ -902,29 +961,20 @@
             ? frame.linkText.trim()
             : 'Read More'
 
-        // Create clickable link button with proper event handling
-        frameLinkButton =
-          '<a href="' +
-          escapeAttr(frame.link) +
-          '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
-          idx +
-          '" onclick="event.stopPropagation();" style="position:absolute;left:' +
-          buttonLeft +
-          ';margin-left:' +
-          buttonMarginLeft +
-          ';top:' +
-          buttonTop +
-          'px;z-index:20;display:block;text-decoration:none;transform:' +
-          buttonTransform +
-          ';max-width:' +
-          buttonMaxWidth +
-          ';pointer-events:auto;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
-          buttonPadding +
-          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
-          buttonFontSize +
-          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
-          escapeHtml(linkButtonText) +
-          '</div></a>'
+        // Store button data instead of creating inline HTML (for consistent visibility handling)
+        buttonData.push({
+          idx: idx,
+          link: frame.link,
+          text: linkButtonText,
+          left: buttonLeft,
+          bottom: buttonBottom, // Fixed at bottom
+          transform: buttonTransform,
+          marginLeft: buttonMarginLeft,
+          maxWidth: buttonMaxWidth,
+          padding: buttonPadding,
+          fontSize: buttonFontSizePx,
+          hidden: false, // Regular frame buttons are always visible (unless overflow)
+        })
 
         // Remove parent slide click handler when button exists (navigation still works via nav areas)
         linkClickHandler = ''
@@ -970,6 +1020,10 @@
         return !btn.hidden
       })
       .map(function (btn) {
+        // Use bottom if available (for fixed bottom positioning), otherwise use top
+        var positionStyle = btn.bottom
+          ? 'bottom:' + btn.bottom + ';'
+          : 'top:' + (btn.top || '0px') + ';'
         return (
           '<a href="' +
           escapeAttr(btn.link) +
@@ -981,9 +1035,9 @@
           btn.left +
           ';margin-left:' +
           btn.marginLeft +
-          ';top:' +
-          btn.top +
-          'px;z-index:70;display:none;text-decoration:none;transform:' +
+          ';' +
+          positionStyle +
+          'z-index:70;display:none;text-decoration:none;transform:' +
           btn.transform +
           ';max-width:' +
           btn.maxWidth +
@@ -1209,6 +1263,25 @@
           var width = idealDims.width
           var height = idealDims.height
 
+          // Calculate scale factor based on reference dimensions
+          // Reference dimensions: portrait (360x640), landscape (640x360)
+          var referenceWidth = story.format === 'landscape' ? 640 : 360
+          var referenceHeight = story.format === 'landscape' ? 360 : 640
+          var scaleFactor = Math.min(
+            width / referenceWidth,
+            height / referenceHeight
+          )
+          // Clamp scale factor to reasonable range (0.3 to 1.5)
+          scaleFactor = Math.max(0.3, Math.min(1.5, scaleFactor))
+          console.log(
+            'Scale factor:',
+            scaleFactor,
+            'for dimensions:',
+            width,
+            'x',
+            height
+          )
+
           // Calculate frame styling based on story's format and device frame
           var frameStyle = getFrameStyle(story.format, story.deviceFrame)
           console.log('Frame style calculated:', frameStyle)
@@ -1247,36 +1320,56 @@
             containerHeight,
             format,
             deviceFrame,
-            hasFrameLink
+            hasFrameLink,
+            scaleFactor
           ) {
-            // Text positioning - button will be positioned below text dynamically
-            var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+            // Button is fixed at bottom, text appears above it
+            // Calculate button height (approximate, scaled)
+            var baseButtonHeight = 44 // Base height for portrait, 36 for landscape (handled in button code)
+            var buttonHeight = Math.round(baseButtonHeight * scaleFactor)
+            var buttonPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+            var buttonMargin = Math.round(24 * scaleFactor) // Gap between text and button
+
+            // Text positioning - button is fixed at bottom, text appears above with margin
+            var textBottomPadding = hasFrameLink
+              ? buttonHeight + buttonMargin + buttonPadding
+              : Math.round(20 * scaleFactor)
 
             var textWidth, textLeft, textBottom, textHeight
 
+            // Base text height (scaled)
+            var baseTextHeight = 60
+            var scaledTextHeight = Math.round(baseTextHeight * scaleFactor)
+
             if (format === 'portrait') {
-              // Portrait (mobile and video-player): 90% width, centered, bottom with padding
+              // Portrait (mobile and video-player): 90% width, centered, above button
               textWidth = Math.round(containerWidth * 0.9)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              textHeight = Math.max(60, Math.round(containerHeight * 0.15))
+              // Scale text height based on aspect ratio and container height
+              textHeight = Math.max(
+                scaledTextHeight,
+                Math.round(containerHeight * 0.15 * scaleFactor)
+              )
             } else {
-              // Landscape (mobile and video-player): 50% width, centered, bottom with padding
+              // Landscape (mobile and video-player): 50% width, centered, above button
               textWidth = Math.round(containerWidth * 0.5)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              textHeight = Math.max(60, Math.round(containerHeight * 0.15))
+              // Scale text height based on aspect ratio and container height
+              textHeight = Math.max(
+                scaledTextHeight,
+                Math.round(containerHeight * 0.15 * scaleFactor)
+              )
             }
 
             // Convert bottom to top position (since we use top in CSS)
-            // Position from bottom, accounting for button space if needed
-            var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
-            var textTop =
-              containerHeight - textBottom - textHeight - buttonSpace
+            // Position from bottom, accounting for button space
+            var textTop = containerHeight - textBottom - textHeight
 
             return {
               left: textLeft,
-              top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+              top: Math.max(Math.round(80 * scaleFactor), textTop), // Ensure text doesn't overlap with header (scaled)
               width: textWidth,
               height: textHeight,
             }
@@ -1325,21 +1418,37 @@
               // Frame Link Button for ad frames - store data instead of creating HTML
               var adLinkClickHandler = ''
               if (frame.link) {
-                // Calculate button size based on aspect ratio
+                // Calculate button size based on aspect ratio and scale factor
                 var isLandscape = story.format === 'landscape'
                 var aspectRatio = width / height
                 var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-                // Button size calculations based on aspect ratio
-                var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-                var buttonFontSize = isWide ? '12px' : '15px'
-                var buttonLeft = isWide ? '50%' : '16px'
-                var buttonRight = isWide ? 'auto' : '16px'
+                // Base button sizes (reference dimensions)
+                var basePaddingV = isWide ? 8 : 12
+                var basePaddingH = isWide ? 16 : 24
+                var baseFontSize = isWide ? 12 : 15
+                var baseButtonHeight = isWide ? 36 : 44
+
+                // Apply scale factor to button sizes
+                var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+                var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+                var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+                var buttonPadding =
+                  buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+                var buttonFontSizePx = buttonFontSize + 'px'
+                var approxButtonHeight = Math.round(
+                  baseButtonHeight * scaleFactor
+                )
+
+                var buttonLeft = isWide
+                  ? '50%'
+                  : Math.round(16 * scaleFactor) + 'px'
+                var buttonRight = isWide ? 'auto' : 'auto'
                 var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 var buttonMaxWidth = isWide ? '80%' : 'auto'
-                var approxButtonHeight = isWide ? 36 : 44
-                var buttonTopPx = height - (approxButtonHeight + 32 + 32)
-                var buttonTop = buttonTopPx + 'px'
+                // Button is fixed at bottom
+                var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+                var buttonBottom = buttonBottomPadding + 'px'
 
                 // Use frame-specific link text or default
                 var linkButtonText =
@@ -1347,24 +1456,19 @@
                     ? frame.linkText.trim()
                     : 'Read More'
 
-                // Estimate visibility to avoid cropping outside container
-                var willOverflow =
-                  buttonTopPx + approxButtonHeight > height - 8 ||
-                  buttonTopPx < 0
-
                 // Store button data instead of creating HTML
                 buttonData.push({
                   idx: idx,
                   link: frame.link,
                   text: linkButtonText,
                   left: buttonLeft,
-                  top: buttonTop,
+                  bottom: buttonBottom, // Fixed at bottom
                   transform: buttonTransform,
                   marginLeft: '0',
                   maxWidth: buttonMaxWidth,
                   padding: buttonPadding,
-                  fontSize: buttonFontSize,
-                  hidden: willOverflow || height < 180,
+                  fontSize: buttonFontSizePx,
+                  hidden: false, // Ad frame buttons are always visible (unless overflow)
                 })
 
                 // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -1454,7 +1558,8 @@
                     height,
                     story.format,
                     story.deviceFrame,
-                    !!frame.link
+                    !!frame.link,
+                    scaleFactor
                   )
                   elementWidth = textPos.width
                   elementHeight = textPos.height
@@ -1465,7 +1570,10 @@
                   // Since height is auto, estimate actual height (at least min-height)
                   var estimatedHeight = Math.max(
                     elementHeight,
-                    Math.max(24, Math.round(el.height || 0))
+                    Math.max(
+                      Math.round(24 * scaleFactor),
+                      Math.round(el.height || 0)
+                    )
                   )
                   textElementBottom = elementTop + estimatedHeight
                   textElementLeft = elementLeft
@@ -1483,12 +1591,18 @@
                   elementHeight +
                   'px;'
                 if (el.type === 'text') {
-                  var minH = Math.max(24, Math.round(elementHeight || 0))
+                  var minH = Math.max(
+                    Math.round(24 * scaleFactor),
+                    Math.round(elementHeight || 0)
+                  )
+                  // Apply scale factor to font size
+                  var baseFontSize = el.style.fontSize || 18
+                  var scaledFontSize = Math.round(baseFontSize * scaleFactor)
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
                     ';font-size:' +
-                    (el.style.fontSize || 18) +
+                    scaledFontSize +
                     'px;font-family:' +
                     (el.style.fontFamily || 'inherit') +
                     ';font-weight:' +
@@ -1497,7 +1611,9 @@
                     (el.style.backgroundColor || 'transparent') +
                     ';opacity:' +
                     (el.style.opacity || 100) / 100 +
-                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:' +
+                    Math.round(2 * scaleFactor) +
+                    'px;' +
                     'height:auto;min-height:' +
                     minH +
                     'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
@@ -1549,22 +1665,27 @@
             var frameLinkButton = ''
             var linkClickHandler = ''
             if (frame.link) {
-              // Calculate button size based on aspect ratio
+              // Calculate button size based on aspect ratio and scale factor
               var isLandscape = story.format === 'landscape'
               var aspectRatio = width / height
               var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-              // Button size calculations based on aspect ratio
-              var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-              var buttonFontSize = isWide ? '12px' : '15px'
+              // Base button sizes (reference dimensions)
+              var basePaddingV = isWide ? 8 : 12
+              var basePaddingH = isWide ? 16 : 24
+              var baseFontSize = isWide ? 12 : 15
+
+              // Apply scale factor to button sizes
+              var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+              var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+              var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+              var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+              var buttonFontSizePx = buttonFontSize + 'px'
               var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-              // Position button below text element with gap
-              var buttonGap = 24 // Gap between text and button
-              var buttonTop =
-                textElementBottom !== null
-                  ? textElementBottom + buttonGap
-                  : height - 100 // Fallback if no text element
+              // Button is fixed at bottom
+              var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+              var buttonBottom = buttonBottomPadding + 'px'
 
               // Calculate button horizontal position based on text element or aspect ratio
               var buttonLeft = ''
@@ -1575,13 +1696,18 @@
                 // Center button relative to text element
                 var buttonWidth = isWide
                   ? Math.min(textElementWidth, width * 0.8)
-                  : Math.min(textElementWidth, width - 32)
+                  : Math.min(
+                      textElementWidth,
+                      width - Math.round(32 * scaleFactor)
+                    )
                 buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
                 buttonTransform = 'translateX(-50%)'
                 buttonMarginLeft = '0'
               } else {
                 // Fallback: center based on aspect ratio
-                buttonLeft = isWide ? '50%' : '16px'
+                buttonLeft = isWide
+                  ? '50%'
+                  : Math.round(16 * scaleFactor) + 'px'
                 buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 buttonMarginLeft = isWide ? '0' : '0'
               }
@@ -1598,12 +1724,13 @@
                 link: frame.link,
                 text: linkButtonText,
                 left: buttonLeft,
-                top: buttonTop,
+                bottom: buttonBottom, // Fixed at bottom
                 transform: buttonTransform,
                 marginLeft: buttonMarginLeft,
                 maxWidth: buttonMaxWidth,
                 padding: buttonPadding,
-                fontSize: buttonFontSize,
+                fontSize: buttonFontSizePx,
+                hidden: false, // Regular frame buttons are always visible (unless overflow)
               })
 
               // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -1650,6 +1777,10 @@
               return !btn.hidden
             })
             .map(function (btn) {
+              // Use bottom if available (for fixed bottom positioning), otherwise use top
+              var positionStyle = btn.bottom
+                ? 'bottom:' + btn.bottom + ';'
+                : 'top:' + (btn.top || '0px') + ';'
               return (
                 '<a href="' +
                 escapeAttr(btn.link) +
@@ -1661,9 +1792,9 @@
                 btn.left +
                 ';margin-left:' +
                 btn.marginLeft +
-                ';top:' +
-                btn.top +
-                'px;z-index:70;display:none;text-decoration:none;transform:' +
+                ';' +
+                positionStyle +
+                'z-index:70;display:none;text-decoration:none;transform:' +
                 btn.transform +
                 ';max-width:' +
                 btn.maxWidth +

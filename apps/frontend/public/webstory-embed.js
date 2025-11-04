@@ -1,4 +1,21 @@
 ;(function () {
+  // Default API base URL - use current origin if available, otherwise fallback to empty string
+  var DEFAULT_API_BASE_URL = (function () {
+    try {
+      // Try to get the origin from the current window
+      if (
+        typeof window !== 'undefined' &&
+        window.location &&
+        window.location.origin
+      ) {
+        return window.location.origin
+      }
+    } catch (e) {
+      // If we can't access window.location (e.g., in some contexts), use empty string
+    }
+    return ''
+  })()
+
   // Global tracking of active floaters to prevent duplicates
   var activeFloaters = {}
   var processedEmbeds = new Set()
@@ -103,7 +120,8 @@
 
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var apiBaseUrl = element.getAttribute('data-api-url') || ''
+    // Use default API base URL instead of reading from data-api-url
+    var apiBaseUrl = DEFAULT_API_BASE_URL
 
     if (!storyId) return
 
@@ -174,7 +192,8 @@
 
   function processFloaterEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var apiBaseUrl = element.getAttribute('data-api-url') || ''
+    // Use default API base URL instead of reading from data-api-url
+    var apiBaseUrl = DEFAULT_API_BASE_URL
 
     if (!storyId) return
 

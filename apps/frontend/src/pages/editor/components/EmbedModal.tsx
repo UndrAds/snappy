@@ -127,8 +127,6 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin
   // Use absolute URL for embed script (needed for external websites)
   const scriptSrc = `${baseUrl}/webstory-embed.js`
-  // For external embedding, use the full API URL (not relative)
-  const apiUrl = import.meta.env.VITE_API_URL || baseUrl
 
   // Resolve the actual story ID (in case we receive a uniqueId)
   const [resolvedStoryId, setResolvedStoryId] = useState<string | null>(null)
@@ -401,7 +399,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   const generateEmbedCode = () => {
     return {
       head: `<script src="${scriptSrc}"></script>`,
-      body: `<ins id="snappy-webstory-${storyId}" \n  data-story-id="${storyId}" \n  data-api-url="${apiUrl}"></ins>`,
+      body: `<ins id="snappy-webstory-${storyId}" \n  data-story-id="${storyId}"></ins>`,
     }
   }
 

@@ -609,15 +609,26 @@
     console.log('Final deviceFrame:', story.deviceFrame)
 
     // Get container dimensions
-    var width = container.style.width || container.offsetWidth || 360
-    var height = container.style.height || container.offsetHeight || 700
+    // For floater, use iframe dimensions (after scaling); for regular, use container dimensions
+    var width, height
+    if (floaterOptions && floaterOptions.isFloater) {
+      // For floater, the iframe is sized to floaterDims / scaleFactor
+      // This is the actual size the content sees, so use it for positioning
+      var floaterDims = floaterOptions.floaterDimensions
+      var scaleFactor = floaterOptions.scaleFactor || 1
+      width = floaterDims.width / scaleFactor
+      height = floaterDims.height / scaleFactor
+    } else {
+      width = container.style.width || container.offsetWidth || 360
+      height = container.style.height || container.offsetHeight || 700
 
-    // Ensure dimensions are in pixels
-    if (typeof width === 'string' && width.includes('px')) {
-      width = parseInt(width)
-    }
-    if (typeof height === 'string' && height.includes('px')) {
-      height = parseInt(height)
+      // Ensure dimensions are in pixels
+      if (typeof width === 'string' && width.includes('px')) {
+        width = parseInt(width)
+      }
+      if (typeof height === 'string' && height.includes('px')) {
+        height = parseInt(height)
+      }
     }
 
     // Calculate scale factor based on reference dimensions
@@ -767,6 +778,10 @@
           var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
           var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
           var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+          // For floater embeds, ensure minimum readable font size
+          if (floaterOptions && floaterOptions.isFloater) {
+            buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+          }
           var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
           var buttonFontSizePx = buttonFontSize + 'px'
           var approxButtonHeight = Math.round(baseButtonHeight * scaleFactor)
@@ -925,6 +940,10 @@
             // Apply scale factor to font size
             var baseFontSize = el.style.fontSize || 18
             var scaledFontSize = Math.round(baseFontSize * scaleFactor)
+            // For floater embeds, ensure minimum readable font size
+            if (floaterOptions && floaterOptions.isFloater) {
+              scaledFontSize = Math.max(scaledFontSize, 12)
+            }
             style +=
               'color:' +
               (el.style.color || '#fff') +
@@ -1006,6 +1025,10 @@
         var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
         var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
         var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+        // For floater embeds, ensure minimum readable font size
+        if (floaterOptions && floaterOptions.isFloater) {
+          buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+        }
         var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
         var buttonFontSizePx = buttonFontSize + 'px'
         var buttonMaxWidth = isWide ? '80%' : 'auto'
@@ -1360,8 +1383,19 @@
           `
 
           // Use the ideal dimensions directly
-          var width = idealDims.width
-          var height = idealDims.height
+          // For floater, use iframe dimensions (after scaling); for regular, use ideal dimensions
+          var width, height
+          if (floaterOptions && floaterOptions.isFloater) {
+            // For floater, the iframe is sized to floaterDims / scaleFactor
+            // This is the actual size the content sees, so use it for positioning
+            var floaterDims = floaterOptions.floaterDimensions
+            var scaleFactor = floaterOptions.scaleFactor || 1
+            width = floaterDims.width / scaleFactor
+            height = floaterDims.height / scaleFactor
+          } else {
+            width = idealDims.width
+            height = idealDims.height
+          }
 
           // Calculate scale factor based on reference dimensions
           // Reference dimensions: portrait (360x640), landscape (640x360)
@@ -1533,6 +1567,10 @@
                 var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
                 var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
                 var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+                // For floater embeds, ensure minimum readable font size
+                if (floaterOptions && floaterOptions.isFloater) {
+                  buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+                }
                 var buttonPadding =
                   buttonPaddingV + 'px ' + buttonPaddingH + 'px'
                 var buttonFontSizePx = buttonFontSize + 'px'
@@ -1698,6 +1736,10 @@
                   // Apply scale factor to font size
                   var baseFontSize = el.style.fontSize || 18
                   var scaledFontSize = Math.round(baseFontSize * scaleFactor)
+                  // For floater embeds, ensure minimum readable font size
+                  if (floaterOptions && floaterOptions.isFloater) {
+                    scaledFontSize = Math.max(scaledFontSize, 12)
+                  }
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
@@ -1779,6 +1821,10 @@
               var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
               var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
               var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+              // For floater embeds, ensure minimum readable font size
+              if (floaterOptions && floaterOptions.isFloater) {
+                buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+              }
               var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
               var buttonFontSizePx = buttonFontSize + 'px'
               var buttonMaxWidth = isWide ? '80%' : 'auto'

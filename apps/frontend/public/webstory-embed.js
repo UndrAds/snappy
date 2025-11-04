@@ -161,8 +161,8 @@
 
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    // Use default API base URL instead of reading from data-api-url
-    var apiBaseUrl = DEFAULT_API_BASE_URL
+    var apiBaseUrl =
+      element.getAttribute('data-api-url') || DEFAULT_API_BASE_URL
 
     if (!storyId) return
 
@@ -233,8 +233,8 @@
 
   function processFloaterEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    // Use default API base URL instead of reading from data-api-url
-    var apiBaseUrl = DEFAULT_API_BASE_URL
+    var apiBaseUrl =
+      element.getAttribute('data-api-url') || DEFAULT_API_BASE_URL
 
     if (!storyId) return
 

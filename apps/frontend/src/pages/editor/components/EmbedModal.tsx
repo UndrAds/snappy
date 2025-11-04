@@ -399,7 +399,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   const generateEmbedCode = () => {
     return {
       head: `<script src="${scriptSrc}"></script>`,
-      body: `<ins id="snappy-webstory-${storyId}" \n  data-story-id="${storyId}"></ins>`,
+      body: `<ins id="snappy-webstory-${storyId}" \n  data-story-id="${storyId}" \n  data-api-url="${baseUrl}"></ins>`,
     }
   }
 

@@ -72,25 +72,29 @@ export class StoryService {
     // Use provided uniqueId or generate a new one
     const uniqueId = (data as any).uniqueId || this.generateUniqueId(data.title);
 
+    const createData: any = {
+      title: data.title,
+      uniqueId,
+      publisherName: data.publisherName,
+      publisherPic: data.publisherPic || null,
+      // Thumbnails removed from implementation
+      ctaType: data.ctaType || null,
+      ctaValue: data.ctaValue || null,
+      ctaText: data.ctaText || null,
+      // Default to 'published' unless explicitly provided as 'draft' via caller
+      // Do not override status; rely on Prisma default and ignore draft logic
+      format: data.format || 'portrait',
+      deviceFrame: data.deviceFrame || 'mobile',
+      storyType: data.storyType || 'static',
+      // defaultDurationMs removed from explicit set; rely on Prisma default
+      rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
+      embedConfig: (data as any).embedConfig
+        ? JSON.parse(JSON.stringify((data as any).embedConfig))
+        : null,
+      userId,
+    };
     const story = await prisma.story.create({
-      data: {
-        title: data.title,
-        uniqueId,
-        publisherName: data.publisherName,
-        publisherPic: data.publisherPic || null,
-        // Thumbnails removed from implementation
-        ctaType: data.ctaType || null,
-        ctaValue: data.ctaValue || null,
-        ctaText: data.ctaText || null,
-        // Default to 'published' unless explicitly provided as 'draft' via caller
-        // Do not override status; rely on Prisma default and ignore draft logic
-        format: data.format || 'portrait',
-        deviceFrame: data.deviceFrame || 'mobile',
-        storyType: data.storyType || 'static',
-        // defaultDurationMs removed from explicit set; rely on Prisma default
-        rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
-        userId,
-      },
+      data: createData,
       include: {
         frames: {
           include: {
@@ -262,6 +266,11 @@ export class StoryService {
     if (typeof (data as any).rssConfig !== 'undefined') {
       updateData.rssConfig = (data as any).rssConfig
         ? JSON.parse(JSON.stringify((data as any).rssConfig))
+        : null;
+    }
+    if (typeof (data as any).embedConfig !== 'undefined') {
+      updateData.embedConfig = (data as any).embedConfig
+        ? JSON.parse(JSON.stringify((data as any).embedConfig))
         : null;
     }
 

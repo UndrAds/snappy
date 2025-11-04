@@ -39,6 +39,35 @@ export type DeviceFrame = 'mobile' | 'video-player';
 export type FloaterDirection = 'right' | 'left';
 export type StoryType = 'static' | 'dynamic';
 
+// Embed configuration types
+export type EmbedType = 'regular' | 'floater';
+
+export interface RegularEmbedOptions {
+  autoplay?: boolean;
+  loop?: boolean;
+  width?: number; // default width in px when container doesn't specify
+  height?: number; // default height in px when container doesn't specify
+}
+
+export interface FloaterEmbedOptions {
+  enabled?: boolean; // when true, render as floater; when false, ignore floater
+  direction?: FloaterDirection;
+  triggerScroll?: number; // Percentage of page scroll to trigger floater
+  position?: 'bottom' | 'top'; // Vertical position
+  size?: 'small' | 'medium' | 'large';
+  showCloseButton?: boolean;
+  autoHide?: boolean;
+  autoHideDelay?: number; // milliseconds
+  autoplay?: boolean;
+  loop?: boolean;
+}
+
+export interface EmbedConfig {
+  type?: EmbedType; // preferred render type; if 'floater' and floater.enabled, render floater
+  regular?: RegularEmbedOptions;
+  floater?: FloaterEmbedOptions;
+}
+
 // RSS Configuration types
 export interface RSSConfig {
   feedUrl: string;
@@ -68,6 +97,7 @@ export interface Story {
   storyType: StoryType;
   defaultDurationMs?: number;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -87,6 +117,7 @@ export interface CreateStoryRequest {
   deviceFrame?: DeviceFrame;
   storyType?: StoryType;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow providing a specific unique ID
   defaultDurationMs?: number;
 }
@@ -105,6 +136,7 @@ export interface UpdateStoryRequest {
   deviceFrame?: DeviceFrame;
   storyType?: StoryType;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow updating the unique ID
   defaultDurationMs?: number;
   applyDefaultDurationToAll?: boolean; // If true, set all frames' durationMs to story default

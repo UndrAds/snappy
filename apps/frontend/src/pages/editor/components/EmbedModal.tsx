@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import type {
   DeviceFrame,
   FloaterDirection,
 } from '@snappy/shared-types'
+import { storyAPI } from '@/lib/api'
 
 interface EmbedModalProps {
   open: boolean
@@ -65,9 +66,11 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   const [direction, setDirection] = useState<FloaterDirection>('right')
   const [triggerScroll, setTriggerScroll] = useState(50)
   const [position, setPosition] = useState<'bottom' | 'top'>('bottom')
-  const [floaterSize, setFloaterSize] = useState<'small' | 'medium' | 'large'>(
-    'medium'
-  )
+  const [floaterSize, setFloaterSize] = useState<
+    'small' | 'medium' | 'large' | 'custom'
+  >('medium')
+  const [floaterCustomWidth, setFloaterCustomWidth] = useState(280)
+  const [floaterCustomHeight, setFloaterCustomHeight] = useState(490)
   const [showCloseButton, setShowCloseButton] = useState(true)
   const [autoHide, setAutoHide] = useState(false)
   const [autoHideDelay, setAutoHideDelay] = useState(5000)
@@ -127,34 +130,224 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   // For external embedding, use the full API URL (not relative)
   const apiUrl = import.meta.env.VITE_API_URL || baseUrl
 
-  // Generate embed code based on type
+  // Resolve the actual story ID (in case we receive a uniqueId)
+  const [resolvedStoryId, setResolvedStoryId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function resolveId() {
+      if (!open || !storyId) return
+      try {
+        // Try public fetch by uniqueId; if it works, use the returned id
+        const res = await storyAPI.getStoryByUniqueId(storyId)
+        if (!cancelled && res?.success && res.data?.id) {
+          setResolvedStoryId(res.data.id)
+          return
+        }
+      } catch (_) {
+        // ignore
+      }
+      // Fall back to given storyId as an id
+      if (!cancelled) setResolvedStoryId(storyId)
+    }
+    resolveId()
+    return () => {
+      cancelled = true
+    }
+  }, [open, storyId])
+
+  // Persist settings to backend (debounced)
+  const saveTimeout = useRef<number | null>(null)
+  const scheduleSave = () => {
+    if (saveTimeout.current) {
+      window.clearTimeout(saveTimeout.current)
+      saveTimeout.current = null
+    }
+    saveTimeout.current = window.setTimeout(async () => {
+      try {
+        const embedConfig: any = {
+          type: embedType,
+          regular: {
+            autoplay,
+            loop,
+            width,
+            height,
+          },
+          floater: {
+            enabled: embedType === 'floater',
+            direction,
+            triggerScroll,
+            position,
+            size: floaterSize,
+            ...(floaterSize === 'custom'
+              ? {
+                  customWidth: floaterCustomWidth,
+                  customHeight: floaterCustomHeight,
+                }
+              : {}),
+            showCloseButton,
+            autoHide,
+            autoHideDelay,
+            autoplay,
+            loop,
+          },
+        }
+        const idToUse = resolvedStoryId || storyId
+        await storyAPI.updateStory(idToUse, { embedConfig } as any)
+      } catch (e) {
+        console.error('Failed to save embed settings', e)
+      }
+    }, 400)
+  }
+
+  // Initialize from existing embedConfig if provided
+  useEffect(() => {
+    const cfg = (storyData as any)?.story?.embedConfig || ({} as any)
+    if (cfg.type) setEmbedType(cfg.type)
+    if (cfg.regular) {
+      if (typeof cfg.regular.autoplay === 'boolean')
+        setAutoplay(cfg.regular.autoplay)
+      if (typeof cfg.regular.loop === 'boolean') setLoop(cfg.regular.loop)
+      if (typeof cfg.regular.width === 'number')
+        setCustomWidth(cfg.regular.width)
+      if (typeof cfg.regular.height === 'number')
+        setCustomHeight(cfg.regular.height)
+      // Derive size from saved width/height
+      const w = cfg.regular.width
+      const h = cfg.regular.height
+      if (typeof w === 'number' && typeof h === 'number') {
+        const presets = getSizePresets()
+        const near = (a: number, b: number) => Math.abs(a - b) <= 2
+        if (near(w, presets.large.width) && near(h, presets.large.height))
+          setSize('large')
+        else if (
+          near(w, presets.medium.width) &&
+          near(h, presets.medium.height)
+        )
+          setSize('medium')
+        else if (near(w, presets.small.width) && near(h, presets.small.height))
+          setSize('small')
+        else setSize('custom')
+      }
+    }
+    if (cfg.floater) {
+      if (typeof cfg.floater.direction === 'string')
+        setDirection(cfg.floater.direction)
+      if (typeof cfg.floater.triggerScroll === 'number')
+        setTriggerScroll(cfg.floater.triggerScroll)
+      if (typeof cfg.floater.position === 'string')
+        setPosition(cfg.floater.position)
+      if (typeof cfg.floater.size === 'string') setFloaterSize(cfg.floater.size)
+      if (
+        typeof (cfg.floater as any).customWidth === 'number' &&
+        typeof (cfg.floater as any).customHeight === 'number'
+      ) {
+        setFloaterSize('custom')
+        setFloaterCustomWidth((cfg.floater as any).customWidth)
+        setFloaterCustomHeight((cfg.floater as any).customHeight)
+      }
+      if (typeof cfg.floater.showCloseButton === 'boolean')
+        setShowCloseButton(cfg.floater.showCloseButton)
+      if (typeof cfg.floater.autoHide === 'boolean')
+        setAutoHide(cfg.floater.autoHide)
+      if (typeof cfg.floater.autoHideDelay === 'number')
+        setAutoHideDelay(cfg.floater.autoHideDelay)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyId])
+
+  // If no embedConfig present in provided storyData, fetch fresh story to hydrate settings
+  useEffect(() => {
+    const cfg = (storyData as any)?.story?.embedConfig
+    if (open && !cfg && storyId) {
+      ;(async () => {
+        try {
+          // Prefer public uniqueId route first (works in preview and embed contexts)
+          const res = await storyAPI.getStoryByUniqueId(storyId)
+          if (res?.success && res.data && (res.data as any).embedConfig) {
+            const ec: any = (res.data as any).embedConfig
+            if (ec.type) setEmbedType(ec.type)
+            if (ec.regular) {
+              if (typeof ec.regular.autoplay === 'boolean')
+                setAutoplay(ec.regular.autoplay)
+              if (typeof ec.regular.loop === 'boolean') setLoop(ec.regular.loop)
+              if (typeof ec.regular.width === 'number')
+                setCustomWidth(ec.regular.width)
+              if (typeof ec.regular.height === 'number')
+                setCustomHeight(ec.regular.height)
+              // Derive size from saved width/height
+              const w = ec.regular.width
+              const h = ec.regular.height
+              if (typeof w === 'number' && typeof h === 'number') {
+                const presets = getSizePresets()
+                const near = (a: number, b: number) => Math.abs(a - b) <= 2
+                if (
+                  near(w, presets.large.width) &&
+                  near(h, presets.large.height)
+                )
+                  setSize('large')
+                else if (
+                  near(w, presets.medium.width) &&
+                  near(h, presets.medium.height)
+                )
+                  setSize('medium')
+                else if (
+                  near(w, presets.small.width) &&
+                  near(h, presets.small.height)
+                )
+                  setSize('small')
+                else setSize('custom')
+              }
+            }
+            if (ec.floater) {
+              if (typeof ec.floater.direction === 'string')
+                setDirection(ec.floater.direction)
+              if (typeof ec.floater.triggerScroll === 'number')
+                setTriggerScroll(ec.floater.triggerScroll)
+              if (typeof ec.floater.position === 'string')
+                setPosition(ec.floater.position)
+              if (typeof ec.floater.size === 'string')
+                setFloaterSize(ec.floater.size)
+              if (typeof ec.floater.showCloseButton === 'boolean')
+                setShowCloseButton(ec.floater.showCloseButton)
+              if (typeof ec.floater.autoHide === 'boolean')
+                setAutoHide(ec.floater.autoHide)
+              if (typeof ec.floater.autoHideDelay === 'number')
+                setAutoHideDelay(ec.floater.autoHideDelay)
+            }
+          }
+        } catch (e) {
+          // Silent: modal still works with defaults
+        }
+      })()
+    }
+  }, [open, storyId, storyData])
+
+  // Auto-save on changes
+  useEffect(() => {
+    scheduleSave()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    embedType,
+    autoplay,
+    loop,
+    size,
+    customWidth,
+    customHeight,
+    direction,
+    triggerScroll,
+    position,
+    floaterSize,
+    showCloseButton,
+    autoHide,
+    autoHideDelay,
+  ])
+
+  // Generate minimal embed code (settings controlled by app)
   const generateEmbedCode = () => {
-    if (embedType === 'floater') {
-      return {
-        head: `<script src="${scriptSrc}"></script>`,
-        body: `<ins id="snappy-webstory-${storyId}" 
-  data-story-id="${storyId}" 
-  data-api-url="${apiUrl}" 
-  data-floater="true"
-  data-direction="${direction}"
-  data-trigger-scroll="${triggerScroll}"
-  data-position="${position}"
-  data-size="${floaterSize}"
-  data-show-close="${showCloseButton}"
-  data-auto-hide="${autoHide}"
-  data-auto-hide-delay="${autoHideDelay}"></ins>`,
-      }
-    } else {
-      return {
-        head: `<script src="${scriptSrc}"></script>`,
-        body: `<ins id="snappy-webstory-${storyId}" 
-  data-story-id="${storyId}" 
-  data-api-url="${apiUrl}" 
-  data-autoplay="${autoplay}"
-  data-loop="${loop}"
-  data-width="${width}"
-  data-height="${height}"></ins>`,
-      }
+    return {
+      head: `<script src="${scriptSrc}"></script>`,
+      body: `<ins id="snappy-webstory-${storyId}" \n  data-story-id="${storyId}" \n  data-api-url="${apiUrl}"></ins>`,
     }
   }
 
@@ -183,7 +376,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Embed Web Story</DialogTitle>
         </DialogHeader>
@@ -324,6 +517,56 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                 </div>
               </div>
 
+              {/* Story Size (applies to story rendered inside floater) */}
+              <div>
+                <Label className="font-medium">
+                  Story Size (inside floater)
+                </Label>
+                <Select
+                  value={size}
+                  onValueChange={(
+                    value: 'large' | 'medium' | 'small' | 'custom'
+                  ) => setSize(value)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="large">
+                      Large ({SIZE_PRESETS.large.width}×
+                      {SIZE_PRESETS.large.height})
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      Medium ({SIZE_PRESETS.medium.width}×
+                      {SIZE_PRESETS.medium.height})
+                    </SelectItem>
+                    <SelectItem value="small">
+                      Small ({SIZE_PRESETS.small.width}×
+                      {SIZE_PRESETS.small.height})
+                    </SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+                {size === 'custom' && (
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      type="number"
+                      min={100}
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(Number(e.target.value))}
+                      placeholder="Story width (px)"
+                    />
+                    <Input
+                      type="number"
+                      min={100}
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(Number(e.target.value))}
+                      placeholder="Story height (px)"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <Label className="font-medium">Trigger Scroll (%)</Label>
                 <Input
@@ -344,9 +587,9 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                 <Label className="font-medium">Floater Size</Label>
                 <Select
                   value={floaterSize}
-                  onValueChange={(value: 'small' | 'medium' | 'large') =>
-                    setFloaterSize(value)
-                  }
+                  onValueChange={(
+                    value: 'small' | 'medium' | 'large' | 'custom'
+                  ) => setFloaterSize(value)}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
@@ -355,8 +598,31 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                     <SelectItem value="small">Small (200×350)</SelectItem>
                     <SelectItem value="medium">Medium (280×490)</SelectItem>
                     <SelectItem value="large">Large (360×630)</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
+                {floaterSize === 'custom' && (
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      type="number"
+                      min={100}
+                      value={floaterCustomWidth}
+                      onChange={(e) =>
+                        setFloaterCustomWidth(Number(e.target.value))
+                      }
+                      placeholder="Floater width (px)"
+                    />
+                    <Input
+                      type="number"
+                      min={100}
+                      value={floaterCustomHeight}
+                      onChange={(e) =>
+                        setFloaterCustomHeight(Number(e.target.value))
+                      }
+                      placeholder="Floater height (px)"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -435,7 +701,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                 <div className="relative">
                   <textarea
                     className="w-full rounded border bg-muted p-2 font-mono text-xs"
-                    rows={embedType === 'floater' ? 6 : 4}
+                    rows={4}
                     value={embedCode.body}
                     readOnly
                   />

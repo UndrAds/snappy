@@ -103,77 +103,77 @@
 
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var autoplay = element.getAttribute('data-autoplay') === 'true'
-    var loop = element.getAttribute('data-loop') === 'true'
     var apiBaseUrl = element.getAttribute('data-api-url') || ''
 
     if (!storyId) return
 
-    // Get dimensions from data attributes first, then element style, then defaults
-    var width = element.getAttribute('data-width')
-    var height = element.getAttribute('data-height')
+    // Set default dimensions immediately to prevent full-width expansion
+    // These will be updated in fetchAndRenderStory based on story format and embedConfig
+    var explicitWidth = element.style.width
+    var explicitHeight = element.style.height
 
-    if (width) {
-      width = parseInt(width)
+    // Check if element has computed dimensions that aren't from style
+    var hasComputedSize = element.offsetWidth > 0 && element.offsetHeight > 0
+
+    // If no explicit style dimensions, use default portrait mobile size
+    // This prevents the element from expanding to full parent width
+    if (!explicitWidth || !explicitHeight) {
+      var defaultWidth = 360 // Default portrait mobile width
+      var defaultHeight = 640 // Default portrait mobile height
+
+      // Only set defaults if element doesn't have computed size already
+      if (!hasComputedSize || element.offsetWidth > 1000) {
+        element.style.cssText = `
+          display: block;
+          width: ${defaultWidth}px;
+          height: ${defaultHeight}px;
+          margin: 20px auto;
+          position: relative;
+        `
+      } else {
+        // Element has computed size, use it but ensure it's set explicitly
+        var w = element.offsetWidth
+        var h = element.offsetHeight
+        element.style.cssText = `
+          display: block;
+          width: ${w}px;
+          height: ${h}px;
+          margin: 20px auto;
+          position: relative;
+        `
+      }
     } else {
-      width = element.style.width || element.offsetWidth
+      // Explicit style dimensions exist, parse and apply
+      var w = explicitWidth
+      var h = explicitHeight
+      if (typeof w === 'string' && w.includes('px')) w = parseInt(w)
+      if (typeof h === 'string' && h.includes('px')) h = parseInt(h)
+      // Ensure we have valid pixel values
+      if (isNaN(w) || w <= 0) w = 360
+      if (isNaN(h) || h <= 0) h = 640
+      element.style.cssText = `
+        display: block;
+        width: ${w}px;
+        height: ${h}px;
+        margin: 20px auto;
+        position: relative;
+      `
     }
 
-    if (height) {
-      height = parseInt(height)
-    } else {
-      height = element.style.height || element.offsetHeight
-    }
-
-    // If no dimensions specified, use default mobile story dimensions
-    if (!width || width === 0) {
-      width = 360
-    }
-    if (!height || height === 0) {
-      height = 640
-    }
-
-    // Ensure dimensions are in pixels
-    if (typeof width === 'string' && width.includes('px')) {
-      width = parseInt(width)
-    }
-    if (typeof height === 'string' && height.includes('px')) {
-      height = parseInt(height)
-    }
-
-    // Apply styling to the ins element to make it the direct container
-    element.style.cssText = `
-      display: block;
-      width: ${width}px;
-      height: ${height}px;
-      margin: 20px auto;
-      position: relative;
-    `
-
-    // Fetch and render story
+    // Fetch and render story (will update dimensions based on story format and embedConfig)
     fetchAndRenderStory(
       storyId,
       apiBaseUrl,
       element,
-      autoplay,
+      undefined,
       false,
       null,
-      loop
+      undefined
     )
   }
 
   function processFloaterEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var direction = element.getAttribute('data-direction') || 'right'
-    var triggerScroll = parseInt(
-      element.getAttribute('data-trigger-scroll') || '50'
-    )
-    var position = element.getAttribute('data-position') || 'bottom'
-    var size = element.getAttribute('data-size') || 'medium'
-    var autoHide = element.getAttribute('data-auto-hide') === 'true'
-    var autoHideDelay = parseInt(
-      element.getAttribute('data-auto-hide-delay') || '5000'
-    )
     var apiBaseUrl = element.getAttribute('data-api-url') || ''
 
     if (!storyId) return
@@ -200,25 +200,7 @@
     // Check if story data is already cached
     var cachedEntry = storyDataCache.get(storyId)
 
-    if (
-      cachedEntry &&
-      cachedEntry.data &&
-      Date.now() - cachedEntry.ts <= CACHE_TTL_MS
-    ) {
-      // Use cached data within TTL
-      console.log('Using cached story data for:', storyId)
-      processFloaterWithData(
-        cachedEntry.data,
-        element,
-        apiBaseUrl,
-        direction,
-        triggerScroll,
-        position,
-        size,
-        autoHide,
-        autoHideDelay
-      )
-    } else {
+    {
       // Fetch the story data to get format and device frame (cache-bust with ts)
       fetch(apiBaseUrl + '/api/stories/public/' + storyId + '?ts=' + Date.now())
         .then(function (response) {
@@ -236,16 +218,17 @@
           // Cache the story data with timestamp
           storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
+          var cfg = (storyData.embedConfig || {}).floater || {}
           processFloaterWithData(
             storyData,
             element,
             apiBaseUrl,
-            direction,
-            triggerScroll,
-            position,
-            size,
-            autoHide,
-            autoHideDelay
+            cfg.direction || 'right',
+            typeof cfg.triggerScroll === 'number' ? cfg.triggerScroll : 50,
+            cfg.position || 'bottom',
+            cfg.size || 'medium',
+            !!cfg.autoHide,
+            typeof cfg.autoHideDelay === 'number' ? cfg.autoHideDelay : 5000
           )
         })
         .catch(function (error) {
@@ -269,22 +252,34 @@
     var storyFormat = storyData.format || 'portrait'
     var storyDeviceFrame = storyData.deviceFrame || 'mobile'
 
-    // Calculate dimensions based on story's actual format and device frame
-    var dimensions = calculateFloaterDimensions(
-      storyFormat,
-      storyDeviceFrame,
-      size
-    )
+    // Calculate floater dimensions (custom size takes precedence)
+    var embedCfg = storyData.embedConfig || {}
+    var floaterCfg = embedCfg.floater || {}
+    var dimensions = (function () {
+      var cw =
+        typeof floaterCfg.customWidth === 'number'
+          ? floaterCfg.customWidth
+          : null
+      var ch =
+        typeof floaterCfg.customHeight === 'number'
+          ? floaterCfg.customHeight
+          : null
+      if (cw && ch) return { width: cw, height: ch }
+      return calculateFloaterDimensions(storyFormat, storyDeviceFrame, size)
+    })()
 
     // Use the ins element itself as the regular container
     var regularContainer = element
     regularContainer.id = 'snappy-regular-' + storyId
 
-    // Style the regular container based on story format and device frame
-    var regularDimensions = calculateRegularContainerDimensions(
-      storyFormat,
-      storyDeviceFrame
-    )
+    // Style the regular container based on embedConfig regular size or fallback
+    var regularDimensions = (function () {
+      var rc = embedCfg.regular || {}
+      if (typeof rc.width === 'number' && typeof rc.height === 'number') {
+        return { width: rc.width, height: rc.height }
+      }
+      return calculateRegularContainerDimensions(storyFormat, storyDeviceFrame)
+    })()
 
     // Get dimensions from the element's style or use regular dimensions
     var width = element.style.width || element.offsetWidth
@@ -343,50 +338,58 @@
       transform: scale(${dimensions.width / width});
     `
 
-    // Always add close button for floater embeds
-    var closeButton = document.createElement('button')
-    closeButton.innerHTML = '×'
-    closeButton.style.cssText = `
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: rgba(0,0,0,0.8);
-      color: white;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-    `
-    closeButton.onclick = function () {
-      // Remove event listeners
-      window.removeEventListener('scroll', checkScroll)
-      window.removeEventListener('resize', checkScroll)
-
-      // Clear any pending timeouts
-      if (hideTimeout) {
-        clearTimeout(hideTimeout)
-        hideTimeout = null
+    // Close button for floater embeds (respect embedConfig when available)
+    var showClose = true
+    try {
+      var cfg = storyData.embedConfig || {}
+      if (cfg.floater && typeof cfg.floater.showCloseButton === 'boolean') {
+        showClose = !!cfg.floater.showCloseButton
       }
+    } catch (e) {}
+    if (showClose) {
+      var closeButton = document.createElement('button')
+      closeButton.innerHTML = '×'
+      closeButton.style.cssText = `
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+      `
+      closeButton.onclick = function () {
+        // Remove event listeners
+        window.removeEventListener('scroll', checkScroll)
+        window.removeEventListener('resize', checkScroll)
 
-      // Remove from active floaters tracking
-      delete activeFloaters[storyId]
+        // Clear any pending timeouts
+        if (hideTimeout) {
+          clearTimeout(hideTimeout)
+          hideTimeout = null
+        }
 
-      // Remove only the floater from DOM completely
-      if (floaterContainer && floaterContainer.parentNode) {
-        floaterContainer.parentNode.removeChild(floaterContainer)
+        // Remove from active floaters tracking
+        delete activeFloaters[storyId]
+
+        // Remove only the floater from DOM completely
+        if (floaterContainer && floaterContainer.parentNode) {
+          floaterContainer.parentNode.removeChild(floaterContainer)
+        }
+        // Keep the regular container - don't remove it!
       }
-      // Keep the regular container - don't remove it!
-      // The regular embed should remain visible on the page
+      floaterContainer.appendChild(closeButton)
     }
-    floaterContainer.appendChild(closeButton)
     floaterContainer.appendChild(storyContainer)
 
     // Add to page
@@ -476,8 +479,21 @@
     floaterOptions,
     loop
   ) {
-    // Default loop to false if not provided
+    // Default loop to false if not provided; resolve from embedConfig when undefined
     if (loop === undefined) loop = false
+    try {
+      var cfg = storyData.embedConfig || {}
+      if (typeof autoplay === 'undefined') {
+        autoplay = isFloater
+          ? !!(cfg.floater && cfg.floater.autoplay)
+          : !!(cfg.regular && cfg.regular.autoplay)
+      }
+      if (typeof loop === 'undefined') {
+        loop = isFloater
+          ? !!(cfg.floater && cfg.floater.loop)
+          : !!(cfg.regular && cfg.regular.loop)
+      }
+    } catch (e) {}
     console.log('Rendering story directly with data:', storyData)
 
     var frames = storyData.frames || []
@@ -542,7 +558,7 @@
       iframe.style.height = '100%'
     }
 
-    iframe.style.border = frameStyle.border
+    iframe.style.border = '0'
     iframe.style.borderRadius = frameStyle.borderRadius
     iframe.style.background = frameStyle.background
     iframe.style.boxShadow = frameStyle.boxShadow
@@ -552,6 +568,7 @@
     iframe.style.top = '0'
     iframe.style.left = '0'
     iframe.style.outline = 'none'
+    iframe.style.boxSizing = 'border-box'
     iframe.style.zIndex = '1'
     var slideDuration = 2500 // default; overridden per-frame in inline script
 
@@ -631,13 +648,19 @@
           var buttonRight = isWide ? 'auto' : '16px'
           var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           var buttonMaxWidth = isWide ? '80%' : 'auto'
-          var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
+          var approxButtonHeight = isWide ? 36 : 44
+          var buttonTopPx = height - (approxButtonHeight + 32 + 32) // top position in px
+          var buttonTop = buttonTopPx + 'px'
 
           // Use frame-specific link text or default
           var linkButtonText =
             frame.linkText && frame.linkText.trim()
               ? frame.linkText.trim()
               : 'Read More'
+
+          // Estimate visibility to avoid cropping outside container
+          var willOverflow =
+            buttonTopPx + approxButtonHeight > height - 8 || buttonTopPx < 0
 
           // Store button data instead of creating HTML
           buttonData.push({
@@ -651,6 +674,7 @@
             maxWidth: buttonMaxWidth,
             padding: buttonPadding,
             fontSize: buttonFontSize,
+            hidden: willOverflow || height < 180,
           })
 
           // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -942,6 +966,9 @@
 
     // Create buttons container outside slides
     var buttonsHtml = buttonData
+      .filter(function (btn) {
+        return !btn.hidden
+      })
       .map(function (btn) {
         return (
           '<a href="' +
@@ -1095,7 +1122,7 @@
         'Fetching story from:',
         apiBaseUrl + '/api/stories/public/' + storyId
       )
-      fetch(apiBaseUrl + '/api/stories/public/' + storyId)
+      fetch(apiBaseUrl + '/api/stories/public/' + storyId + '?ts=' + Date.now())
         .then(function (response) {
           console.log('Response status:', response.status)
           if (!response.ok) {
@@ -1114,6 +1141,19 @@
           console.log('Format from API:', storyData.format)
           console.log('Device Frame from API:', storyData.deviceFrame)
 
+          // Resolve autoplay/loop from embedConfig when not explicitly provided
+          var cfg = storyData.embedConfig || {}
+          if (typeof autoplay === 'undefined') {
+            autoplay = isFloater
+              ? !!(cfg.floater && cfg.floater.autoplay)
+              : !!(cfg.regular && cfg.regular.autoplay)
+          }
+          if (typeof loop === 'undefined') {
+            loop = isFloater
+              ? !!(cfg.floater && cfg.floater.loop)
+              : !!(cfg.regular && cfg.regular.loop)
+          }
+
           // Cache the story data with timestamp to prevent staleness
           storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
@@ -1131,46 +1171,43 @@
           console.log('Final deviceFrame:', story.deviceFrame)
 
           // Determine ideal container dimensions from story format/device frame
-          var idealDims = calculateRegularContainerDimensions(
-            story.format,
-            story.deviceFrame
-          )
-
-          // If container has no explicit size or is using defaults, set appropriate size
-          var currentWidth = container.style.width || container.offsetWidth
-          var currentHeight = container.style.height || container.offsetHeight
-          if (!currentWidth || !currentHeight) {
-            container.style.width = idealDims.width + 'px'
-            container.style.height = idealDims.height + 'px'
-          } else {
-            // If it's still at portrait defaults (360x640), switch to ideal
-            var cw =
-              typeof currentWidth === 'string' && currentWidth.includes('px')
-                ? parseInt(currentWidth)
-                : currentWidth
-            var ch =
-              typeof currentHeight === 'string' && currentHeight.includes('px')
-                ? parseInt(currentHeight)
-                : currentHeight
-            if ((cw === 360 && ch === 640) || cw === 0 || ch === 0) {
-              container.style.width = idealDims.width + 'px'
-              container.style.height = idealDims.height + 'px'
+          var idealDims = (function () {
+            // Prefer explicit sizes from embedConfig.regular when provided
+            var rc = cfg.regular || {}
+            if (typeof rc.width === 'number' && typeof rc.height === 'number') {
+              var w = rc.width
+              var h = rc.height
+              // If saved size aspect ratio conflicts with story orientation, ignore saved size
+              var isLandscapeSize = w > h
+              var expectLandscape = story.format === 'landscape'
+              if (isLandscapeSize === expectLandscape) {
+                return { width: w, height: h }
+              }
+              // mismatch → fall through to calculated dims
             }
-          }
+            return calculateRegularContainerDimensions(
+              story.format,
+              story.deviceFrame
+            )
+          })()
 
-          // Get container dimensions (after possible adjustment)
-          var width =
-            container.style.width || container.offsetWidth || idealDims.width
-          var height =
-            container.style.height || container.offsetHeight || idealDims.height
+          // Always apply ideal dimensions to container (from embedConfig or calculated)
+          // This ensures consistent sizing regardless of initial element state
+          container.style.cssText = `
+            display: block;
+            width: ${idealDims.width}px;
+            height: ${idealDims.height}px;
+            margin: 20px auto;
+            position: relative;
+            max-width: ${idealDims.width}px;
+            max-height: ${idealDims.height}px;
+            box-sizing: border-box;
+            overflow: hidden;
+          `
 
-          // Ensure dimensions are in pixels
-          if (typeof width === 'string' && width.includes('px')) {
-            width = parseInt(width)
-          }
-          if (typeof height === 'string' && height.includes('px')) {
-            height = parseInt(height)
-          }
+          // Use the ideal dimensions directly
+          var width = idealDims.width
+          var height = idealDims.height
 
           // Calculate frame styling based on story's format and device frame
           var frameStyle = getFrameStyle(story.format, story.deviceFrame)
@@ -1189,7 +1226,7 @@
             iframe.style.height = '100%'
           }
 
-          iframe.style.border = frameStyle.border
+          iframe.style.border = '0'
           iframe.style.borderRadius = frameStyle.borderRadius
           iframe.style.background = frameStyle.background
           iframe.style.boxShadow = frameStyle.boxShadow
@@ -1199,6 +1236,7 @@
           iframe.style.top = '0'
           iframe.style.left = '0'
           iframe.style.outline = 'none'
+          iframe.style.boxSizing = 'border-box'
           iframe.style.zIndex = '1'
           var slideDuration = 2500 // default; overridden per-frame in inline script
 
@@ -1299,13 +1337,20 @@
                 var buttonRight = isWide ? 'auto' : '16px'
                 var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 var buttonMaxWidth = isWide ? '80%' : 'auto'
-                var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
+                var approxButtonHeight = isWide ? 36 : 44
+                var buttonTopPx = height - (approxButtonHeight + 32 + 32)
+                var buttonTop = buttonTopPx + 'px'
 
                 // Use frame-specific link text or default
                 var linkButtonText =
                   frame.linkText && frame.linkText.trim()
                     ? frame.linkText.trim()
                     : 'Read More'
+
+                // Estimate visibility to avoid cropping outside container
+                var willOverflow =
+                  buttonTopPx + approxButtonHeight > height - 8 ||
+                  buttonTopPx < 0
 
                 // Store button data instead of creating HTML
                 buttonData.push({
@@ -1319,6 +1364,7 @@
                   maxWidth: buttonMaxWidth,
                   padding: buttonPadding,
                   fontSize: buttonFontSize,
+                  hidden: willOverflow || height < 180,
                 })
 
                 // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -1600,6 +1646,9 @@
 
           // Create buttons container outside slides
           var buttonsHtml = buttonData
+            .filter(function (btn) {
+              return !btn.hidden
+            })
             .map(function (btn) {
               return (
                 '<a href="' +
@@ -1719,6 +1768,35 @@
           // Clear container and append iframe directly
           container.innerHTML = ''
           container.appendChild(iframe)
+
+          // If embedConfig requests floater, initialize it too (feature parity)
+          try {
+            var floaterCfg = cfg.floater || {}
+            var floaterEnabled = !!(
+              cfg.type === 'floater' || floaterCfg.enabled
+            )
+            var hasExplicitFloater =
+              container.getAttribute('data-floater') === 'true'
+            if (floaterEnabled && !hasExplicitFloater) {
+              processFloaterWithData(
+                storyData,
+                container,
+                apiBaseUrl,
+                floaterCfg.direction || 'right',
+                typeof floaterCfg.triggerScroll === 'number'
+                  ? floaterCfg.triggerScroll
+                  : 50,
+                floaterCfg.position || 'bottom',
+                floaterCfg.size || 'medium',
+                !!floaterCfg.autoHide,
+                typeof floaterCfg.autoHideDelay === 'number'
+                  ? floaterCfg.autoHideDelay
+                  : 5000
+              )
+            }
+          } catch (e) {
+            console.warn('Floater initialization skipped:', e)
+          }
 
           // Remove from pending requests
           pendingRequests.delete(requestKey)

@@ -41,6 +41,8 @@ model Story {
   deviceFrame String   @default("mobile") // 'mobile' | 'video-player'
   storyType   String   @default("static") // 'static' | 'dynamic'
   defaultDurationMs Int @default(2500) // Default frame duration in ms
+  // Embed configuration stored as JSON, controls autoplay/loop/sizing and floater options
+  embedConfig Json?
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

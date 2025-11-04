@@ -1059,7 +1059,12 @@ export default function EditorPage() {
       <EmbedModal
         open={embedOpen}
         onClose={() => setEmbedOpen(false)}
-        storyId={uniqueId || storyDataState?.storyTitle || 'demo'}
+        storyId={
+          (storyDataState as any)?.id ||
+          uniqueId ||
+          storyDataState?.storyTitle ||
+          'demo'
+        }
         storyData={{ story: storyDataState, frames }}
       />
     </EditorLayout>

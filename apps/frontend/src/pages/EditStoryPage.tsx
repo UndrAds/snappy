@@ -35,6 +35,7 @@ export default function EditStoryPage() {
   const navigate = useNavigate()
   const { uniqueId } = useParams()
   const [story, setStory] = useState<Story | null>(null)
+  const [frames, setFrames] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -56,6 +57,13 @@ export default function EditStoryPage() {
 
       if (response.success && response.data) {
         setStory(response.data)
+        // Load frames from story data
+        if (
+          (response.data as any).frames &&
+          Array.isArray((response.data as any).frames)
+        ) {
+          setFrames((response.data as any).frames)
+        }
         // Capture original RSS config snapshot for change detection
         if (response.data.storyType === 'dynamic') {
           setOriginalRSSConfig((response.data as any).rssConfig || null)
@@ -125,6 +133,7 @@ export default function EditStoryPage() {
     try {
       setIsSaving(true)
 
+      // Update story metadata
       const response = await storyAPI.updateStory(story.id, {
         title: story.title,
         publisherName: story.publisherName,
@@ -132,14 +141,37 @@ export default function EditStoryPage() {
         format: story.format || 'portrait',
         deviceFrame: story.deviceFrame || 'mobile',
         storyType: story.storyType || 'static',
+        defaultDurationMs: (story as any).defaultDurationMs,
         rssConfig:
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
             : null,
-      })
+      } as any)
 
       if (response.success) {
-        toast.success('Story updated successfully!')
+        // If "Apply to all frames" is checked, update all frames with the new defaultDurationMs
+        if (applyDefaultToAll && frames.length > 0) {
+          const defaultDurationMs = (story as any).defaultDurationMs || 5000
+          const updatePromises = frames.map((frame) =>
+            storyAPI.updateStoryFrame(frame.id, {
+              durationMs: defaultDurationMs,
+            } as any)
+          )
+
+          try {
+            await Promise.all(updatePromises)
+            toast.success(
+              `Story and ${frames.length} frame(s) updated successfully!`
+            )
+          } catch (frameError) {
+            console.error('Failed to update some frames:', frameError)
+            toast.warning(
+              'Story updated, but some frames failed to update. Please try again.'
+            )
+          }
+        } else {
+          toast.success('Story updated successfully!')
+        }
 
         // If dynamic and RSS config changed, trigger update and show progress modal
         const isDynamic = story.storyType === 'dynamic'

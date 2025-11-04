@@ -641,7 +641,7 @@ export class StoryService {
     try {
       console.log(`Starting frame generation for story ${storyId} with ${feedItems.length} items`);
 
-      // Get the story to understand its format
+      // Get the story to understand its format and preserve defaultDurationMs
       const story = await prisma.story.findUnique({
         where: { id: storyId },
       });
@@ -652,12 +652,16 @@ export class StoryService {
 
       console.log(`Found story: ${story.title}, clearing existing frames...`);
 
+      // Preserve the story's defaultDurationMs for new frames
+      const defaultDurationMs = (story as any).defaultDurationMs || 5000; // Use story's default or fallback to 5000ms
+
       // Clear existing frames
       const deletedCount = await prisma.storyFrame.deleteMany({
         where: { storyId },
       });
 
       console.log(`Deleted ${deletedCount.count} existing frames`);
+      console.log(`Using defaultDurationMs: ${defaultDurationMs} for new frames`);
 
       let framesGenerated = 0;
 
@@ -675,7 +679,7 @@ export class StoryService {
           hasImage: !!item.imageUrl,
         });
 
-        // Create frame with RSS title as name and link
+        // Create frame with RSS title as name and link, preserving story's defaultDurationMs
         const frame = await prisma.storyFrame.create({
           data: {
             order: i,
@@ -684,8 +688,9 @@ export class StoryService {
             name: item.title, // Use RSS item title as frame name
             link: item.link || null, // Use RSS item link as frame link
             linkText: 'Read More', // Default link text for RSS frames
+            durationMs: defaultDurationMs, // Preserve story's defaultDurationMs
             storyId,
-          },
+          } as any,
         });
 
         console.log(`Created frame with link:`, frame.link);

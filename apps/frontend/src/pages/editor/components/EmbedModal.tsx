@@ -281,6 +281,9 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
         setAutoHide(cfg.floater.autoHide)
       if (typeof cfg.floater.autoHideDelay === 'number')
         setAutoHideDelay(cfg.floater.autoHideDelay)
+      if (typeof cfg.floater.autoplay === 'boolean')
+        setAutoplay(cfg.floater.autoplay)
+      if (typeof cfg.floater.loop === 'boolean') setLoop(cfg.floater.loop)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyId, format])
@@ -348,12 +351,23 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                 setPosition(ec.floater.position)
               if (typeof ec.floater.size === 'string')
                 setFloaterSize(ec.floater.size)
+              if (
+                typeof (ec.floater as any).customWidth === 'number' &&
+                typeof (ec.floater as any).customHeight === 'number'
+              ) {
+                setFloaterSize('custom')
+                setFloaterCustomWidth((ec.floater as any).customWidth)
+                setFloaterCustomHeight((ec.floater as any).customHeight)
+              }
               if (typeof ec.floater.showCloseButton === 'boolean')
                 setShowCloseButton(ec.floater.showCloseButton)
               if (typeof ec.floater.autoHide === 'boolean')
                 setAutoHide(ec.floater.autoHide)
               if (typeof ec.floater.autoHideDelay === 'number')
                 setAutoHideDelay(ec.floater.autoHideDelay)
+              if (typeof ec.floater.autoplay === 'boolean')
+                setAutoplay(ec.floater.autoplay)
+              if (typeof ec.floater.loop === 'boolean') setLoop(ec.floater.loop)
             }
           }
         } catch (e) {
@@ -554,6 +568,24 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
                       <SelectItem value="top">Top</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Autoplay and Loop controls for floater */}
+              <div>
+                <Label className="font-medium">Autoplay</Label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <Switch checked={autoplay} onCheckedChange={setAutoplay} />
+                  <span className="text-sm">Automatically play the story</span>
+                </div>
+              </div>
+              <div>
+                <Label className="font-medium">Loop</Label>
+                <div className="mt-1 flex items-center space-x-2">
+                  <Switch checked={loop} onCheckedChange={setLoop} />
+                  <span className="text-sm">
+                    Loop back to first slide after last
+                  </span>
                 </div>
               </div>
 

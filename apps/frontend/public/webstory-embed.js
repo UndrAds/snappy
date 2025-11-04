@@ -479,22 +479,41 @@
     floaterOptions,
     loop
   ) {
-    // Default loop to false if not provided; resolve from embedConfig when undefined
-    if (loop === undefined) loop = false
+    // Read from embedConfig first, then fallback to passed parameters or defaults
     try {
       var cfg = storyData.embedConfig || {}
+      // Always read from config if it exists, otherwise use passed parameter or default
+      if (cfg.regular || cfg.floater) {
+        if (isFloater && cfg.floater) {
+          if (typeof cfg.floater.autoplay === 'boolean') {
+            autoplay = cfg.floater.autoplay
+          }
+          if (typeof cfg.floater.loop === 'boolean') {
+            loop = cfg.floater.loop
+          }
+        } else if (!isFloater && cfg.regular) {
+          if (typeof cfg.regular.autoplay === 'boolean') {
+            autoplay = cfg.regular.autoplay
+          }
+          if (typeof cfg.regular.loop === 'boolean') {
+            loop = cfg.regular.loop
+          }
+        }
+      }
+      // Fallback to passed parameters if config doesn't have values
       if (typeof autoplay === 'undefined') {
-        autoplay = isFloater
-          ? !!(cfg.floater && cfg.floater.autoplay)
-          : !!(cfg.regular && cfg.regular.autoplay)
+        autoplay = false
       }
       if (typeof loop === 'undefined') {
-        loop = isFloater
-          ? !!(cfg.floater && cfg.floater.loop)
-          : !!(cfg.regular && cfg.regular.loop)
+        loop = false
       }
+      // Ensure loop and autoplay are proper booleans
+      loop = !!loop
+      autoplay = !!autoplay
     } catch (e) {}
     console.log('Rendering story directly with data:', storyData)
+    console.log('Loop value:', loop, 'Type:', typeof loop, 'Config:', cfg)
+    console.log('Autoplay value:', autoplay, 'Type:', typeof autoplay)
 
     var frames = storyData.frames || []
     // Escapers for safe inline HTML
@@ -1134,7 +1153,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:(story.defaultDurationMs||2500);});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||story.defaultDurationMs||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||story.defaultDurationMs||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:(story.defaultDurationMs||2500);});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||story.defaultDurationMs||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||story.defaultDurationMs||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${!!autoplay}){scheduleNext();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -1195,18 +1214,38 @@
           console.log('Format from API:', storyData.format)
           console.log('Device Frame from API:', storyData.deviceFrame)
 
-          // Resolve autoplay/loop from embedConfig when not explicitly provided
+          // Resolve autoplay/loop from embedConfig - always prefer config over passed parameters
           var cfg = storyData.embedConfig || {}
+          // Always read from config if it exists, otherwise use passed parameter or default
+          if (cfg.regular || cfg.floater) {
+            if (isFloater && cfg.floater) {
+              if (typeof cfg.floater.autoplay === 'boolean') {
+                autoplay = cfg.floater.autoplay
+              }
+              if (typeof cfg.floater.loop === 'boolean') {
+                loop = cfg.floater.loop
+              }
+            } else if (!isFloater && cfg.regular) {
+              if (typeof cfg.regular.autoplay === 'boolean') {
+                autoplay = cfg.regular.autoplay
+              }
+              if (typeof cfg.regular.loop === 'boolean') {
+                loop = cfg.regular.loop
+              }
+            }
+          }
+          // Fallback to passed parameters if config doesn't have values
           if (typeof autoplay === 'undefined') {
-            autoplay = isFloater
-              ? !!(cfg.floater && cfg.floater.autoplay)
-              : !!(cfg.regular && cfg.regular.autoplay)
+            autoplay = false
           }
           if (typeof loop === 'undefined') {
-            loop = isFloater
-              ? !!(cfg.floater && cfg.floater.loop)
-              : !!(cfg.regular && cfg.regular.loop)
+            loop = false
           }
+          // Ensure loop and autoplay are proper booleans
+          loop = !!loop
+          autoplay = !!autoplay
+          console.log('Loop value:', loop, 'Type:', typeof loop, 'Config:', cfg)
+          console.log('Autoplay value:', autoplay, 'Type:', typeof autoplay)
 
           // Cache the story data with timestamp to prevent staleness
           storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
@@ -1891,7 +1930,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:2500;});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);scheduleNext();},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){scheduleNext();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var frameDurations=(frames||[]).map(function(f){return (f&&f.durationMs)?f.durationMs:2500;});function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');var dur=frameDurations[i]||2500;bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||2500;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${!!autoplay}){scheduleNext();}
         </script></body></html>`
 
           iframe.srcdoc = html

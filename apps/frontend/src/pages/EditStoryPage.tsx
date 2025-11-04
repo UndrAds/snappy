@@ -41,7 +41,9 @@ export default function EditStoryPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [showProgressLoader, setShowProgressLoader] = useState(false)
   const [originalRSSConfig, setOriginalRSSConfig] = useState<any | null>(null)
-  const [applyDefaultToAll, setApplyDefaultToAll] = useState(false)
+  const [originalDefaultDurationMs, setOriginalDefaultDurationMs] = useState<
+    number | null
+  >(null)
 
   // Load story data
   useEffect(() => {
@@ -64,6 +66,10 @@ export default function EditStoryPage() {
         ) {
           setFrames((response.data as any).frames)
         }
+        // Capture original defaultDurationMs for change detection
+        setOriginalDefaultDurationMs(
+          (response.data as any).defaultDurationMs || 5000
+        )
         // Capture original RSS config snapshot for change detection
         if (response.data.storyType === 'dynamic') {
           setOriginalRSSConfig((response.data as any).rssConfig || null)
@@ -149,12 +155,18 @@ export default function EditStoryPage() {
       } as any)
 
       if (response.success) {
-        // If "Apply to all frames" is checked, update all frames with the new defaultDurationMs
-        if (applyDefaultToAll && frames.length > 0) {
-          const defaultDurationMs = (story as any).defaultDurationMs || 5000
+        // Check if defaultDurationMs has changed from the original
+        const currentDefaultDurationMs =
+          (story as any).defaultDurationMs || 5000
+        const hasTimerChanged =
+          originalDefaultDurationMs !== null &&
+          currentDefaultDurationMs !== originalDefaultDurationMs
+
+        // If timer has changed, update all frames with the new defaultDurationMs
+        if (hasTimerChanged && frames.length > 0) {
           const updatePromises = frames.map((frame) =>
             storyAPI.updateStoryFrame(frame.id, {
-              durationMs: defaultDurationMs,
+              durationMs: currentDefaultDurationMs,
             } as any)
           )
 
@@ -707,18 +719,6 @@ export default function EditStoryPage() {
                       seconds
                     </span>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="apply-default-all"
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={applyDefaultToAll}
-                    onChange={(e) => setApplyDefaultToAll(e.target.checked)}
-                  />
-                  <Label htmlFor="apply-default-all" className="m-0">
-                    Apply to all frames (override existing)
-                  </Label>
                 </div>
               </div>
             </CardContent>

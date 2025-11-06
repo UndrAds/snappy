@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Card,
@@ -19,7 +19,15 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
-import { Upload, Save, Smartphone, Monitor, Info, Rss } from 'lucide-react'
+import {
+  Upload,
+  Save,
+  Smartphone,
+  Monitor,
+  Info,
+  Rss,
+  Megaphone,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
 import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
@@ -28,6 +36,7 @@ import type {
   DeviceFrame,
   StoryType,
   RSSConfig,
+  AdInsertionConfig,
 } from '@snappy/shared-types'
 import {
   Tooltip,
@@ -91,6 +100,18 @@ export default function CreateSnapPage() {
   const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
     string | null
   >(null)
+
+  // Initialize adInsertionConfig when story type is dynamic
+  useEffect(() => {
+    if (snapData.storyType === 'dynamic' && !rssConfig.adInsertionConfig) {
+      setRssConfig((prev) => ({
+        ...prev,
+        adInsertionConfig: {
+          strategy: 'start-end',
+        },
+      }))
+    }
+  }, [snapData.storyType, rssConfig.adInsertionConfig])
 
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
@@ -527,6 +548,124 @@ export default function CreateSnapPage() {
                     Allow repetition to reach max posts
                   </Label>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ad Insertion Configuration - Only show for dynamic stories */}
+          {snapData.storyType === 'dynamic' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="h-5 w-5" />
+                  Ad Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure how and where ads should be automatically inserted
+                  in your dynamic story
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Ad Insertion Strategy</Label>
+                  <RadioGroup
+                    value={rssConfig.adInsertionConfig?.strategy || 'start-end'}
+                    onValueChange={(value) => {
+                      const strategy = value as AdInsertionConfig['strategy']
+                      handleRssConfigChange('adInsertionConfig', {
+                        strategy,
+                        ...(strategy === 'interval'
+                          ? {
+                              interval:
+                                rssConfig.adInsertionConfig?.interval || 3,
+                              intervalPosition:
+                                rssConfig.adInsertionConfig?.intervalPosition ||
+                                'after',
+                            }
+                          : {}),
+                      } as AdInsertionConfig)
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="start-end" id="start-end" />
+                        <Label htmlFor="start-end">
+                          Start & End (ads at beginning and end)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="alternate" id="alternate" />
+                        <Label htmlFor="alternate">
+                          Alternate each post (ad after each post)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="interval" id="interval" />
+                        <Label htmlFor="interval">
+                          After/before/between each N posts
+                        </Label>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {rssConfig.adInsertionConfig?.strategy === 'interval' && (
+                  <div className="space-y-4 rounded-md border p-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ad-interval">Number of Posts (N)</Label>
+                      <Input
+                        id="ad-interval"
+                        type="number"
+                        min="1"
+                        value={rssConfig.adInsertionConfig?.interval || 3}
+                        onChange={(e) =>
+                          handleRssConfigChange('adInsertionConfig', {
+                            ...rssConfig.adInsertionConfig,
+                            interval: Math.max(
+                              1,
+                              parseInt(e.target.value) || 3
+                            ),
+                          } as AdInsertionConfig)
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Insert an ad after every N posts
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Ad Position</Label>
+                      <RadioGroup
+                        value={
+                          rssConfig.adInsertionConfig?.intervalPosition ||
+                          'after'
+                        }
+                        onValueChange={(value) =>
+                          handleRssConfigChange('adInsertionConfig', {
+                            ...rssConfig.adInsertionConfig,
+                            intervalPosition:
+                              value as AdInsertionConfig['intervalPosition'],
+                          } as AdInsertionConfig)
+                        }
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="before" id="before" />
+                            <Label htmlFor="before">Before posts</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="after" id="after" />
+                            <Label htmlFor="after">After posts</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="between" id="between" />
+                            <Label htmlFor="between">Between posts</Label>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

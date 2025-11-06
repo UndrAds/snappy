@@ -68,6 +68,13 @@ export interface EmbedConfig {
   floater?: FloaterEmbedOptions;
 }
 
+// Ad Insertion Configuration types
+export interface AdInsertionConfig {
+  strategy: 'start-end' | 'alternate' | 'interval';
+  interval?: number; // Number of posts between ads (for interval strategy)
+  intervalPosition?: 'before' | 'after' | 'between'; // Position relative to posts (for interval strategy)
+}
+
 // RSS Configuration types
 export interface RSSConfig {
   feedUrl: string;
@@ -77,6 +84,7 @@ export interface RSSConfig {
   lastUpdated?: string;
   nextUpdate?: string;
   isActive: boolean;
+  adInsertionConfig?: AdInsertionConfig; // Ad placement configuration for dynamic stories
 }
 
 // Story types

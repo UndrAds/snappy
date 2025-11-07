@@ -157,9 +157,17 @@ export class SchedulerService {
           totalFrames: feedItems.length,
         });
 
-        // Update story with new RSS config
+        // Read current story to get the latest rssConfig (preserves adInsertionConfig)
+        const currentStory = await StoryService.getStoryById(storyId);
+        if (!currentStory || !currentStory.rssConfig) {
+          throw new Error('Story or RSS config not found');
+        }
+
+        // Update story with new RSS config, preserving adInsertionConfig from current story
         const updatedConfig = {
-          ...rssConfig,
+          ...currentStory.rssConfig, // Use current config to preserve adInsertionConfig
+          ...rssConfig, // Override with job config (feedUrl, updateIntervalMinutes, etc.)
+          adInsertionConfig: currentStory.rssConfig.adInsertionConfig, // Explicitly preserve adInsertionConfig
           lastUpdated: new Date().toISOString(),
           nextUpdate: this.rssService
             .getNextUpdateTime(rssConfig.updateIntervalMinutes)

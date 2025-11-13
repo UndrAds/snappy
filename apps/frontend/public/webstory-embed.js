@@ -1180,22 +1180,28 @@
     window.googletag = window.googletag || {cmd: []};
     
     // Initialize ads for ad frames
+    // Use a global Set to track initialized and displayed slots across all calls
+    if (!window.snappyInitializedAdSlots) {
+      window.snappyInitializedAdSlots = new Set();
+    }
+    if (!window.snappyDisplayedAdSlots) {
+      window.snappyDisplayedAdSlots = new Set();
+    }
+    
     function initializeAds() {
       if (window.googletag && window.googletag.defineSlot) {
-        // Enable services once
+        // Enable services once (safe to call multiple times)
         window.googletag.pubads().enableSingleRequest();
         window.googletag.pubads().enableAsyncRendering();
         window.googletag.enableServices();
-        
-        // Create a map to track created slots
-        var createdSlots = new Set();
         
         frames.forEach(function(frame) {
           if (frame.type === 'ad' && frame.adConfig) {
             var adId = frame.adConfig.adId;
             
-            // Skip if we already created this slot
-            if (createdSlots.has(adId)) {
+            // Skip if we already initialized and displayed this slot
+            if (window.snappyInitializedAdSlots.has(adId) && window.snappyDisplayedAdSlots.has(adId)) {
+              console.log('Ad slot already initialized and displayed:', adId);
               return;
             }
             
@@ -1210,16 +1216,31 @@
                 }
               });
               
-              if (!slotExists) {
-                var slot = window.googletag.defineSlot(frame.adConfig.adUnitPath, [300, 250], adId);
+              if (!slotExists && !window.snappyInitializedAdSlots.has(adId)) {
+                // Create the slot only if it doesn't exist and hasn't been initialized
+                var sizes = Array.isArray(frame.adConfig.sizes) && frame.adConfig.sizes.length 
+                  ? frame.adConfig.sizes 
+                  : (Array.isArray(frame.adConfig.size) 
+                    ? [frame.adConfig.size] 
+                    : [[300, 250]]);
+                var slot = window.googletag.defineSlot(frame.adConfig.adUnitPath, sizes, adId);
                 if (slot) {
                   slot.addService(window.googletag.pubads());
-                  window.googletag.display(adId);
-                  createdSlots.add(adId);
+                  // Mark as initialized
+                  window.snappyInitializedAdSlots.add(adId);
                   console.log('Created ad slot:', adId);
                 }
-              } else {
-                console.log('Slot already exists:', adId);
+              } else if (slotExists && !window.snappyInitializedAdSlots.has(adId)) {
+                // Slot exists but not in our tracking - mark it as initialized
+                window.snappyInitializedAdSlots.add(adId);
+                console.log('Slot already exists in GPT, marked as initialized:', adId);
+              }
+              
+              // Display the ad only once per slot
+              if (window.snappyInitializedAdSlots.has(adId) && !window.snappyDisplayedAdSlots.has(adId)) {
+                window.googletag.display(adId);
+                window.snappyDisplayedAdSlots.add(adId);
+                console.log('Displayed ad slot:', adId);
               }
             } catch (error) {
               console.error('Error creating slot for', adId, ':', error);

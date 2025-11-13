@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import {
   Story,
   CreateStoryRequest,
@@ -668,7 +668,7 @@ export class StoryService {
   // Generate frames from RSS feed items
   static async generateFramesFromRSS(storyId: string, feedItems: RSSFeedItem[]): Promise<number> {
     // Use a transaction to ensure atomicity
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       try {
         console.log(
           `Starting frame generation for story ${storyId} with ${feedItems.length} items`

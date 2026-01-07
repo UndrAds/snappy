@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
-import { Moon, Sun, User, LogOut, Plus, ChevronDown, Home, BarChart3 } from 'lucide-react'
+import { Moon, Sun, User, LogOut, Plus, ChevronDown, Home, BarChart3, Shield } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,8 +27,11 @@ export default function DashboardLayout() {
     const path = location.pathname
     if (path.includes('/create')) return 'Create Snap'
     if (path.includes('/analytics')) return 'Analytics'
+    if (path.includes('/admin')) return 'Admin Dashboard'
     return 'Dashboard'
   }
+
+  const isAdmin = user?.role === 'admin'
 
   const menuItems = [
     {
@@ -49,6 +52,16 @@ export default function DashboardLayout() {
       icon: BarChart3,
       path: '/analytics',
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'admin',
+            label: 'Admin',
+            icon: Shield,
+            path: '/admin',
+          },
+        ]
+      : []),
   ]
 
   const handleMenuClick = (path: string) => {

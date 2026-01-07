@@ -40,14 +40,15 @@ export const register = async (
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    // Generate JWT token
+    // Generate JWT token with role
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role || 'publisher' },
       config.JWT_SECRET as string,
       { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
     );
@@ -57,6 +58,7 @@ export const register = async (
         id: user.id,
         email: user.email,
         name: user.name || undefined,
+        role: (user.role || 'publisher') as any,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       } as any,
@@ -80,9 +82,18 @@ export const login = async (
   try {
     const { email, password } = req.body;
 
-    // Find user
+    // Find user with role
     const user = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!user) {
@@ -106,9 +117,9 @@ export const login = async (
       return;
     }
 
-    // Generate JWT token
+    // Generate JWT token with role
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role || 'publisher' },
       config.JWT_SECRET as string,
       { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
     );
@@ -118,6 +129,7 @@ export const login = async (
         id: user.id,
         email: user.email,
         name: user.name || undefined,
+        role: (user.role || 'publisher') as any,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       } as any,

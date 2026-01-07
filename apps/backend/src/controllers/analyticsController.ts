@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AnalyticsService } from '../services/analyticsService';
 import { ApiResponse } from '@snappy/shared-types';
+import prisma from '../config/database';
 
 export class AnalyticsController {
   /**
@@ -110,10 +111,12 @@ export class AnalyticsController {
   /**
    * GET /api/analytics
    * Get analytics for all stories owned by the user (protected endpoint)
+   * Admins can see analytics for all stories
    */
   static async getUserStoriesAnalytics(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
+      const userRole = (req as any).user?.role;
 
       if (!userId) {
         const response: ApiResponse = {
@@ -126,6 +129,33 @@ export class AnalyticsController {
         return;
       }
 
+      // If admin, get analytics for all stories
+      if (userRole === 'admin') {
+        const allStories = await prisma.story.findMany({
+          include: {
+            analytics: true,
+          },
+        });
+
+        const analytics = allStories.map((story: any) => ({
+          storyId: story.id,
+          views: story.analytics?.views ?? 0,
+          avgPostsSeen: story.analytics?.avgPostsSeen ?? 0,
+          avgTimeSpent: story.analytics?.avgTimeSpent ?? 0,
+          avgAdsSeen: story.analytics?.avgAdsSeen ?? 0,
+          impressions: story.analytics?.impressions ?? 0,
+        }));
+
+        const response: ApiResponse = {
+          success: true,
+          data: analytics,
+        };
+
+        res.status(200).json(response);
+        return;
+      }
+
+      // Regular users see only their own stories' analytics
       const analytics = await AnalyticsService.getUserStoriesAnalytics(userId);
 
       const response: ApiResponse = {

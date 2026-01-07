@@ -1,0 +1,616 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Users,
+  FileText,
+  Eye,
+  TrendingUp,
+  Search,
+  Edit,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+import { adminAPI } from '@/lib/api'
+import { Story } from '@snappy/shared-types'
+
+export default function AdminDashboardPage() {
+  const navigate = useNavigate()
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalPublishers: 0,
+    totalStories: 0,
+    totalViews: 0,
+    totalImpressions: 0,
+  })
+  const [users, setUsers] = useState<
+    Array<{
+      id: string
+      email: string
+      name: string | null
+      role: string
+      storyCount: number
+      createdAt: string
+      updatedAt: string
+    }>
+  >([])
+  const [stories, setStories] = useState<
+    Array<Story & { user: { id: string; email: string; name: string | null } }>
+  >([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'stories'>('stats')
+
+  // Pagination for users
+  const [usersPage, setUsersPage] = useState(1)
+  const [usersTotalPages, setUsersTotalPages] = useState(1)
+  const [usersSearch, setUsersSearch] = useState('')
+  const [usersSortBy, setUsersSortBy] = useState('createdAt')
+  const [usersSortOrder, setUsersSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  // Pagination for stories
+  const [storiesPage, setStoriesPage] = useState(1)
+  const [storiesTotalPages, setStoriesTotalPages] = useState(1)
+  const [storiesSearch, setStoriesSearch] = useState('')
+  const [storiesSortBy, setStoriesSortBy] = useState('createdAt')
+  const [storiesSortOrder, setStoriesSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [storiesFilterUserId, setStoriesFilterUserId] = useState<string>('')
+  const [storiesFilterStatus, setStoriesFilterStatus] = useState<string>('')
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      loadUsers()
+    } else if (activeTab === 'stories') {
+      loadStories()
+    }
+  }, [activeTab, usersPage, usersSearch, usersSortBy, usersSortOrder])
+
+  useEffect(() => {
+    if (activeTab === 'stories') {
+      loadStories()
+    }
+  }, [storiesPage, storiesSearch, storiesSortBy, storiesSortOrder, storiesFilterUserId, storiesFilterStatus])
+
+  const loadStats = async () => {
+    try {
+      const response = await adminAPI.getStats()
+      if (response.success && response.data) {
+        setStats(response.data)
+      }
+    } catch (error) {
+      console.error('Load stats error:', error)
+      toast.error('Failed to load stats')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true)
+      const response = await adminAPI.getUsers({
+        page: usersPage,
+        limit: 20,
+        sortBy: usersSortBy,
+        sortOrder: usersSortOrder,
+        search: usersSearch || undefined,
+      })
+
+      if (response.success && response.data) {
+        setUsers(response.data.users)
+        setUsersTotalPages(response.data.pagination.totalPages)
+      } else {
+        toast.error('Failed to load users')
+      }
+    } catch (error) {
+      console.error('Load users error:', error)
+      toast.error('Failed to load users')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadStories = async () => {
+    try {
+      setIsLoading(true)
+      const response = await adminAPI.getAllStories({
+        page: storiesPage,
+        limit: 20,
+        sortBy: storiesSortBy,
+        sortOrder: storiesSortOrder,
+        userId: storiesFilterUserId || undefined,
+        status: storiesFilterStatus || undefined,
+        search: storiesSearch || undefined,
+      })
+
+      if (response.success && response.data) {
+        setStories(response.data.stories)
+        setStoriesTotalPages(response.data.pagination.totalPages)
+      } else {
+        toast.error('Failed to load stories')
+      }
+    } catch (error) {
+      console.error('Load stories error:', error)
+      toast.error('Failed to load stories')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEditStory = (story: Story) => {
+    navigate(`/edit/${story.uniqueId}`)
+  }
+
+  const handleDeleteStory = (story: Story) => {
+    setStoryToDelete(story)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!storyToDelete) return
+
+    try {
+      const response = await adminAPI.deleteStory(storyToDelete.id)
+
+      if (response.success) {
+        toast.success('Story deleted successfully')
+        loadStories()
+      } else {
+        toast.error('Failed to delete story')
+      }
+    } catch (error) {
+      console.error('Delete story error:', error)
+      toast.error('Failed to delete story')
+    } finally {
+      setDeleteDialogOpen(false)
+      setStoryToDelete(null)
+    }
+  }
+
+  const handleSortUsers = (field: string) => {
+    if (usersSortBy === field) {
+      setUsersSortOrder(usersSortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setUsersSortBy(field)
+      setUsersSortOrder('asc')
+    }
+  }
+
+  const handleSortStories = (field: string) => {
+    if (storiesSortBy === field) {
+      setStoriesSortOrder(storiesSortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setStoriesSortBy(field)
+      setStoriesSortOrder('asc')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex space-x-2 border-b">
+        <Button
+          variant={activeTab === 'stats' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('stats')}
+        >
+          Stats
+        </Button>
+        <Button
+          variant={activeTab === 'users' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('users')}
+        >
+          Users
+        </Button>
+        <Button
+          variant={activeTab === 'stories' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('stories')}
+        >
+          Stories
+        </Button>
+      </div>
+
+      {/* Stats Tab */}
+      {activeTab === 'stats' && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalUsers}</div>
+              <p className="text-xs text-muted-foreground">All registered users</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Publishers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalPublishers}</div>
+              <p className="text-xs text-muted-foreground">Publisher accounts</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Stories</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalStories}</div>
+              <p className="text-xs text-muted-foreground">All stories created</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Story views</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ad Impressions</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalImpressions.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Ad impressions</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users by email or name..."
+                value={usersSearch}
+                onChange={(e) => {
+                  setUsersSearch(e.target.value)
+                  setUsersPage(1)
+                }}
+                className="pl-8"
+              />
+            </div>
+            <Select
+              value={usersSortBy}
+              onValueChange={(value) => {
+                setUsersSortBy(value)
+                setUsersPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt">Created Date</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => handleSortUsers(usersSortBy)}
+            >
+              {usersSortOrder === 'asc' ? '↑' : '↓'}
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Users</CardTitle>
+              <CardDescription>Manage all users on the platform</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">Loading...</div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead
+                          className="cursor-pointer"
+                          onClick={() => handleSortUsers('storyCount')}
+                        >
+                          Stories {usersSortBy === 'storyCount' && (usersSortOrder === 'asc' ? '↑' : '↓')}
+                        </TableHead>
+                        <TableHead>Created</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.name || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                              {user.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{user.storyCount}</TableCell>
+                          <TableCell>
+                            {new Date(user.createdAt).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Page {usersPage} of {usersTotalPages}
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
+                        disabled={usersPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
+                        disabled={usersPage === usersTotalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Stories Tab */}
+      {activeTab === 'stories' && (
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2 flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search stories..."
+                value={storiesSearch}
+                onChange={(e) => {
+                  setStoriesSearch(e.target.value)
+                  setStoriesPage(1)
+                }}
+                className="pl-8"
+              />
+            </div>
+            <Select
+              value={storiesFilterUserId}
+              onValueChange={(value) => {
+                setStoriesFilterUserId(value)
+                setStoriesPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by user" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Users</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={storiesFilterStatus}
+              onValueChange={(value) => {
+                setStoriesFilterStatus(value)
+                setStoriesPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={storiesSortBy}
+              onValueChange={(value) => {
+                setStoriesSortBy(value)
+                setStoriesPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt">Created Date</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => handleSortStories(storiesSortBy)}
+            >
+              {storiesSortOrder === 'asc' ? '↑' : '↓'}
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Stories</CardTitle>
+              <CardDescription>Manage all stories on the platform</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">Loading...</div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Publisher</TableHead>
+                        <TableHead>Owner</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stories.map((story) => (
+                        <TableRow key={story.id}>
+                          <TableCell className="font-medium">{story.title}</TableCell>
+                          <TableCell>{story.publisherName}</TableCell>
+                          <TableCell>{story.user.email}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                story.status === 'published'
+                                  ? 'default'
+                                  : story.status === 'draft'
+                                  ? 'secondary'
+                                  : 'outline'
+                              }
+                            >
+                              {story.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(story.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditStory(story)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteStory(story)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Page {storiesPage} of {storiesTotalPages}
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setStoriesPage((p) => Math.max(1, p - 1))}
+                        disabled={storiesPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setStoriesPage((p) => Math.min(storiesTotalPages, p + 1))}
+                        disabled={storiesPage === storiesTotalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Story</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{storyToDelete?.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

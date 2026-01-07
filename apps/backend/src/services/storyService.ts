@@ -251,6 +251,28 @@ export class StoryService {
     return stories.map((story: any) => convertPrismaStoryToSharedType(story));
   }
 
+  // Get all stories (for admin)
+  static async getAllStories(): Promise<Story[]> {
+    const stories = await prisma.story.findMany({
+      include: {
+        frames: {
+          include: {
+            elements: true,
+            background: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return stories.map((story: any) => convertPrismaStoryToSharedType(story));
+  }
+
   // Update story
   static async updateStory(
     storyId: string,
@@ -1095,5 +1117,81 @@ export class StoryService {
       console.error('RSS config validation error:', error);
       return false;
     }
+  }
+
+  // Admin methods - bypass ownership checks
+
+  // Update story as admin (no ownership check)
+  static async updateStoryAsAdmin(
+    storyId: string,
+    data: UpdateStoryRequest
+  ): Promise<Story> {
+    // Whitelist only valid columns for Story update
+    const updateData: any = {};
+    if (typeof (data as any).title !== 'undefined') updateData.title = (data as any).title;
+    if (typeof (data as any).publisherName !== 'undefined')
+      updateData.publisherName = (data as any).publisherName;
+    if (typeof (data as any).publisherPic !== 'undefined')
+      updateData.publisherPic = (data as any).publisherPic;
+    if (typeof (data as any).ctaType !== 'undefined') updateData.ctaType = (data as any).ctaType;
+    if (typeof (data as any).ctaValue !== 'undefined') updateData.ctaValue = (data as any).ctaValue;
+    if (typeof (data as any).ctaText !== 'undefined') updateData.ctaText = (data as any).ctaText;
+    if (typeof (data as any).status !== 'undefined') updateData.status = (data as any).status;
+    if (typeof (data as any).format !== 'undefined') updateData.format = (data as any).format;
+    if (typeof (data as any).deviceFrame !== 'undefined')
+      updateData.deviceFrame = (data as any).deviceFrame;
+    if (typeof (data as any).storyType !== 'undefined')
+      updateData.storyType = (data as any).storyType;
+    if (typeof (data as any).defaultDurationMs !== 'undefined')
+      updateData.defaultDurationMs = (data as any).defaultDurationMs;
+    if (typeof (data as any).rssConfig !== 'undefined') {
+      updateData.rssConfig = (data as any).rssConfig
+        ? JSON.parse(JSON.stringify((data as any).rssConfig))
+        : null;
+    }
+    if (typeof (data as any).embedConfig !== 'undefined') {
+      updateData.embedConfig = (data as any).embedConfig
+        ? JSON.parse(JSON.stringify((data as any).embedConfig))
+        : null;
+    }
+
+    const story = await prisma.story.update({
+      where: {
+        id: storyId,
+      },
+      data: updateData,
+      include: {
+        frames: {
+          include: {
+            elements: true,
+            background: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+    });
+
+    return convertPrismaStoryToSharedType(story);
+  }
+
+  // Delete story as admin (no ownership check)
+  static async deleteStoryAsAdmin(storyId: string): Promise<void> {
+    // First cancel any scheduled RSS updates and clear status
+    try {
+      const { SchedulerService } = await import('./schedulerService');
+      const scheduler = new SchedulerService();
+      await scheduler.cancelRSSUpdates(storyId);
+      await scheduler.clearProcessingStatus(storyId);
+    } catch (e) {
+      console.warn('Warning: failed to cancel RSS updates for deleted story', storyId, e);
+    }
+
+    await prisma.story.delete({
+      where: {
+        id: storyId,
+      },
+    });
   }
 }

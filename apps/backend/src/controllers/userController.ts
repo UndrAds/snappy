@@ -24,6 +24,7 @@ export const getProfile = async (
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -40,6 +41,7 @@ export const getProfile = async (
       id: user.id,
       email: user.email,
       name: user.name || undefined,
+      role: (user.role || 'publisher') as any,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     } as any;
@@ -93,6 +95,7 @@ export const updateProfile = async (
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -102,6 +105,7 @@ export const updateProfile = async (
       id: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name || undefined,
+      role: (updatedUser.role || 'publisher') as any,
       createdAt: updatedUser.createdAt.toISOString(),
       updatedAt: updatedUser.updatedAt.toISOString(),
     } as any;

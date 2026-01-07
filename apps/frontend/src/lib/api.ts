@@ -429,4 +429,110 @@ export const analyticsAPI = {
   },
 }
 
+// Admin API
+export const adminAPI = {
+  // Get admin dashboard stats
+  getStats: async (): Promise<
+    ApiResponse<{
+      totalUsers: number
+      totalPublishers: number
+      totalStories: number
+      totalViews: number
+      totalImpressions: number
+    }>
+  > => {
+    const response = await api.get('/api/admin/stats')
+    return response.data
+  },
+
+  // Get all users with pagination and filters
+  getUsers: async (params?: {
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    search?: string
+  }): Promise<
+    ApiResponse<{
+      users: Array<{
+        id: string
+        email: string
+        name: string | null
+        role: string
+        storyCount: number
+        createdAt: string
+        updatedAt: string
+      }>
+      pagination: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+      }
+    }>
+  > => {
+    const response = await api.get('/api/admin/users', { params })
+    return response.data
+  },
+
+  // Get all stories with pagination and filters
+  getAllStories: async (params?: {
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    userId?: string
+    status?: string
+    search?: string
+  }): Promise<
+    ApiResponse<{
+      stories: Array<Story & { user: { id: string; email: string; name: string | null } }>
+      pagination: {
+        page: number
+        limit: number
+        total: number
+        totalPages: number
+      }
+    }>
+  > => {
+    const response = await api.get('/api/admin/stories', { params })
+    return response.data
+  },
+
+  // Get analytics for all stories
+  getAllStoriesAnalytics: async (): Promise<
+    ApiResponse<
+      Array<{
+        storyId: string
+        storyTitle: string
+        userId: string
+        user: { id: string; email: string; name: string | null }
+        views: number
+        avgPostsSeen: number
+        avgTimeSpent: number
+        avgAdsSeen: number
+        impressions: number
+      }>
+    >
+  > => {
+    const response = await api.get('/api/admin/stories/analytics')
+    return response.data
+  },
+
+  // Update any story (admin)
+  updateStory: async (
+    id: string,
+    data: UpdateStoryRequest
+  ): Promise<ApiResponse<Story>> => {
+    const response = await api.put(`/api/admin/stories/${id}`, data)
+    return response.data
+  },
+
+  // Delete any story (admin)
+  deleteStory: async (id: string): Promise<ApiResponse<{ message: string }>> => {
+    const response = await api.delete(`/api/admin/stories/${id}`)
+    return response.data
+  },
+}
+
 export default api

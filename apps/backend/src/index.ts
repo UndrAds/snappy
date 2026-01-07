@@ -15,6 +15,7 @@ import uploadRoutes from './routes/uploads';
 import contentRoutes from './routes/content';
 import rssRoutes from './routes/rss';
 import analyticsRoutes from './routes/analytics';
+import adminRoutes from './routes/admin';
 import { SchedulerService } from './services/schedulerService';
 
 const app = express();
@@ -73,6 +74,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rss', rssRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use(notFound);

@@ -100,11 +100,16 @@ export class StoryController {
     }
   }
 
-  // Get all stories for a user
+  // Get all stories for a user (admins see all stories)
   static async getUserStories(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const stories = await StoryService.getUserStories(userId);
+      const userRole = (req as any).user.role;
+
+      // Admins can see all stories
+      const stories = userRole === 'admin'
+        ? await StoryService.getAllStories()
+        : await StoryService.getUserStories(userId);
 
       const response: ApiResponse = {
         success: true,
@@ -129,8 +134,12 @@ export class StoryController {
     try {
       const { id } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const story = await StoryService.updateStory(id || '', userId || '', req.body);
+      // Admins can update any story, regular users can only update their own
+      const story = userRole === 'admin'
+        ? await StoryService.updateStoryAsAdmin(id || '', req.body)
+        : await StoryService.updateStory(id || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -155,8 +164,14 @@ export class StoryController {
     try {
       const { id } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      await StoryService.deleteStory(id || '', userId || '');
+      // Admins can delete any story, regular users can only delete their own
+      if (userRole === 'admin') {
+        await StoryService.deleteStoryAsAdmin(id || '');
+      } else {
+        await StoryService.deleteStory(id || '', userId || '');
+      }
 
       const response: ApiResponse = {
         success: true,

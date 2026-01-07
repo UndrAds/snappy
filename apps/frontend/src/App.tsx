@@ -9,6 +9,7 @@ import CreateSnapPage from '@/pages/CreateSnapPage'
 import EditStoryPage from '@/pages/EditStoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import StoryAnalyticsPage from '@/pages/StoryAnalyticsPage'
+import AdminDashboardPage from '@/pages/AdminDashboardPage'
 import EditorPage from '@/pages/editor/EditorPage'
 import PreviewPage from '@/pages/editor/PreviewPage'
 import TestEmbedPage from '@/pages/editor/TestEmbedPage'
@@ -46,6 +47,7 @@ function App() {
             <Route path="edit/:uniqueId" element={<EditStoryPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="analytics/:storyId" element={<StoryAnalyticsPage />} />
+            <Route path="admin" element={<AdminDashboardPage />} />
           </Route>
           <Route path="editor" element={<EditorPage />} />
           <Route path="editor/:uniqueId" element={<EditorPage />} />

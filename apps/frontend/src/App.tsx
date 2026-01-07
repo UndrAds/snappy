@@ -7,6 +7,8 @@ import RegisterPage from '@/pages/RegisterPage'
 import DashboardHomePage from '@/pages/DashboardHomePage'
 import CreateSnapPage from '@/pages/CreateSnapPage'
 import EditStoryPage from '@/pages/EditStoryPage'
+import AnalyticsPage from '@/pages/AnalyticsPage'
+import StoryAnalyticsPage from '@/pages/StoryAnalyticsPage'
 import EditorPage from '@/pages/editor/EditorPage'
 import PreviewPage from '@/pages/editor/PreviewPage'
 import TestEmbedPage from '@/pages/editor/TestEmbedPage'
@@ -42,6 +44,8 @@ function App() {
             <Route index element={<DashboardHomePage />} />
             <Route path="create" element={<CreateSnapPage />} />
             <Route path="edit/:uniqueId" element={<EditStoryPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="analytics/:storyId" element={<StoryAnalyticsPage />} />
           </Route>
           <Route path="editor" element={<EditorPage />} />
           <Route path="editor/:uniqueId" element={<EditorPage />} />
@@ -50,7 +54,7 @@ function App() {
           <Route path="/editor/preview" element={<PreviewPage />} />
           <Route path="/test-embed" element={<TestEmbedPage />} />
         </Routes>
-        <Toaster />
+        <Toaster position="top-right" closeButton offset={64} />
       </div>
     </ThemeProvider>
   )

@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import StoryFrame from '@/components/StoryFrame'
 import { Button } from '@/components/ui/button'
-import { useState, useEffect } from 'react'
-import EmbedModal from './components/EmbedModal'
+import { useState, useEffect, useRef } from 'react'
 
 declare global {
   interface Window {
@@ -16,19 +15,26 @@ export default function PreviewPage() {
   const [storyData, setStoryData] = useState<any>(null)
   const [frames, setFrames] = useState<any>(null)
   const [current, setCurrent] = useState(0)
-  const [embedOpen, setEmbedOpen] = useState(false)
+  const initializedAdSlotsRef = useRef<Set<string>>(new Set())
+  const displayedAdSlotsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if ((window as any).previewData) {
       console.log('Preview data from window:', window.previewData)
-      setStoryData(window.previewData.storyData)
-      setFrames(window.previewData.frames)
+      const sd = window.previewData.storyData
+      const fr = window.previewData.frames
+      setStoryData(sd)
+      // Don't filter ad frames on initial load - they should be visible
+      setFrames(fr || [])
       // Optionally clear previewData after reading
       window.previewData = undefined
     } else if (location.state) {
       console.log('Preview data from location state:', location.state)
-      setStoryData(location.state.storyData)
-      setFrames(location.state.frames)
+      const sd = location.state.storyData
+      const fr = location.state.frames
+      setStoryData(sd)
+      // Don't filter ad frames on initial load - they should be visible
+      setFrames(fr || [])
     }
   }, [location.state])
 
@@ -42,6 +48,106 @@ export default function PreviewPage() {
       document.head.appendChild(gptScript)
     }
   }, [])
+
+  // Initialize and display GPT ad for the current ad frame in preview
+  useEffect(() => {
+    const cur = frames && frames[current]
+    if (!cur || cur.type !== 'ad' || !cur.adConfig) return
+
+    // Use adId from adConfig if available, otherwise use frame index
+    const adId = cur.adConfig.adId || `snappy-ad-${current}`
+
+    // Check if this ad slot has already been initialized and displayed
+    if (
+      initializedAdSlotsRef.current.has(adId) &&
+      displayedAdSlotsRef.current.has(adId)
+    ) {
+      // Already initialized and displayed, skip
+      return
+    }
+
+    try {
+      if (!window.googletag) {
+        ;(window as any).googletag = { cmd: [] }
+      }
+      const adUnitPath: string | undefined = cur.adConfig.adUnitPath
+      if (!adUnitPath) return
+
+      // Use adId as slotId to match embed script pattern
+      const slotId = adId
+      const sizes =
+        Array.isArray(cur.adConfig.sizes) && cur.adConfig.sizes.length
+          ? cur.adConfig.sizes
+          : Array.isArray(cur.adConfig.size)
+            ? [cur.adConfig.size]
+            : [[300, 250]]
+
+      function defineAndDisplay() {
+        try {
+          // Wait a bit for the div to be rendered
+          setTimeout(() => {
+            const adDiv = document.getElementById(slotId)
+            if (!adDiv) {
+              console.warn('PreviewPage: Ad div not found:', slotId)
+              return
+            }
+
+            // Check if slot already exists in GPT
+            const existing = window.googletag
+              .pubads()
+              .getSlots()
+              .some((slot: any) => {
+                try {
+                  return slot.getSlotElementId() === slotId
+                } catch {
+                  return false
+                }
+              })
+
+            // Only create and initialize if not already done
+            if (!existing && !initializedAdSlotsRef.current.has(slotId)) {
+              const slot = window.googletag.defineSlot(
+                adUnitPath,
+                sizes,
+                slotId
+              )
+              if (slot) {
+                slot.addService(window.googletag.pubads())
+                window.googletag.pubads().enableSingleRequest()
+                window.googletag.pubads().enableAsyncRendering()
+                window.googletag.enableServices()
+
+                // Mark as initialized
+                initializedAdSlotsRef.current.add(slotId)
+              }
+            } else if (existing && !initializedAdSlotsRef.current.has(slotId)) {
+              // Slot exists but not in our tracking - mark it as initialized
+              initializedAdSlotsRef.current.add(slotId)
+            }
+
+            // Display the ad only once per slot
+            if (
+              initializedAdSlotsRef.current.has(slotId) &&
+              !displayedAdSlotsRef.current.has(slotId)
+            ) {
+              window.googletag.display(slotId)
+              displayedAdSlotsRef.current.add(slotId)
+            }
+          }, 100)
+        } catch (e) {
+          console.warn('PreviewPage: Failed to display ad', e)
+        }
+      }
+
+      if (window.googletag.defineSlot) {
+        defineAndDisplay()
+      } else if (window.googletag.cmd) {
+        window.googletag.cmd.push(defineAndDisplay)
+      }
+    } catch (e) {
+      console.warn('PreviewPage: Error initializing ad', e)
+    }
+  }, [current, frames])
 
   if (!storyData || !frames) {
     return (
@@ -58,45 +164,42 @@ export default function PreviewPage() {
   const handlePrev = () => {
     if (current > 0) setCurrent(current - 1)
   }
-  const handleEmbed = () => {
-    setEmbedOpen(true)
-  }
 
   const frame = frames[current]
   console.log('Current frame in preview:', frame)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black">
-      <div className="absolute left-4 top-4">
-        <Button variant="outline" onClick={handleEmbed}>
-          Embed
-        </Button>
-      </div>
-      <EmbedModal
-        open={embedOpen}
-        onClose={() => setEmbedOpen(false)}
-        storyId={storyData?.storyTitle || 'demo'}
-        storyData={{ story: storyData, frames }}
-      />
       <div className="relative flex items-center justify-center">
         <StoryFrame
           publisherName={storyData.publisherName}
           storyTitle={storyData.storyTitle}
           publisherPic={storyData.publisherPic}
-          ctaType={storyData.ctaType}
-          ctaValue={storyData.ctaValue}
-          currentSlide={current + 1}
-          totalSlides={frames.length}
+          currentSlide={(() => {
+            // Count story frames up to current index (exclude ads)
+            let storyIdx = 0
+            for (let j = 0; j <= current; j++) {
+              if (frames[j] && frames[j].type !== 'ad') storyIdx++
+            }
+            return storyIdx
+          })()}
+          totalSlides={frames.filter((f: any) => f && f.type !== 'ad').length}
           showProgressBar
           frameType={frame.type}
           elements={frame.elements}
           background={frame.background}
-          adConfig={frame.adConfig}
+          adConfig={
+            frame.type === 'ad' && frame.adConfig
+              ? {
+                  ...frame.adConfig,
+                  adId: 'snappy-ad-' + current, // Use frame index to match embed script pattern
+                }
+              : frame.adConfig
+          }
           link={frame.link}
           linkText={frame.linkText}
           isEditMode={false}
           showPublisherInfo
-          showCTA
           format={storyData.format}
           deviceFrame={storyData.deviceFrame}
         />

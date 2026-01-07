@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Image, X, Link } from 'lucide-react'
+import { Image as ImageIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { IMAGE_FILTERS } from '@/lib/skins'
 import type { StoryFormat, DeviceFrame } from '@snappy/shared-types'
@@ -27,6 +27,7 @@ interface CanvasElement {
     rotation?: number
     zoom?: number
     filter?: string
+    userPositioned?: boolean
   }
 }
 
@@ -36,9 +37,6 @@ interface StoryFrameProps {
   storyTitle?: string
   publisherPic?: string
   mainContent?: string
-  ctaType?: 'redirect' | 'form' | 'promo' | 'sell' | null
-  ctaValue?: string
-  ctaText?: string
   currentSlide?: number
   totalSlides?: number
   showProgressBar?: boolean
@@ -72,11 +70,12 @@ interface StoryFrameProps {
 
   // Edit mode display options
   showPublisherInfo?: boolean
-  showCTA?: boolean
 
   // Format and device frame props
   format?: StoryFormat
   deviceFrame?: DeviceFrame
+  // Dynamic story flag to auto-layout text based on orientation
+  isDynamicStory?: boolean
 }
 
 export default function StoryFrame({
@@ -84,9 +83,6 @@ export default function StoryFrame({
   publisherName,
   storyTitle,
   publisherPic,
-  ctaType,
-  ctaValue,
-  ctaText,
   currentSlide = 1,
   totalSlides = 4,
   showProgressBar = true,
@@ -107,13 +103,14 @@ export default function StoryFrame({
 
   // Edit mode display options
   showPublisherInfo = false,
-  showCTA = false,
 
   // Format and device frame props
   format = 'portrait',
   deviceFrame = 'mobile',
+  isDynamicStory = false,
 }: StoryFrameProps) {
   const canvasRef = useRef<HTMLDivElement>(null)
+  const [dominantColor, setDominantColor] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
@@ -220,6 +217,7 @@ export default function StoryFrame({
         onElementUpdate(selectedElementId, {
           x: newX,
           y: newY,
+          style: { userPositioned: true },
         })
       }
     },
@@ -413,12 +411,58 @@ export default function StoryFrame({
 
   const renderElement = (element: CanvasElement) => {
     const isSelected = selectedElementId === element.id
+    // Auto layout for dynamic stories: bottom-centered text based on orientation
+    let computedLeft = element.x
+    let computedTop = element.y
+    let computedWidth = element.width
+    let computedHeight = element.height
+
+    if (
+      isDynamicStory &&
+      element.type === 'text' &&
+      !element.style.userPositioned
+    ) {
+      // Determine container pixel dimensions based on format/deviceFrame
+      const getFramePixelSize = () => {
+        if (format === 'portrait') {
+          if (deviceFrame === 'mobile') {
+            return { width: 288, height: 550 }
+          } else {
+            return { width: 320, height: 600 }
+          }
+        } else {
+          if (deviceFrame === 'mobile') {
+            return { width: 400, height: 225 }
+          } else {
+            return { width: 480, height: 270 }
+          }
+        }
+      }
+
+      const { width: cw, height: ch } = getFramePixelSize()
+      const bottomPadding = 20
+      const buttonSpace = link ? 80 : 0
+      const textWidth =
+        format === 'portrait' ? Math.round(cw * 0.9) : Math.round(cw * 0.5)
+      const textHeight = Math.max(60, Math.round(ch * 0.15))
+      const textLeft = Math.round((cw - textWidth) / 2)
+      const textTop = Math.max(
+        80,
+        ch - bottomPadding - buttonSpace - textHeight
+      )
+
+      computedLeft = textLeft
+      computedTop = textTop
+      computedWidth = textWidth
+      computedHeight = textHeight
+    }
+
     const style = {
       position: 'absolute' as const,
-      left: element.x,
-      top: element.y,
-      width: element.width,
-      height: element.height,
+      left: computedLeft,
+      top: computedTop,
+      width: computedWidth,
+      height: computedHeight,
       fontSize: element.style.fontSize,
       fontFamily: element.style.fontFamily,
       fontWeight: element.style.fontWeight,
@@ -628,7 +672,7 @@ export default function StoryFrame({
 
         {element.type === 'image' && !element.mediaUrl && (
           <div className="flex h-full w-full items-center justify-center border-2 border-dashed border-border bg-muted">
-            <Image className="h-8 w-8 text-muted-foreground" />
+            <ImageIcon className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
 
@@ -659,32 +703,18 @@ export default function StoryFrame({
     if (!background || background.type !== 'image' || !background.value)
       return {}
 
-    // Get frame dimensions for proper scaling
-    const getFramePixelDimensions = () => {
-      if (format === 'portrait') {
-        if (deviceFrame === 'mobile') {
-          return { width: 288, height: 550 }
-        } else {
-          return { width: 320, height: 568 }
-        }
-      } else {
-        if (deviceFrame === 'mobile') {
-          return { width: 550, height: 288 }
-        } else {
-          return { width: 568, height: 320 }
-        }
-      }
-    }
-
-    const { width: frameWidth, height: frameHeight } = getFramePixelDimensions()
+    // Using full container size with object-fit: contain; no need for pixel dimensions
 
     let style: React.CSSProperties = {
       position: 'absolute',
       left: '50%',
       top: '50%',
-      objectFit: 'none', // Changed from 'cover' to 'none' to allow panning
+      width: '100%',
+      height: '100%',
+      objectFit: 'contain',
       zIndex: 0,
       pointerEvents: 'none',
+      transformOrigin: 'center center',
     }
 
     // Opacity
@@ -692,32 +722,12 @@ export default function StoryFrame({
       style.opacity = background.opacity / 100
     }
 
-    // Calculate zoom and sizing
+    // Calculate transforms: scale (zoom) and pan (offsets), keeping contain as the base
     const userZoom = background.zoom !== undefined ? background.zoom / 100 : 1.0
     const rotation = background.rotation || 0
     const x = background.offsetX || 0
     const y = background.offsetY || 0
-
-    // Calculate the minimum scale needed to cover the frame
-    // This ensures the image always covers the frame like object-fit: cover
-    const minScaleToCover =
-      Math.max(frameWidth, frameHeight) / Math.min(frameWidth, frameHeight)
-
-    // Add a safety buffer (20% extra) to ensure complete coverage with no gaps
-    const safetyBuffer = 1.2
-    const safeCoverScale = minScaleToCover * safetyBuffer
-
-    // Use a base size that ensures coverage
-    const baseSize = Math.max(frameWidth, frameHeight) * 2
-    style.width = `${baseSize}px`
-    style.height = `${baseSize}px`
-
-    // Apply the safe cover scale as the base, then apply user zoom on top
-    // This ensures the image always covers the frame with a safety margin
-    const finalZoom = safeCoverScale * userZoom
-
-    // Apply transforms: center, pan, rotate, zoom
-    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${finalZoom})`
+    style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${userZoom})`
 
     // Filter/Skins
     if (background.filter) {
@@ -729,6 +739,69 @@ export default function StoryFrame({
 
     return style
   }
+
+  // Extract dominant color from an image URL using a small canvas sample
+  const extractDominantColor = useCallback(async (url: string) => {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new window.Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          try {
+            const sampleSize = 32
+            const canvas = document.createElement('canvas')
+            canvas.width = sampleSize
+            canvas.height = sampleSize
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return reject(new Error('Canvas context unavailable'))
+            ctx.drawImage(img, 0, 0, sampleSize, sampleSize)
+            const data = ctx.getImageData(0, 0, sampleSize, sampleSize).data
+            let r = 0,
+              g = 0,
+              b = 0,
+              count = 0
+            for (let i = 0; i < data.length; i += 4) {
+              const alpha = data[i + 3]
+              if (alpha < 10) continue
+              r += data[i]
+              g += data[i + 1]
+              b += data[i + 2]
+              count++
+            }
+            if (count > 0) {
+              const avgR = Math.round(r / count)
+              const avgG = Math.round(g / count)
+              const avgB = Math.round(b / count)
+              setDominantColor(`rgb(${avgR}, ${avgG}, ${avgB})`)
+            }
+            resolve()
+          } catch (e) {
+            reject(e)
+          }
+        }
+        img.onerror = () => reject(new Error('Image load error'))
+        img.src = url
+      })
+    } catch {
+      // Silently ignore; fallback styling will be used
+    }
+  }, [])
+
+  const toRgba = (rgb: string, alpha: number) => {
+    // expects "rgb(r, g, b)"
+    const m = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+    if (!m) return `rgba(0,0,0,${alpha})`
+    return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`
+  }
+
+  // Trigger extraction when background image URL changes (covers cache cases where onLoad may not fire)
+  useEffect(() => {
+    if (background?.type === 'image' && background.value) {
+      extractDominantColor(background.value)
+    } else {
+      setDominantColor(null)
+    }
+  }, [background?.type, background?.value, extractDominantColor])
 
   // Calculate frame dimensions based on format and device frame
   const getFrameDimensions = () => {
@@ -771,30 +844,10 @@ export default function StoryFrame({
   // Determine if we should show publisher info and CTA
   const shouldShowPublisherInfo =
     !isEditMode || (isEditMode && showPublisherInfo)
-  const shouldShowCTA =
-    (!isEditMode || (isEditMode && showCTA)) && frameType !== 'ad'
-
-  // Handle frame click for links
-  const handleFrameClick = (e: React.MouseEvent) => {
-    // Only handle clicks when not in edit mode and link exists
-    if (!isEditMode && link) {
-      e.preventDefault()
-      window.open(link, '_blank', 'noopener,noreferrer')
-    }
-  }
 
   return (
     <div
-      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200 ${
-        !isEditMode && link
-          ? 'hover:shadow-3xl cursor-pointer hover:shadow-blue-500/20'
-          : ''
-      } ${
-        link && !isEditMode
-          ? 'ring-2 ring-blue-400/30 ring-offset-2 ring-offset-transparent'
-          : ''
-      }`}
-      onClick={handleFrameClick}
+      className={`relative mx-auto ${frameDimensions.height} ${frameDimensions.width} overflow-hidden ${frameDimensions.border} bg-muted shadow-2xl transition-all duration-200`}
     >
       {/* Mobile Frame Content */}
       <div
@@ -807,22 +860,86 @@ export default function StoryFrame({
         {/* Render background image with all tweaks if type is image */}
         {background?.type === 'image' && background.value && (
           <>
+            {/* Dominant color gradient base (behind blurred image) */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: -2,
+                background: dominantColor
+                  ? `linear-gradient(135deg, ${toRgba(dominantColor, 0.6)}, ${toRgba(dominantColor, 0.3)})`
+                  : 'linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))',
+              }}
+            />
             {/* Blurred background image to fill empty areas */}
             <img
               src={background.value}
               alt="Background Blur"
               style={{
-                ...getBackgroundImageStyle(),
-                filter: 'blur(20px) brightness(0.8)',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                filter: 'blur(28px) brightness(0.9) saturate(110%)',
                 zIndex: -1,
-                transform: 'translate(-50%, -50%) scale(1.2)', // Slightly larger to cover edges
+              }}
+            />
+            {/* Glassmorphic overlay to add depth */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: -1,
+                backgroundColor: dominantColor
+                  ? toRgba(dominantColor, 0.12)
+                  : 'rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(8px) saturate(120%)',
+                WebkitBackdropFilter: 'blur(8px) saturate(120%)',
+                border: '1px solid rgba(255,255,255,0.06)',
               }}
             />
             {/* Main background image */}
             <img
               src={background.value}
               alt="Background"
+              onLoad={() => extractDominantColor(background.value)}
               style={getBackgroundImageStyle()}
+            />
+            {/* Subtle vignette/tint overlay above main image for ambient feel */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 1,
+                pointerEvents: 'none',
+                background: `radial-gradient(60% 60% at 50% 50%, transparent 60%, rgba(0,0,0,0.18) 100%)`,
+                mixBlendMode: 'normal',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 1,
+                pointerEvents: 'none',
+                backgroundColor: dominantColor
+                  ? toRgba(dominantColor, 0.06)
+                  : 'rgba(255,255,255,0.04)',
+              }}
             />
           </>
         )}
@@ -921,65 +1038,34 @@ export default function StoryFrame({
             </div>
           )}
         </div>
-
-        {/* Bottom CTA - Show in preview mode or when showCTA is true in edit mode */}
-        {shouldShowCTA && ctaType && (
-          <div className="absolute bottom-8 left-4 right-4 z-10">
-            {ctaType === 'redirect' && ctaValue ? (
-              <a
-                href={ctaValue}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block cursor-pointer rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm transition-colors hover:bg-white"
-              >
-                <div className="text-sm font-semibold text-black">
-                  {ctaText && ctaText.trim() ? ctaText : 'Visit Link'}
-                </div>
-              </a>
-            ) : (
-              <div className="rounded-full bg-white/90 px-6 py-3 text-center backdrop-blur-sm">
-                <div className="text-sm font-semibold text-black">
-                  {ctaText && ctaText.trim()
-                    ? ctaText
-                    : ctaType === 'form'
-                      ? 'Fill Form'
-                      : ctaType === 'promo'
-                        ? 'Get Promo'
-                        : 'Buy Now'}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Link Indicator Overlay - Show when frame has a link */}
+      {/* CTA Button - Fixed at bottom when frame has link */}
       {link && (
-        <div className="absolute right-3 top-16 z-50">
-          <div className="flex items-center space-x-1 rounded-full bg-primary/90 px-2 py-1 text-primary-foreground shadow-lg backdrop-blur-sm">
-            <Link className="h-3 w-3" />
-            <span className="text-xs font-medium">
-              {linkText && linkText.trim() ? linkText : 'Link'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Clickable Frame Indicator - Show when in edit mode and frame has link */}
-      {isEditMode && link && (
-        <div className="absolute bottom-16 left-3 z-50">
-          <div className="rounded-full bg-green-600 px-2 py-1 text-white shadow-lg backdrop-blur-sm dark:bg-green-500">
-            <span className="text-xs font-medium">Clickable</span>
-          </div>
-        </div>
-      )}
-
-      {/* Preview Mode Link Hint - Show subtle hint in preview mode */}
-      {!isEditMode && link && (
-        <div className="absolute bottom-3 right-3 z-50">
-          <div className="rounded-full bg-white/20 px-2 py-1 text-white shadow-lg backdrop-blur-sm">
-            <span className="text-xs font-medium">Click to open</span>
-          </div>
+        <div
+          className={`absolute bottom-4 z-50 ${
+            format === 'landscape' && deviceFrame === 'video-player'
+              ? 'left-1/2 -translate-x-1/2'
+              : 'left-4'
+          }`}
+        >
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (isEditMode) {
+                e.preventDefault()
+              }
+            }}
+            className={`inline-block rounded-full bg-white/90 px-4 py-2 text-center font-semibold text-gray-900 shadow-lg backdrop-blur-sm transition-all hover:scale-105 hover:bg-white ${
+              format === 'landscape' && deviceFrame === 'video-player'
+                ? 'px-3 py-1.5 text-xs'
+                : 'text-sm'
+            } ${isEditMode ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
+          >
+            {linkText && linkText.trim() ? linkText : 'Read More'}
+          </a>
         </div>
       )}
     </div>

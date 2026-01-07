@@ -21,6 +21,9 @@ export default function PropertyPanelBackground({
   background,
   onBackgroundUpdate,
 }: any) {
+  const [pendingType, setPendingType] = useState<'color' | 'image' | 'video'>(
+    background?.type || 'image'
+  )
   const [panXInput, setPanXInput] = useState(
     (background?.offsetX ?? 0).toString()
   )
@@ -32,6 +35,10 @@ export default function PropertyPanelBackground({
   useEffect(() => {
     setPanXInput((background?.offsetX ?? 0).toString())
     setPanYInput((background?.offsetY ?? 0).toString())
+    // Keep the dropdown in sync with the actual background type
+    if (background?.type && background.type !== pendingType) {
+      setPendingType(background.type)
+    }
   }, [background?.offsetX, background?.offsetY])
 
   const handlePanXInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,18 +89,8 @@ export default function PropertyPanelBackground({
         <div>
           <Label className="text-xs">Background Type</Label>
           <Select
-            value={background.type}
-            onValueChange={(value) =>
-              onBackgroundUpdate?.({
-                type: value as 'color' | 'image' | 'video',
-                value: '', // Reset value, user will pick new
-                opacity: 100,
-                zoom: 100,
-                rotation: 0,
-                offsetX: 0,
-                offsetY: 0,
-              })
-            }
+            value={pendingType}
+            onValueChange={(value) => setPendingType(value as any)}
           >
             <SelectTrigger className="mt-1">
               <SelectValue placeholder="Select type" />
@@ -104,7 +101,7 @@ export default function PropertyPanelBackground({
             </SelectContent>
           </Select>
         </div>
-        {background.type === 'color' && (
+        {pendingType === 'color' && (
           <div>
             <BackgroundColorGradientPicker
               value={background.value}
@@ -118,7 +115,7 @@ export default function PropertyPanelBackground({
             />
           </div>
         )}
-        {background.type === 'image' && (
+        {pendingType === 'image' && (
           <>
             <div>
               <MediaSourcePicker
@@ -127,6 +124,7 @@ export default function PropertyPanelBackground({
                 onChange={(url) =>
                   onBackgroundUpdate?.({
                     ...background,
+                    type: 'image',
                     value: url,
                   })
                 }

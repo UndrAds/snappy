@@ -36,9 +36,6 @@ interface StoryData {
   publisherPic?: string
   thumbnail?: string
   background?: string
-  ctaType: 'redirect' | 'form' | 'promo' | 'sell' | null
-  ctaValue: string
-  ctaText?: string
   format?: StoryFormat
   deviceFrame?: DeviceFrame
 }
@@ -68,6 +65,7 @@ interface EditorCanvasProps {
   totalSlides?: number
   format?: StoryFormat
   deviceFrame?: DeviceFrame
+  isDynamicStory?: boolean
 }
 
 export default function EditorCanvas({
@@ -88,6 +86,7 @@ export default function EditorCanvas({
   totalSlides,
   format = 'portrait',
   deviceFrame = 'mobile',
+  isDynamicStory = false,
 }: EditorCanvasProps) {
   const handleAddElement = () => {
     const newElement: CanvasElement = {
@@ -150,16 +149,13 @@ export default function EditorCanvas({
           publisherName={storyData?.publisherName}
           publisherPic={storyData?.publisherPic}
           mainContent={storyData?.thumbnail} // Use thumbnail as main content for preview
-          ctaType={storyData?.ctaType}
-          ctaValue={storyData?.ctaValue}
-          ctaText={storyData?.ctaText}
           showPublisherInfo={true}
-          showCTA={true}
           showProgressBar={true}
           currentSlide={currentSlide}
           totalSlides={totalSlides}
           format={format}
           deviceFrame={deviceFrame}
+          isDynamicStory={isDynamicStory}
         />
 
         {/* Quick Add Elements - Alternative to the buttons inside the frame */}

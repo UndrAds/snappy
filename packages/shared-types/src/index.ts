@@ -39,6 +39,42 @@ export type DeviceFrame = 'mobile' | 'video-player';
 export type FloaterDirection = 'right' | 'left';
 export type StoryType = 'static' | 'dynamic';
 
+// Embed configuration types
+export type EmbedType = 'regular' | 'floater';
+
+export interface RegularEmbedOptions {
+  autoplay?: boolean;
+  loop?: boolean;
+  width?: number; // default width in px when container doesn't specify
+  height?: number; // default height in px when container doesn't specify
+}
+
+export interface FloaterEmbedOptions {
+  enabled?: boolean; // when true, render as floater; when false, ignore floater
+  direction?: FloaterDirection;
+  triggerScroll?: number; // Percentage of page scroll to trigger floater
+  position?: 'bottom' | 'top'; // Vertical position
+  size?: 'small' | 'medium' | 'large';
+  showCloseButton?: boolean;
+  autoHide?: boolean;
+  autoHideDelay?: number; // milliseconds
+  autoplay?: boolean;
+  loop?: boolean;
+}
+
+export interface EmbedConfig {
+  type?: EmbedType; // preferred render type; if 'floater' and floater.enabled, render floater
+  regular?: RegularEmbedOptions;
+  floater?: FloaterEmbedOptions;
+}
+
+// Ad Insertion Configuration types
+export interface AdInsertionConfig {
+  strategy: 'start-end' | 'alternate' | 'interval';
+  interval?: number; // Number of posts between ads (for interval strategy)
+  intervalPosition?: 'before' | 'after' | 'between'; // Position relative to posts (for interval strategy)
+}
+
 // RSS Configuration types
 export interface RSSConfig {
   feedUrl: string;
@@ -48,6 +84,7 @@ export interface RSSConfig {
   lastUpdated?: string;
   nextUpdate?: string;
   isActive: boolean;
+  adInsertionConfig?: AdInsertionConfig; // Ad placement configuration for dynamic stories
 }
 
 // Story types
@@ -66,7 +103,9 @@ export interface Story {
   format: StoryFormat;
   deviceFrame: DeviceFrame;
   storyType: StoryType;
+  defaultDurationMs?: number;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -86,7 +125,9 @@ export interface CreateStoryRequest {
   deviceFrame?: DeviceFrame;
   storyType?: StoryType;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow providing a specific unique ID
+  defaultDurationMs?: number;
 }
 
 export interface UpdateStoryRequest {
@@ -103,7 +144,10 @@ export interface UpdateStoryRequest {
   deviceFrame?: DeviceFrame;
   storyType?: StoryType;
   rssConfig?: RSSConfig;
+  embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow updating the unique ID
+  defaultDurationMs?: number;
+  applyDefaultDurationToAll?: boolean; // If true, set all frames' durationMs to story default
 }
 
 export interface StoryFrame {
@@ -114,6 +158,7 @@ export interface StoryFrame {
   name?: string;
   link?: string; // Optional link URL for the frame
   linkText?: string; // Custom link text (defaults to "Link")
+  durationMs?: number; // Per-frame duration in milliseconds
   storyId: string;
   createdAt: string;
   updatedAt: string;
@@ -178,6 +223,7 @@ export interface CreateStoryFrameRequest {
   name?: string;
   link?: string;
   linkText?: string;
+  durationMs?: number;
 }
 
 export interface UpdateStoryFrameRequest {
@@ -186,6 +232,7 @@ export interface UpdateStoryFrameRequest {
   name?: string;
   link?: string;
   linkText?: string;
+  durationMs?: number;
 }
 
 export interface CreateStoryElementRequest {

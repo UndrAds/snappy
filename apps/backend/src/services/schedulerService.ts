@@ -39,6 +39,7 @@ export class SchedulerService {
         removeOnComplete: 10,
         removeOnFail: 5,
         attempts: 3,
+        timeout: 300000, // 5 minutes timeout per job to prevent indefinite blocking
         backoff: {
           type: 'exponential',
           delay: 2000,
@@ -54,12 +55,41 @@ export class SchedulerService {
    * Setup queue processors
    */
   private setupQueueProcessors() {
-    // Process RSS update jobs
-    this.rssQueue.process('update-story', async (job) => {
+    // Process RSS update jobs with concurrency limit to prevent blocking
+    // Concurrency of 2 allows parallel processing while keeping resource usage reasonable
+    this.rssQueue.process('update-story', 2, async (job) => {
       const { storyId, rssConfig } = job.data;
 
       try {
         console.log(`Processing RSS update for story: ${storyId}`);
+
+        // Verify story still exists and is eligible for RSS updates
+        const existingStory = await StoryService.getStoryById(storyId);
+        if (!existingStory) {
+          console.warn(`RSS update skipped: story ${storyId} no longer exists.`);
+          // Best-effort: cancel any recurring jobs and clear status
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          try {
+            await this.clearProcessingStatus(storyId);
+          } catch {}
+          return;
+        }
+        if (!existingStory.rssConfig || existingStory.storyType !== 'dynamic') {
+          console.warn(`RSS update skipped: story ${storyId} is not dynamic or has no rssConfig.`);
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          return;
+        }
+        if (existingStory.rssConfig && existingStory.rssConfig.isActive === false) {
+          console.warn(`RSS update skipped: story ${storyId} RSS is inactive.`);
+          try {
+            await this.cancelRSSUpdates(storyId);
+          } catch {}
+          return;
+        }
 
         // Update processing status
         await this.updateProcessingStatus(storyId, {
@@ -129,9 +159,17 @@ export class SchedulerService {
           totalFrames: feedItems.length,
         });
 
-        // Update story with new RSS config
+        // Read current story to get the latest rssConfig (preserves adInsertionConfig)
+        const currentStory = await StoryService.getStoryById(storyId);
+        if (!currentStory || !currentStory.rssConfig) {
+          throw new Error('Story or RSS config not found');
+        }
+
+        // Update story with new RSS config, preserving adInsertionConfig from current story
         const updatedConfig = {
-          ...rssConfig,
+          ...currentStory.rssConfig, // Use current config to preserve adInsertionConfig
+          ...rssConfig, // Override with job config (feedUrl, updateIntervalMinutes, etc.)
+          adInsertionConfig: currentStory.rssConfig.adInsertionConfig, // Explicitly preserve adInsertionConfig
           lastUpdated: new Date().toISOString(),
           nextUpdate: this.rssService
             .getNextUpdateTime(rssConfig.updateIntervalMinutes)

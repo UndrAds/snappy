@@ -23,13 +23,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Edit, Trash2, MoreVertical, Plus, Calendar, User } from 'lucide-react'
-import { storyAPI } from '@/lib/api'
+import { Edit, Trash2, MoreVertical, Plus, Calendar, User, Eye, TrendingUp, BarChart3 } from 'lucide-react'
+import { storyAPI, analyticsAPI } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
+import type { StoryAnalytics } from '@/lib/api'
 
 export default function DashboardHomePage() {
   const navigate = useNavigate()
   const [stories, setStories] = useState<Story[]>([])
+  const [analytics, setAnalytics] = useState<StoryAnalytics[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
@@ -42,12 +44,19 @@ export default function DashboardHomePage() {
   const loadStories = async () => {
     try {
       setIsLoading(true)
-      const response = await storyAPI.getUserStories()
+      const [storiesResponse, analyticsResponse] = await Promise.all([
+        storyAPI.getUserStories(),
+        analyticsAPI.getUserStoriesAnalytics(),
+      ])
 
-      if (response.success && response.data) {
-        setStories(response.data)
+      if (storiesResponse.success && storiesResponse.data) {
+        setStories(storiesResponse.data)
       } else {
         toast.error('Failed to load stories')
+      }
+
+      if (analyticsResponse.success && analyticsResponse.data) {
+        setAnalytics(analyticsResponse.data)
       }
     } catch (error) {
       console.error('Load stories error:', error)
@@ -102,18 +111,7 @@ export default function DashboardHomePage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-      case 'archived':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-    }
-  }
+  // Removed status badge logic
 
   const getStoryTypeColor = (storyType: string) => {
     switch (storyType) {
@@ -132,6 +130,29 @@ export default function DashboardHomePage() {
       month: 'short',
       day: 'numeric',
     })
+  }
+
+  // Get analytics for a story
+  const getStoryAnalytics = (storyId: string): StoryAnalytics | undefined => {
+    return analytics.find((a) => a.storyId === storyId)
+  }
+
+  const handleViewAnalytics = (story: Story) => {
+    navigate(`/analytics/${story.id}`)
+  }
+
+  // Choose a thumbnail: prefer first image background from frames, fallback to publisherPic
+  const getStoryThumbnailUrl = (story: Story): string | undefined => {
+    // Try first frame with image background
+    const frames: any[] = (story as any).frames || []
+    for (const f of frames) {
+      if (f?.background?.type === 'image' && f?.background?.value) {
+        return f.background.value
+      }
+    }
+    // Fallback to publisherPic if available
+    if (story.publisherPic) return story.publisherPic
+    return undefined
   }
 
   if (isLoading) {
@@ -257,24 +278,23 @@ export default function DashboardHomePage() {
               <CardContent className="space-y-4">
                 {/* Thumbnail */}
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
-                  {story.largeThumbnail ? (
-                    <img
-                      src={story.largeThumbnail}
-                      alt={story.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <div className="text-sm text-muted-foreground">
-                        No thumbnail
+                  {(() => {
+                    const thumb = getStoryThumbnailUrl(story)
+                    return thumb ? (
+                      <img
+                        src={thumb}
+                        alt={story.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="text-sm text-muted-foreground">
+                          No thumbnail
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <div className="absolute right-2 top-2">
-                    <Badge className={getStatusColor(story.status)}>
-                      {story.status}
-                    </Badge>
-                  </div>
+                    )
+                  })()}
+                  {/* Removed status/draft badge */}
                 </div>
 
                 {/* Story Details */}
@@ -298,10 +318,35 @@ export default function DashboardHomePage() {
                       <span>{story.frames.length}</span>
                     </div>
                   )}
+                  {/* Analytics Metrics */}
+                  {(() => {
+                    const storyAnalytics = getStoryAnalytics(story.id)
+                    if (storyAnalytics) {
+                      return (
+                        <>
+                          <div className="flex items-center justify-between text-sm border-t pt-2">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              Views:
+                            </span>
+                            <span className="font-medium">{storyAnalytics.views}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <TrendingUp className="h-3 w-3" />
+                              Impressions:
+                            </span>
+                            <span className="font-medium">{storyAnalytics.impressions}</span>
+                          </div>
+                        </>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
                   <Button
                     size="sm"
                     onClick={() => handleEdit(story)}
@@ -309,6 +354,15 @@ export default function DashboardHomePage() {
                   >
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewAnalytics(story)}
+                    className="w-full"
+                  >
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    See Analytics
                   </Button>
                 </div>
               </CardContent>

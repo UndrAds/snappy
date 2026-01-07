@@ -375,22 +375,44 @@ export default function EditorSidebar({
                 <MediaSourcePicker
                   type="image"
                   onChange={(url) => {
-                    // Add as new image element
-                    onAddElement({
-                      id: Date.now().toString(),
-                      type: 'image',
-                      x: 50,
-                      y: 50,
-                      width: 200,
-                      height: 200,
-                      mediaUrl: url,
-                      style: {
-                        opacity: 100,
-                        rotation: 0,
-                        filter: 'none',
-                      },
-                    })
-                    toast.success('Image added!')
+                    // Add as new image element using the image's intrinsic size
+                    const img = new window.Image()
+                    img.onload = () => {
+                      onAddElement({
+                        id: Date.now().toString(),
+                        type: 'image',
+                        x: 50,
+                        y: 50,
+                        width: img.naturalWidth,
+                        height: img.naturalHeight,
+                        mediaUrl: url,
+                        style: {
+                          opacity: 100,
+                          rotation: 0,
+                          filter: 'none',
+                        },
+                      })
+                      toast.success('Image added!')
+                    }
+                    img.onerror = () => {
+                      // Fallback to a reasonable default if dimensions can't be read
+                      onAddElement({
+                        id: Date.now().toString(),
+                        type: 'image',
+                        x: 50,
+                        y: 50,
+                        width: 400,
+                        height: 300,
+                        mediaUrl: url,
+                        style: {
+                          opacity: 100,
+                          rotation: 0,
+                          filter: 'none',
+                        },
+                      })
+                      toast.success('Image added!')
+                    }
+                    img.src = url
                   }}
                 />
               </div>

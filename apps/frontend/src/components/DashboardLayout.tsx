@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
-import { Moon, Sun, User, LogOut, Plus, ChevronDown } from 'lucide-react'
+import { Moon, Sun, User, LogOut, Plus, ChevronDown, Home, BarChart3 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,21 +20,34 @@ export default function DashboardLayout() {
 
   const handleLogout = () => {
     logout()
-    navigate('/')
+    navigate('/login', { replace: true })
   }
 
   const getPageTitle = () => {
     const path = location.pathname
     if (path.includes('/create')) return 'Create Snap'
+    if (path.includes('/analytics')) return 'Analytics'
     return 'Dashboard'
   }
 
   const menuItems = [
     {
+      id: 'home',
+      label: 'Home',
+      icon: Home,
+      path: '/',
+    },
+    {
       id: 'create',
       label: 'Create Snap',
       icon: Plus,
       path: '/create',
+    },
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: BarChart3,
+      path: '/analytics',
     },
   ]
 
@@ -63,11 +76,12 @@ export default function DashboardLayout() {
         {/* Top Bar - App Logo */}
         <div className="border-b p-4">
           <div className="flex items-center justify-center">
-            <h1
+            <button
               className={`text-xl font-bold text-primary ${!sidebarOpen && 'hidden'}`}
+              onClick={() => navigate('/')}
             >
               Snappy
-            </h1>
+            </button>
           </div>
         </div>
 
@@ -75,7 +89,7 @@ export default function DashboardLayout() {
         <div className="flex-1 space-y-2 p-4">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.path
+            const isActive = location.pathname === item.path || (item.path === '/analytics' && location.pathname.startsWith('/analytics'))
             return (
               <Button
                 key={item.id}
@@ -84,7 +98,7 @@ export default function DashboardLayout() {
                   !sidebarOpen && 'justify-center'
                 } ${
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
+                    ? 'bg-primary/10 text-primary shadow-sm hover:bg-primary/15'
                     : 'hover:bg-accent hover:text-accent-foreground'
                 }`}
                 onClick={() => handleMenuClick(item.path)}

@@ -19,11 +19,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Badge } from '@/components/ui/badge'
-import { Upload, Save, Info, Rss, Smartphone, Monitor } from 'lucide-react'
+import {
+  Upload,
+  Save,
+  Info,
+  Rss,
+  Smartphone,
+  Monitor,
+  Megaphone,
+} from 'lucide-react'
 import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
 import RSSProgressLoader from '@/components/RSSProgressLoader'
-import { Story } from '@snappy/shared-types'
+import { Story, AdInsertionConfig } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
 import {
   Tooltip,
@@ -36,11 +43,20 @@ export default function EditStoryPage() {
   const navigate = useNavigate()
   const { uniqueId } = useParams()
   const [story, setStory] = useState<Story | null>(null)
+  const [frames, setFrames] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [showProgressLoader, setShowProgressLoader] = useState(false)
   const [originalRSSConfig, setOriginalRSSConfig] = useState<any | null>(null)
+  const [originalDefaultDurationMs, setOriginalDefaultDurationMs] = useState<
+    number | null
+  >(null)
+  // Store story IDs for RSS completion callback (similar to CreateSnapPage)
+  const [currentStoryId, setCurrentStoryId] = useState<string | null>(null)
+  const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
+    string | null
+  >(null)
 
   // Load story data
   useEffect(() => {
@@ -49,6 +65,29 @@ export default function EditStoryPage() {
     }
   }, [uniqueId])
 
+  // Initialize adInsertionConfig when story is dynamic and doesn't have it
+  useEffect(() => {
+    if (
+      story &&
+      story.storyType === 'dynamic' &&
+      !(story as any).rssConfig?.adInsertionConfig
+    ) {
+      setStory((prev) =>
+        prev
+          ? {
+              ...prev,
+              rssConfig: {
+                ...(prev as any).rssConfig,
+                adInsertionConfig: {
+                  strategy: 'start-end',
+                },
+              },
+            }
+          : null
+      )
+    }
+  }, [story])
+
   const loadStory = async () => {
     try {
       setIsLoading(true)
@@ -56,6 +95,17 @@ export default function EditStoryPage() {
 
       if (response.success && response.data) {
         setStory(response.data)
+        // Load frames from story data
+        if (
+          (response.data as any).frames &&
+          Array.isArray((response.data as any).frames)
+        ) {
+          setFrames((response.data as any).frames)
+        }
+        // Capture original defaultDurationMs for change detection
+        setOriginalDefaultDurationMs(
+          (response.data as any).defaultDurationMs || 5000
+        )
         // Capture original RSS config snapshot for change detection
         if (response.data.storyType === 'dynamic') {
           setOriginalRSSConfig((response.data as any).rssConfig || null)
@@ -88,10 +138,7 @@ export default function EditStoryPage() {
     )
   }
 
-  const handleFileUpload = async (
-    type: 'publisherPic' | 'largeThumbnail' | 'smallThumbnail',
-    file: File
-  ) => {
+  const handlePublisherPicUpload = async (file: File) => {
     if (!story) return
 
     try {
@@ -105,7 +152,7 @@ export default function EditStoryPage() {
           prev
             ? {
                 ...prev,
-                [type === 'publisherPic' ? 'publisherPic' : type]: url,
+                publisherPic: url,
               }
             : null
         )
@@ -128,35 +175,70 @@ export default function EditStoryPage() {
     try {
       setIsSaving(true)
 
+      // Update story metadata
       const response = await storyAPI.updateStory(story.id, {
         title: story.title,
         publisherName: story.publisherName,
         publisherPic: story.publisherPic,
-        largeThumbnail: story.largeThumbnail,
-        smallThumbnail: story.smallThumbnail,
-        ctaType: story.ctaType || undefined,
-        ctaValue: story.ctaValue || undefined,
-        ctaText: story.ctaText || undefined,
         format: story.format || 'portrait',
         deviceFrame: story.deviceFrame || 'mobile',
         storyType: story.storyType || 'static',
+        defaultDurationMs: (story as any).defaultDurationMs,
         rssConfig:
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
             : null,
-      })
+      } as any)
 
       if (response.success) {
-        toast.success('Story updated successfully!')
+        // Check if defaultDurationMs has changed from the original
+        const currentDefaultDurationMs =
+          (story as any).defaultDurationMs || 5000
+        const hasTimerChanged =
+          originalDefaultDurationMs !== null &&
+          currentDefaultDurationMs !== originalDefaultDurationMs
 
-        // If dynamic and RSS config changed, trigger update and show progress modal
+        // If timer has changed, update all frames with the new defaultDurationMs
+        if (hasTimerChanged && frames.length > 0) {
+          const updatePromises = frames.map((frame) =>
+            storyAPI.updateStoryFrame(frame.id, {
+              durationMs: currentDefaultDurationMs,
+            } as any)
+          )
+
+          try {
+            await Promise.all(updatePromises)
+            toast.success(
+              `Story and ${frames.length} frame(s) updated successfully!`
+            )
+          } catch (frameError) {
+            console.error('Failed to update some frames:', frameError)
+            toast.warning(
+              'Story updated, but some frames failed to update. Please try again.'
+            )
+          }
+        } else {
+          toast.success('Story updated successfully!')
+        }
+
+        // If dynamic story, check if RSS config changed
         const isDynamic = story.storyType === 'dynamic'
         const currentRSS: any = (story as any).rssConfig || null
         const rssChanged =
           isDynamic && hasRSSConfigChanged(originalRSSConfig, currentRSS)
 
+        // Check if only ad insertion config changed (doesn't need RSS reprocessing)
+        const adConfigChanged =
+          isDynamic &&
+          currentRSS?.adInsertionConfig &&
+          JSON.stringify(originalRSSConfig?.adInsertionConfig || {}) !==
+            JSON.stringify(currentRSS?.adInsertionConfig || {})
+
         if (isDynamic && rssChanged) {
           try {
+            // Update RSS config first to ensure it's saved
+            await rssAPI.updateRSSConfig(story.id, currentRSS)
+
             // Trigger RSS processing for the updated config
             await rssAPI.triggerRSSUpdate(story.id)
           } catch (e) {
@@ -164,13 +246,38 @@ export default function EditStoryPage() {
             console.error('Failed to trigger RSS update explicitly:', e)
           }
 
+          // Store story IDs before showing loader (for callback access)
+          setCurrentStoryId(story.id)
+          setCurrentStoryUniqueId(story.uniqueId)
           setShowProgressLoader(true)
-        } else {
+        } else if (adConfigChanged) {
+          // Only ad insertion config changed - update RSS config and go to editor
+          try {
+            // Update RSS config to save ad insertion config
+            await rssAPI.updateRSSConfig(story.id, currentRSS)
+            toast.success('Ad insertion configuration updated')
+          } catch (e) {
+            console.error('Failed to update RSS config:', e)
+            toast.error('Failed to update ad insertion configuration')
+          }
+
+          // Navigate to editor so ads can be applied
           navigate(`/editor/${story.uniqueId}`, {
             state: {
               storyId: story.id,
               uniqueId: story.uniqueId,
               fromCreate: false,
+              isDynamic: isDynamic,
+            },
+          })
+        } else {
+          // Navigate to editor
+          navigate(`/editor/${story.uniqueId}`, {
+            state: {
+              storyId: story.id,
+              uniqueId: story.uniqueId,
+              fromCreate: false,
+              isDynamic: isDynamic,
             },
           })
         }
@@ -185,6 +292,88 @@ export default function EditStoryPage() {
     }
   }
 
+  // Handle RSS processing completion
+  const handleProgressComplete = () => {
+    // Capture values from state to ensure they're available
+    const storyId = currentStoryId
+    const storyUniqueId = currentStoryUniqueId
+
+    console.log('handleProgressComplete called', {
+      storyId,
+      storyUniqueId,
+      currentStoryUniqueId,
+      currentStoryId,
+    })
+
+    if (storyUniqueId && storyId) {
+      console.log('Navigating to editor:', `/editor/${storyUniqueId}`)
+      // Close modal immediately
+      setShowProgressLoader(false)
+
+      // Navigate immediately - use window.location as primary method for reliability
+      // This ensures navigation happens even if React Router has issues
+      setTimeout(() => {
+        console.log('Executing navigation...')
+        try {
+          // Try React Router navigation first
+          navigate(`/editor/${storyUniqueId}`, {
+            state: {
+              storyId: storyId,
+              uniqueId: storyUniqueId,
+              fromCreate: false,
+              isDynamic: true,
+            },
+            replace: true,
+          })
+          console.log('React Router navigation called')
+
+          // Fallback: if navigation doesn't work after 500ms, use window.location
+          setTimeout(() => {
+            // Check if we're still on the same page (navigation didn't work)
+            if (window.location.pathname.includes('/edit/')) {
+              console.warn(
+                'Navigation may have failed, using window.location fallback'
+              )
+              window.location.href = `/editor/${storyUniqueId}`
+            }
+          }, 500)
+        } catch (error) {
+          console.error('Navigation error, using window.location:', error)
+          // Fallback to window.location if navigate fails
+          window.location.href = `/editor/${storyUniqueId}`
+        }
+      }, 100)
+    } else {
+      // Close modal even if navigation fails
+      setShowProgressLoader(false)
+      console.error('Cannot navigate: missing IDs', {
+        storyUniqueId,
+        storyId,
+        currentStoryUniqueId,
+        currentStoryId,
+      })
+      toast.error('Failed to navigate to editor. Please refresh the page.')
+    }
+
+    // Refresh original snapshot to new config
+    if (story) {
+      setOriginalRSSConfig((story as any)?.rssConfig || null)
+    }
+
+    // Clear story IDs
+    setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
+  }
+
+  // Handle RSS processing error
+  const handleProgressError = () => {
+    setShowProgressLoader(false)
+    toast.error('RSS processing failed. You can still edit the story manually.')
+    // Clear story IDs
+    setCurrentStoryId(null)
+    setCurrentStoryUniqueId(null)
+  }
+
   // Helper: compare RSS config changes
   const hasRSSConfigChanged = (
     originalCfg: any | null,
@@ -192,14 +381,22 @@ export default function EditStoryPage() {
   ) => {
     const o = originalCfg || {}
     const c = currentCfg || {}
-    return (
+
+    // Check basic RSS config changes
+    const basicConfigChanged =
       o.feedUrl !== c.feedUrl ||
       Number(o.updateIntervalMinutes ?? 0) !==
         Number(c.updateIntervalMinutes ?? 0) ||
       Number(o.maxPosts ?? 0) !== Number(c.maxPosts ?? 0) ||
       Boolean(o.allowRepetition) !== Boolean(c.allowRepetition) ||
       Boolean(o.isActive) !== Boolean(c.isActive)
-    )
+
+    // Check ad insertion config changes
+    const adConfigChanged =
+      JSON.stringify(o.adInsertionConfig || {}) !==
+      JSON.stringify(c.adInsertionConfig || {})
+
+    return basicConfigChanged || adConfigChanged
   }
 
   const FileUpload = ({
@@ -333,7 +530,7 @@ export default function EditStoryPage() {
               </div>
               <FileUpload
                 label="Publisher Profile Picture"
-                onFileSelect={(file) => handleFileUpload('publisherPic', file)}
+                onFileSelect={(file) => handlePublisherPicUpload(file)}
                 currentUrl={story.publisherPic}
               />
             </CardContent>
@@ -550,6 +747,169 @@ export default function EditStoryPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Ad Configuration - Only show for dynamic stories */}
+              {story.storyType === 'dynamic' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Megaphone className="h-5 w-5" />
+                      Ad Configuration
+                    </CardTitle>
+                    <CardDescription>
+                      Configure how and where ads should be automatically
+                      inserted in your dynamic story
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Ad Insertion Strategy</Label>
+                      <RadioGroup
+                        value={
+                          (story as any).rssConfig?.adInsertionConfig
+                            ?.strategy || 'start-end'
+                        }
+                        onValueChange={(value) => {
+                          const strategy =
+                            value as AdInsertionConfig['strategy']
+                          setStory((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rssConfig: {
+                                    ...(prev as any).rssConfig,
+                                    adInsertionConfig: {
+                                      strategy,
+                                      ...(strategy === 'interval'
+                                        ? {
+                                            interval:
+                                              (prev as any).rssConfig
+                                                ?.adInsertionConfig?.interval ||
+                                              3,
+                                            intervalPosition:
+                                              (prev as any).rssConfig
+                                                ?.adInsertionConfig
+                                                ?.intervalPosition || 'after',
+                                          }
+                                        : {}),
+                                    } as AdInsertionConfig,
+                                  },
+                                }
+                              : null
+                          )
+                        }}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="start-end" id="start-end" />
+                            <Label htmlFor="start-end">
+                              Start & End (ads at beginning and end)
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="alternate" id="alternate" />
+                            <Label htmlFor="alternate">
+                              Alternate each post (ad after each post)
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="interval" id="interval" />
+                            <Label htmlFor="interval">
+                              After/before/between each N posts
+                            </Label>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {(story as any).rssConfig?.adInsertionConfig?.strategy ===
+                      'interval' && (
+                      <div className="space-y-4 rounded-md border p-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="ad-interval">
+                            Number of Posts (N)
+                          </Label>
+                          <Input
+                            id="ad-interval"
+                            type="number"
+                            min="1"
+                            value={
+                              (story as any).rssConfig?.adInsertionConfig
+                                ?.interval || 3
+                            }
+                            onChange={(e) =>
+                              setStory((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rssConfig: {
+                                        ...(prev as any).rssConfig,
+                                        adInsertionConfig: {
+                                          ...(prev as any).rssConfig
+                                            ?.adInsertionConfig,
+                                          interval: Math.max(
+                                            1,
+                                            parseInt(e.target.value) || 3
+                                          ),
+                                        } as AdInsertionConfig,
+                                      },
+                                    }
+                                  : null
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Insert an ad after every N posts
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Ad Position</Label>
+                          <RadioGroup
+                            value={
+                              (story as any).rssConfig?.adInsertionConfig
+                                ?.intervalPosition || 'after'
+                            }
+                            onValueChange={(value) =>
+                              setStory((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rssConfig: {
+                                        ...(prev as any).rssConfig,
+                                        adInsertionConfig: {
+                                          ...(prev as any).rssConfig
+                                            ?.adInsertionConfig,
+                                          intervalPosition:
+                                            value as AdInsertionConfig['intervalPosition'],
+                                        } as AdInsertionConfig,
+                                      },
+                                    }
+                                  : null
+                              )
+                            }
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="before" id="before" />
+                                <Label htmlFor="before">Before posts</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="after" id="after" />
+                                <Label htmlFor="after">After posts</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="between" id="between" />
+                                <Label htmlFor="between">Between posts</Label>
+                              </div>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
 
@@ -625,116 +985,70 @@ export default function EditStoryPage() {
             </CardContent>
           </Card>
 
-          {/* Story Configuration */}
+          {/* Story Configuration (thumbnails removed) */}
           <Card>
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Update thumbnails for your story
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileUpload
-                label="Large Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('largeThumbnail', file)
-                }
-                currentUrl={story.largeThumbnail}
-              />
-              <FileUpload
-                label="Small Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('smallThumbnail', file)
-                }
-                currentUrl={story.smallThumbnail}
-              />
-            </CardContent>
-          </Card>
-
-          {/* CTA Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Call to Action</CardTitle>
-              <CardDescription>
-                Configure the action users will take
+                Update default settings for your story
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="cta-type">CTA Type</Label>
-                <Select
-                  value={story.ctaType || 'none'}
-                  onValueChange={(value) =>
-                    handleInputChange(
-                      'ctaType',
-                      value === 'none' ? null : (value as any)
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select CTA type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No CTA</SelectItem>
-                    <SelectItem value="redirect">Redirect to URL</SelectItem>
-                    <SelectItem value="form">Open a Form</SelectItem>
-                    <SelectItem value="promo">Give a Promo Code</SelectItem>
-                    <SelectItem value="sell">Sell an Item</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Default Frame Duration</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[5000, 10000, 15000, 20000, 30000].map((ms) => (
+                    <Button
+                      key={ms}
+                      type="button"
+                      variant={
+                        ((story as any).defaultDurationMs || 2500) === ms
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() =>
+                        setStory((prev) =>
+                          prev
+                            ? ({ ...prev, defaultDurationMs: ms } as any)
+                            : prev
+                        )
+                      }
+                    >
+                      {ms / 1000}s
+                    </Button>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      className="w-24"
+                      value={Math.round(
+                        ((story as any).defaultDurationMs || 2500) / 1000
+                      )}
+                      onChange={(e) =>
+                        setStory((prev) =>
+                          prev
+                            ? ({
+                                ...prev,
+                                defaultDurationMs:
+                                  Math.max(1, Number(e.target.value) || 5) *
+                                  1000,
+                              } as any)
+                            : prev
+                        )
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      seconds
+                    </span>
+                  </div>
+                </div>
               </div>
-              {story.ctaType && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-value">
-                    {story.ctaType === 'redirect' && 'URL'}
-                    {story.ctaType === 'form' && 'Form Name'}
-                    {story.ctaType === 'promo' && 'Promo Code'}
-                    {story.ctaType === 'sell' && 'Product Name'}
-                  </Label>
-                  <Input
-                    id="cta-value"
-                    placeholder={
-                      story.ctaType === 'redirect'
-                        ? 'https://example.com'
-                        : story.ctaType === 'form'
-                          ? 'Contact Form'
-                          : story.ctaType === 'promo'
-                            ? 'SAVE20'
-                            : 'Product Name'
-                    }
-                    value={story.ctaValue || ''}
-                    onChange={(e) =>
-                      handleInputChange('ctaValue', e.target.value)
-                    }
-                  />
-                </div>
-              )}
-              {story.ctaType && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-text">CTA Button Text</Label>
-                  <Input
-                    id="cta-text"
-                    placeholder={
-                      story.ctaType === 'redirect'
-                        ? 'Visit Link'
-                        : story.ctaType === 'form'
-                          ? 'Fill Form'
-                          : story.ctaType === 'promo'
-                            ? 'Get Promo'
-                            : 'Buy Now'
-                    }
-                    value={story.ctaText || ''}
-                    onChange={(e) =>
-                      handleInputChange('ctaText', e.target.value)
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use default text
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {/* CTA removed: story-level CTA is no longer supported */}
         </div>
 
         {/* Right Panel - Mobile Preview */}
@@ -745,9 +1059,6 @@ export default function EditStoryPage() {
               storyTitle={story.title}
               publisherPic={story.publisherPic}
               mainContent={story.largeThumbnail}
-              ctaType={story.ctaType}
-              ctaValue={story.ctaValue}
-              ctaText={story.ctaText}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}
@@ -763,13 +1074,11 @@ export default function EditStoryPage() {
       <div className="border-t bg-background px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Badge variant="outline">{story.status}</Badge>
             <span className="text-sm text-muted-foreground">
               Last updated: {new Date(story.updatedAt).toLocaleDateString()}
             </span>
           </div>
           <div className="flex space-x-4">
-            <Button variant="outline">Save Draft</Button>
             <Button
               onClick={handleSaveAndEdit}
               className="flex items-center space-x-2"
@@ -783,36 +1092,11 @@ export default function EditStoryPage() {
       </div>
 
       {/* RSS Progress Loader for dynamic updates */}
-      {showProgressLoader && story?.id && (
+      {showProgressLoader && currentStoryId && (
         <RSSProgressLoader
-          storyId={story.id}
-          onComplete={() => {
-            setShowProgressLoader(false)
-            // Refresh original snapshot to new config
-            setOriginalRSSConfig((story as any).rssConfig || null)
-            navigate(`/editor/${story.uniqueId}`, {
-              state: {
-                storyId: story.id,
-                uniqueId: story.uniqueId,
-                fromCreate: false,
-                isDynamic: true,
-              },
-            })
-          }}
-          onError={() => {
-            setShowProgressLoader(false)
-            toast.error(
-              'RSS processing failed. You can still edit the story manually.'
-            )
-            navigate(`/editor/${story.uniqueId}`, {
-              state: {
-                storyId: story.id,
-                uniqueId: story.uniqueId,
-                fromCreate: false,
-                isDynamic: true,
-              },
-            })
-          }}
+          storyId={currentStoryId}
+          onComplete={handleProgressComplete}
+          onError={handleProgressError}
         />
       )}
     </div>

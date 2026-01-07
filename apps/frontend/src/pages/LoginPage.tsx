@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,14 +22,15 @@ export default function LoginPage() {
   })
 
   const { login, isLoading } = useAuth()
-  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
       await login(formData)
-      navigate('/')
+      toast.success('Welcome back!')
+      // Force a full redirect so auth state re-initializes and dashboard loads
+      window.location.href = '/'
     } catch (err: any) {
       const status = err.response?.status
       const message = err.response?.data?.error?.message || 'Login failed'

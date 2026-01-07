@@ -1,4 +1,62 @@
 ;(function () {
+  // Default API base URL - use script's origin (where the script is hosted), not the page's origin
+  var DEFAULT_API_BASE_URL = (function () {
+    try {
+      // Helper function to extract origin from a URL string
+      function extractOrigin(urlString) {
+        if (!urlString) return null
+        try {
+          var url = new URL(urlString)
+          return url.origin
+        } catch (e) {
+          // If URL parsing fails, try to extract origin manually
+          var match = urlString.match(/^https?:\/\/([^\/]+)/i)
+          if (match) {
+            var protocol =
+              urlString.indexOf('https://') === 0 ? 'https://' : 'http://'
+            return protocol + match[1]
+          }
+        }
+        return null
+      }
+
+      // First, try to use document.currentScript (most reliable for synchronous scripts)
+      if (typeof document !== 'undefined' && document.currentScript) {
+        var currentScript = document.currentScript
+        var currentSrc = currentScript.src || currentScript.getAttribute('src')
+        if (currentSrc && currentSrc.indexOf('webstory-embed.js') !== -1) {
+          var origin = extractOrigin(currentSrc)
+          if (origin) return origin
+        }
+      }
+
+      // Fallback: search through all script tags to find the one loading this script
+      if (typeof document !== 'undefined') {
+        var scripts = document.getElementsByTagName('script')
+        for (var i = 0; i < scripts.length; i++) {
+          var script = scripts[i]
+          var src = script.src || script.getAttribute('src')
+          if (src && src.indexOf('webstory-embed.js') !== -1) {
+            var origin = extractOrigin(src)
+            if (origin) return origin
+          }
+        }
+      }
+
+      // Last fallback: use window.location.origin (might not be correct if script is on different domain)
+      if (
+        typeof window !== 'undefined' &&
+        window.location &&
+        window.location.origin
+      ) {
+        return window.location.origin
+      }
+    } catch (e) {
+      // If we can't access anything, use empty string
+    }
+    return ''
+  })()
+
   // Global tracking of active floaters to prevent duplicates
   var activeFloaters = {}
   var processedEmbeds = new Set()
@@ -7,6 +65,78 @@
   var lastRequestTime = 0
   var REQUEST_THROTTLE = 1000 // Minimum 1 second between requests
   var storyDataCache = new Map() // Cache for story data to prevent duplicate API calls
+  var CACHE_TTL_MS = 30000 // 30s TTL to avoid stale format/deviceFrame after edits
+
+  // Analytics tracking
+  var analyticsSessions = new Map() // Map of storyId -> session data
+  var ANALYTICS_API_ENDPOINT = '/api/analytics/track'
+
+  // Generate unique session ID
+  function generateSessionId() {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+  }
+
+  // Track analytics event
+  function trackAnalyticsEvent(storyId, eventType, options) {
+    if (!storyId) return
+
+    // Get or create session
+    if (!analyticsSessions.has(storyId)) {
+      analyticsSessions.set(storyId, {
+        sessionId: generateSessionId(),
+        apiBaseUrl: options?.apiBaseUrl || DEFAULT_API_BASE_URL,
+        startTime: Date.now(),
+        lastFrameIndex: -1,
+        framesSeen: new Set(),
+        timeSpent: 0,
+        adsSeen: new Set(),
+      })
+    }
+
+    var session = analyticsSessions.get(storyId)
+    var apiBaseUrl = session.apiBaseUrl
+
+    // Prepare event data
+    var eventData = {
+      storyId: storyId,
+      eventType: eventType,
+      sessionId: session.sessionId,
+      frameIndex: options?.frameIndex,
+      value: options?.value,
+      metadata: {
+        userAgent: navigator.userAgent,
+        referrer: document.referrer || '',
+        timestamp: new Date().toISOString(),
+      },
+    }
+
+    // Update session tracking
+    if (eventType === 'frame_view' && options?.frameIndex !== undefined) {
+      session.framesSeen.add(options.frameIndex)
+      session.lastFrameIndex = options.frameIndex
+    } else if (eventType === 'time_spent' && options?.value !== undefined) {
+      session.timeSpent += options.value
+    } else if (eventType === 'ad_impression' && options?.adId) {
+      session.adsSeen.add(options.adId)
+    }
+
+    // Send event to backend (fire and forget - don't block UI)
+    try {
+      fetch(apiBaseUrl + ANALYTICS_API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
+        keepalive: true, // Keep request alive even if page unloads
+      }).catch(function (error) {
+        // Silently fail - analytics shouldn't break the user experience
+        console.debug('Analytics tracking failed:', error)
+      })
+    } catch (error) {
+      console.debug('Analytics tracking error:', error)
+    }
+  }
 
   // Wait for DOM to be ready
   function initializeEmbeds() {
@@ -102,78 +232,80 @@
 
   function processRegularEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var autoplay = element.getAttribute('data-autoplay') === 'true'
-    var loop = element.getAttribute('data-loop') === 'true'
-    var apiBaseUrl = element.getAttribute('data-api-url') || ''
+    var apiBaseUrl =
+      element.getAttribute('data-api-url') || DEFAULT_API_BASE_URL
 
     if (!storyId) return
 
-    // Get dimensions from data attributes first, then element style, then defaults
-    var width = element.getAttribute('data-width')
-    var height = element.getAttribute('data-height')
+    // Set default dimensions immediately to prevent full-width expansion
+    // These will be updated in fetchAndRenderStory based on story format and embedConfig
+    var explicitWidth = element.style.width
+    var explicitHeight = element.style.height
 
-    if (width) {
-      width = parseInt(width)
+    // Check if element has computed dimensions that aren't from style
+    var hasComputedSize = element.offsetWidth > 0 && element.offsetHeight > 0
+
+    // If no explicit style dimensions, use default portrait mobile size
+    // This prevents the element from expanding to full parent width
+    if (!explicitWidth || !explicitHeight) {
+      var defaultWidth = 360 // Default portrait mobile width
+      var defaultHeight = 640 // Default portrait mobile height
+
+      // Only set defaults if element doesn't have computed size already
+      if (!hasComputedSize || element.offsetWidth > 1000) {
+        element.style.cssText = `
+          display: block;
+          width: ${defaultWidth}px;
+          height: ${defaultHeight}px;
+          margin: 20px auto;
+          position: relative;
+        `
+      } else {
+        // Element has computed size, use it but ensure it's set explicitly
+        var w = element.offsetWidth
+        var h = element.offsetHeight
+        element.style.cssText = `
+          display: block;
+          width: ${w}px;
+          height: ${h}px;
+          margin: 20px auto;
+          position: relative;
+        `
+      }
     } else {
-      width = element.style.width || element.offsetWidth
+      // Explicit style dimensions exist, parse and apply
+      var w = explicitWidth
+      var h = explicitHeight
+      if (typeof w === 'string' && w.includes('px')) w = parseInt(w)
+      if (typeof h === 'string' && h.includes('px')) h = parseInt(h)
+      // Ensure we have valid pixel values
+      if (isNaN(w) || w <= 0) w = 360
+      if (isNaN(h) || h <= 0) h = 640
+      element.style.cssText = `
+        display: block;
+        width: ${w}px;
+        height: ${h}px;
+        margin: 20px auto;
+        position: relative;
+      `
     }
 
-    if (height) {
-      height = parseInt(height)
-    } else {
-      height = element.style.height || element.offsetHeight
-    }
-
-    // If no dimensions specified, use default mobile story dimensions
-    if (!width || width === 0) {
-      width = 360
-    }
-    if (!height || height === 0) {
-      height = 640
-    }
-
-    // Ensure dimensions are in pixels
-    if (typeof width === 'string' && width.includes('px')) {
-      width = parseInt(width)
-    }
-    if (typeof height === 'string' && height.includes('px')) {
-      height = parseInt(height)
-    }
-
-    // Apply styling to the ins element to make it the direct container
-    element.style.cssText = `
-      display: block;
-      width: ${width}px;
-      height: ${height}px;
-      margin: 20px auto;
-      position: relative;
-    `
-
-    // Fetch and render story
+    // Fetch and render story (will update dimensions based on story format and embedConfig)
     fetchAndRenderStory(
       storyId,
       apiBaseUrl,
       element,
-      autoplay,
+      undefined,
       false,
       null,
-      loop
+      undefined
     )
   }
 
   function processFloaterEmbed(element) {
     var storyId = element.getAttribute('data-story-id')
-    var direction = element.getAttribute('data-direction') || 'right'
-    var triggerScroll = parseInt(
-      element.getAttribute('data-trigger-scroll') || '50'
-    )
-    var position = element.getAttribute('data-position') || 'bottom'
-    var size = element.getAttribute('data-size') || 'medium'
-    var autoHide = element.getAttribute('data-auto-hide') === 'true'
-    var autoHideDelay = parseInt(
-      element.getAttribute('data-auto-hide-delay') || '5000'
-    )
-    var apiBaseUrl = element.getAttribute('data-api-url') || ''
+    var apiBaseUrl =
+      element.getAttribute('data-api-url') || DEFAULT_API_BASE_URL
 
     if (!storyId) return
 
@@ -197,25 +329,11 @@
     regularContainer.id = 'snappy-regular-' + storyId
 
     // Check if story data is already cached
-    var storyData = storyDataCache.get(storyId)
+    var cachedEntry = storyDataCache.get(storyId)
 
-    if (storyData) {
-      // Use cached data
-      console.log('Using cached story data for:', storyId)
-      processFloaterWithData(
-        storyData,
-        element,
-        apiBaseUrl,
-        direction,
-        triggerScroll,
-        position,
-        size,
-        autoHide,
-        autoHideDelay
-      )
-    } else {
-      // Fetch the story data to get format and device frame
-      fetch(apiBaseUrl + '/api/stories/public/' + storyId)
+    {
+      // Fetch the story data to get format and device frame (cache-bust with ts)
+      fetch(apiBaseUrl + '/api/stories/public/' + storyId + '?ts=' + Date.now())
         .then(function (response) {
           if (!response.ok) {
             throw new Error('Story not found - Status: ' + response.status)
@@ -228,19 +346,20 @@
           }
 
           var storyData = apiResponse.data
-          // Cache the story data
-          storyDataCache.set(storyId, storyData)
+          // Cache the story data with timestamp
+          storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
+          var cfg = (storyData.embedConfig || {}).floater || {}
           processFloaterWithData(
             storyData,
             element,
             apiBaseUrl,
-            direction,
-            triggerScroll,
-            position,
-            size,
-            autoHide,
-            autoHideDelay
+            cfg.direction || 'right',
+            typeof cfg.triggerScroll === 'number' ? cfg.triggerScroll : 50,
+            cfg.position || 'bottom',
+            cfg.size || 'medium',
+            !!cfg.autoHide,
+            typeof cfg.autoHideDelay === 'number' ? cfg.autoHideDelay : 5000
           )
         })
         .catch(function (error) {
@@ -264,22 +383,34 @@
     var storyFormat = storyData.format || 'portrait'
     var storyDeviceFrame = storyData.deviceFrame || 'mobile'
 
-    // Calculate dimensions based on story's actual format and device frame
-    var dimensions = calculateFloaterDimensions(
-      storyFormat,
-      storyDeviceFrame,
-      size
-    )
+    // Calculate floater dimensions (custom size takes precedence)
+    var embedCfg = storyData.embedConfig || {}
+    var floaterCfg = embedCfg.floater || {}
+    var dimensions = (function () {
+      var cw =
+        typeof floaterCfg.customWidth === 'number'
+          ? floaterCfg.customWidth
+          : null
+      var ch =
+        typeof floaterCfg.customHeight === 'number'
+          ? floaterCfg.customHeight
+          : null
+      if (cw && ch) return { width: cw, height: ch }
+      return calculateFloaterDimensions(storyFormat, storyDeviceFrame, size)
+    })()
 
     // Use the ins element itself as the regular container
     var regularContainer = element
     regularContainer.id = 'snappy-regular-' + storyId
 
-    // Style the regular container based on story format and device frame
-    var regularDimensions = calculateRegularContainerDimensions(
-      storyFormat,
-      storyDeviceFrame
-    )
+    // Style the regular container based on embedConfig regular size or fallback
+    var regularDimensions = (function () {
+      var rc = embedCfg.regular || {}
+      if (typeof rc.width === 'number' && typeof rc.height === 'number') {
+        return { width: rc.width, height: rc.height }
+      }
+      return calculateRegularContainerDimensions(storyFormat, storyDeviceFrame)
+    })()
 
     // Get dimensions from the element's style or use regular dimensions
     var width = element.style.width || element.offsetWidth
@@ -310,7 +441,7 @@
     `
 
     // Render the story in the regular container first (reuse the fetched data)
-    renderStoryDirectly(storyData, regularContainer, false, false, null, false)
+    renderStoryDirectly(storyData, regularContainer, false, false, null, false, apiBaseUrl)
 
     // Create floater container with calculated dimensions
     var floaterContainer = document.createElement('div')
@@ -338,50 +469,58 @@
       transform: scale(${dimensions.width / width});
     `
 
-    // Always add close button for floater embeds
-    var closeButton = document.createElement('button')
-    closeButton.innerHTML = '×'
-    closeButton.style.cssText = `
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: rgba(0,0,0,0.8);
-      color: white;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-    `
-    closeButton.onclick = function () {
-      // Remove event listeners
-      window.removeEventListener('scroll', checkScroll)
-      window.removeEventListener('resize', checkScroll)
-
-      // Clear any pending timeouts
-      if (hideTimeout) {
-        clearTimeout(hideTimeout)
-        hideTimeout = null
+    // Close button for floater embeds (respect embedConfig when available)
+    var showClose = true
+    try {
+      var cfg = storyData.embedConfig || {}
+      if (cfg.floater && typeof cfg.floater.showCloseButton === 'boolean') {
+        showClose = !!cfg.floater.showCloseButton
       }
+    } catch (e) {}
+    if (showClose) {
+      var closeButton = document.createElement('button')
+      closeButton.innerHTML = '×'
+      closeButton.style.cssText = `
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+      `
+      closeButton.onclick = function () {
+        // Remove event listeners
+        window.removeEventListener('scroll', checkScroll)
+        window.removeEventListener('resize', checkScroll)
 
-      // Remove from active floaters tracking
-      delete activeFloaters[storyId]
+        // Clear any pending timeouts
+        if (hideTimeout) {
+          clearTimeout(hideTimeout)
+          hideTimeout = null
+        }
 
-      // Remove only the floater from DOM completely
-      if (floaterContainer && floaterContainer.parentNode) {
-        floaterContainer.parentNode.removeChild(floaterContainer)
+        // Remove from active floaters tracking
+        delete activeFloaters[storyId]
+
+        // Remove only the floater from DOM completely
+        if (floaterContainer && floaterContainer.parentNode) {
+          floaterContainer.parentNode.removeChild(floaterContainer)
+        }
+        // Keep the regular container - don't remove it!
       }
-      // Keep the regular container - don't remove it!
-      // The regular embed should remain visible on the page
+      floaterContainer.appendChild(closeButton)
     }
-    floaterContainer.appendChild(closeButton)
     floaterContainer.appendChild(storyContainer)
 
     // Add to page
@@ -452,7 +591,8 @@
         scaleFactor: dimensions.width / width,
         floaterDimensions: dimensions,
       },
-      false
+      false,
+      apiBaseUrl
     )
 
     // Start scroll detection
@@ -469,11 +609,44 @@
     autoplay,
     isFloater,
     floaterOptions,
-    loop
+    loop,
+    apiBaseUrl
   ) {
-    // Default loop to false if not provided
-    if (loop === undefined) loop = false
+    // Read from embedConfig first, then fallback to passed parameters or defaults
+    try {
+      var cfg = storyData.embedConfig || {}
+      // Always read from config if it exists, otherwise use passed parameter or default
+      if (cfg.regular || cfg.floater) {
+        if (isFloater && cfg.floater) {
+          if (typeof cfg.floater.autoplay === 'boolean') {
+            autoplay = cfg.floater.autoplay
+          }
+          if (typeof cfg.floater.loop === 'boolean') {
+            loop = cfg.floater.loop
+          }
+        } else if (!isFloater && cfg.regular) {
+          if (typeof cfg.regular.autoplay === 'boolean') {
+            autoplay = cfg.regular.autoplay
+          }
+          if (typeof cfg.regular.loop === 'boolean') {
+            loop = cfg.regular.loop
+          }
+        }
+      }
+      // Fallback to passed parameters if config doesn't have values
+      if (typeof autoplay === 'undefined') {
+        autoplay = false
+      }
+      if (typeof loop === 'undefined') {
+        loop = false
+      }
+      // Ensure loop and autoplay are proper booleans
+      loop = !!loop
+      autoplay = !!autoplay
+    } catch (e) {}
     console.log('Rendering story directly with data:', storyData)
+    console.log('Loop value:', loop, 'Type:', typeof loop, 'Config:', cfg)
+    console.log('Autoplay value:', autoplay, 'Type:', typeof autoplay)
 
     var frames = storyData.frames || []
     // Escapers for safe inline HTML
@@ -499,10 +672,9 @@
       storyTitle: storyData.title,
       publisherName: storyData.publisherName,
       publisherPic: storyData.publisherPic,
-      ctaType: storyData.ctaType,
-      ctaValue: storyData.ctaValue,
       format: storyData.format || 'portrait',
       deviceFrame: storyData.deviceFrame || 'mobile',
+      defaultDurationMs: storyData.defaultDurationMs || 5000,
     }
 
     console.log('Final story object:', story)
@@ -510,16 +682,43 @@
     console.log('Final deviceFrame:', story.deviceFrame)
 
     // Get container dimensions
-    var width = container.style.width || container.offsetWidth || 360
-    var height = container.style.height || container.offsetHeight || 700
+    // For floater, use iframe dimensions (after scaling); for regular, use container dimensions
+    var width, height
+    if (floaterOptions && floaterOptions.isFloater) {
+      // For floater, the iframe is sized to floaterDims / scaleFactor
+      // This is the actual size the content sees, so use it for positioning
+      var floaterDims = floaterOptions.floaterDimensions
+      var scaleFactor = floaterOptions.scaleFactor || 1
+      width = floaterDims.width / scaleFactor
+      height = floaterDims.height / scaleFactor
+    } else {
+      width = container.style.width || container.offsetWidth || 360
+      height = container.style.height || container.offsetHeight || 700
 
-    // Ensure dimensions are in pixels
-    if (typeof width === 'string' && width.includes('px')) {
-      width = parseInt(width)
+      // Ensure dimensions are in pixels
+      if (typeof width === 'string' && width.includes('px')) {
+        width = parseInt(width)
+      }
+      if (typeof height === 'string' && height.includes('px')) {
+        height = parseInt(height)
+      }
     }
-    if (typeof height === 'string' && height.includes('px')) {
-      height = parseInt(height)
-    }
+
+    // Calculate scale factor based on reference dimensions
+    // Reference dimensions: portrait (360x640), landscape (640x360)
+    var referenceWidth = story.format === 'landscape' ? 640 : 360
+    var referenceHeight = story.format === 'landscape' ? 360 : 640
+    var scaleFactor = Math.min(width / referenceWidth, height / referenceHeight)
+    // Clamp scale factor to reasonable range (0.3 to 1.5)
+    scaleFactor = Math.max(0.3, Math.min(1.5, scaleFactor))
+    console.log(
+      'Scale factor:',
+      scaleFactor,
+      'for dimensions:',
+      width,
+      'x',
+      height
+    )
 
     // Calculate frame styling based on story's format and device frame
     var frameStyle = getFrameStyle(story.format, story.deviceFrame)
@@ -538,7 +737,7 @@
       iframe.style.height = '100%'
     }
 
-    iframe.style.border = frameStyle.border
+    iframe.style.border = '0'
     iframe.style.borderRadius = frameStyle.borderRadius
     iframe.style.background = frameStyle.background
     iframe.style.boxShadow = frameStyle.boxShadow
@@ -548,8 +747,9 @@
     iframe.style.top = '0'
     iframe.style.left = '0'
     iframe.style.outline = 'none'
+    iframe.style.boxSizing = 'border-box'
     iframe.style.zIndex = '1'
-    var slideDuration = 2500
+    var slideDuration = story.defaultDurationMs || 5000 // default; overridden per-frame in inline script
 
     // Helper function to calculate text element position and size based on format/deviceFrame
     function calculateTextElementPosition(
@@ -558,47 +758,56 @@
       containerHeight,
       format,
       deviceFrame,
-      hasFrameLink
+      hasFrameLink,
+      scaleFactor
     ) {
-      var isLandscapeVideoPlayer =
-        format === 'landscape' && deviceFrame === 'video-player'
-      var isPortraitMobile = format === 'portrait' && deviceFrame === 'mobile'
+      // Button is fixed at bottom, text appears above it
+      // Calculate button height (approximate, scaled)
+      var baseButtonHeight = 44 // Base height for portrait, 36 for landscape (handled in button code)
+      var buttonHeight = Math.round(baseButtonHeight * scaleFactor)
+      var buttonPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+      var buttonMargin = Math.round(24 * scaleFactor) // Gap between text and button
 
-      // Text positioning - button will be positioned below text dynamically
-      var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+      // Text positioning - button is fixed at bottom, text appears above with margin
+      var textBottomPadding = hasFrameLink
+        ? buttonHeight + buttonMargin + buttonPadding
+        : Math.round(20 * scaleFactor)
 
       var textWidth, textLeft, textBottom, textHeight
 
-      if (isLandscapeVideoPlayer) {
-        // Landscape video player: 50% width, centered, bottom with padding
-        textWidth = Math.round(containerWidth * 0.5)
-        textLeft = Math.round((containerWidth - textWidth) / 2)
-        textBottom = textBottomPadding
-        // Height stays dynamic based on content, but ensure minimum
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
-      } else if (isPortraitMobile) {
-        // Portrait mobile: 90% width, centered, bottom with padding
+      // Base text height (scaled)
+      var baseTextHeight = 60
+      var scaledTextHeight = Math.round(baseTextHeight * scaleFactor)
+
+      if (format === 'portrait') {
+        // Portrait (mobile and video-player): 90% width, centered, above button
         textWidth = Math.round(containerWidth * 0.9)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        // Height stays dynamic based on content, but ensure minimum
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+        // Scale text height based on aspect ratio and container height
+        textHeight = Math.max(
+          scaledTextHeight,
+          Math.round(containerHeight * 0.15 * scaleFactor)
+        )
       } else {
-        // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
-        textWidth = Math.round(containerWidth * 0.85)
+        // Landscape (mobile and video-player): 50% width, centered, above button
+        textWidth = Math.round(containerWidth * 0.5)
         textLeft = Math.round((containerWidth - textWidth) / 2)
         textBottom = textBottomPadding
-        textHeight = el.height || Math.max(60, containerHeight * 0.15)
+        // Scale text height based on aspect ratio and container height
+        textHeight = Math.max(
+          scaledTextHeight,
+          Math.round(containerHeight * 0.15 * scaleFactor)
+        )
       }
 
       // Convert bottom to top position (since we use top in CSS)
-      // Position from bottom, accounting for button space if needed
-      var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
-      var textTop = containerHeight - textBottom - textHeight - buttonSpace
+      // Position from bottom, accounting for button space
+      var textTop = containerHeight - textBottom - textHeight
 
       return {
         left: textLeft,
-        top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+        top: Math.max(Math.round(80 * scaleFactor), textTop), // Ensure text doesn't overlap with header (scaled)
         width: textWidth,
         height: textHeight,
       }
@@ -627,19 +836,37 @@
         // Frame Link Button for ad frames - store data instead of creating HTML
         var adLinkClickHandler = ''
         if (frame.link) {
-          // Calculate button size based on aspect ratio
+          // Calculate button size based on aspect ratio and scale factor
           var isLandscape = story.format === 'landscape'
           var aspectRatio = width / height
           var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-          // Button size calculations based on aspect ratio
-          var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-          var buttonFontSize = isWide ? '12px' : '15px'
-          var buttonLeft = isWide ? '50%' : '16px'
-          var buttonRight = isWide ? 'auto' : '16px'
+          // Base button sizes (reference dimensions)
+          var basePaddingV = isWide ? 8 : 12
+          var basePaddingH = isWide ? 16 : 24
+          var baseFontSize = isWide ? 12 : 15
+          var baseButtonHeight = isWide ? 36 : 44
+
+          // Apply scale factor to button sizes
+          var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+          var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+          var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+          // For floater embeds, ensure minimum readable font size
+          if (floaterOptions && floaterOptions.isFloater) {
+            buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+          }
+          var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+          var buttonFontSizePx = buttonFontSize + 'px'
+          var approxButtonHeight = Math.round(baseButtonHeight * scaleFactor)
+
+          var buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
+          var buttonRight = isWide ? 'auto' : 'auto'
           var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           var buttonMaxWidth = isWide ? '80%' : 'auto'
-          var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
+
+          // Button is fixed at bottom
+          var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+          var buttonBottom = buttonBottomPadding + 'px'
 
           // Use frame-specific link text or default
           var linkButtonText =
@@ -653,12 +880,13 @@
             link: frame.link,
             text: linkButtonText,
             left: buttonLeft,
-            top: buttonTop,
+            bottom: buttonBottom, // Fixed at bottom
             transform: buttonTransform,
             marginLeft: '0',
             maxWidth: buttonMaxWidth,
             padding: buttonPadding,
-            fontSize: buttonFontSize,
+            fontSize: buttonFontSizePx,
+            hidden: false, // Ad frame buttons are always visible (unless overflow)
           })
 
           // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -684,15 +912,45 @@
       // Handle regular story frames
       var bg = ''
       var bgImg = ''
+      // Compute background transforms from saved frame background settings
+      var bgZoom = 1,
+        bgX = 0,
+        bgY = 0,
+        bgRot = 0
+      if (frame.background) {
+        if (typeof frame.background.zoom === 'number')
+          bgZoom = frame.background.zoom / 100
+        if (typeof frame.background.offsetX === 'number')
+          bgX = frame.background.offsetX
+        if (typeof frame.background.offsetY === 'number')
+          bgY = frame.background.offsetY
+        if (typeof frame.background.rotation === 'number')
+          bgRot = frame.background.rotation
+      }
       if (frame.background) {
         if (frame.background.type === 'color') {
           bg = 'background:' + frame.background.value + ';'
         } else if (frame.background.type === 'image') {
           bg = 'background:#000;'
           bgImg =
+            // Background: blurred cover fill layer
             '<img src="' +
             frame.background.value +
-            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;border-radius:' +
+            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;filter:blur(20px) brightness(0.85);border-radius:' +
+            frameStyle.innerBorderRadius +
+            ';" />' +
+            // Foreground: main image using contain so it is not over-zoomed
+            '<img src="' +
+            frame.background.value +
+            '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%) translate(' +
+            bgX +
+            'px, ' +
+            bgY +
+            'px) rotate(' +
+            bgRot +
+            'deg) scale(' +
+            bgZoom +
+            ');z-index:1;border-radius:' +
             frameStyle.innerBorderRadius +
             ';" />'
         }
@@ -718,7 +976,8 @@
               height,
               story.format,
               story.deviceFrame,
-              !!frame.link
+              !!frame.link,
+              scaleFactor
             )
             elementWidth = textPos.width
             elementHeight = textPos.height
@@ -729,7 +988,7 @@
             // Since height is auto, estimate actual height (at least min-height)
             var estimatedHeight = Math.max(
               elementHeight,
-              Math.max(24, Math.round(el.height || 0))
+              Math.max(Math.round(24 * scaleFactor), Math.round(el.height || 0))
             )
             textElementBottom = elementTop + estimatedHeight
             textElementLeft = elementLeft
@@ -747,12 +1006,22 @@
             elementHeight +
             'px;'
           if (el.type === 'text') {
-            var minH = Math.max(24, Math.round(elementHeight || 0))
+            var minH = Math.max(
+              Math.round(24 * scaleFactor),
+              Math.round(elementHeight || 0)
+            )
+            // Apply scale factor to font size
+            var baseFontSize = el.style.fontSize || 18
+            var scaledFontSize = Math.round(baseFontSize * scaleFactor)
+            // For floater embeds, ensure minimum readable font size
+            if (floaterOptions && floaterOptions.isFloater) {
+              scaledFontSize = Math.max(scaledFontSize, 12)
+            }
             style +=
               'color:' +
               (el.style.color || '#fff') +
               ';font-size:' +
-              (el.style.fontSize || 18) +
+              scaledFontSize +
               'px;font-family:' +
               (el.style.fontFamily || 'inherit') +
               ';font-weight:' +
@@ -761,7 +1030,9 @@
               (el.style.backgroundColor || 'transparent') +
               ';opacity:' +
               (el.style.opacity || 100) / 100 +
-              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+              ';display:flex;align-items:center;justify-content:center;text-align:center;padding:' +
+              Math.round(2 * scaleFactor) +
+              'px;' +
               'height:auto;min-height:' +
               minH +
               'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
@@ -813,22 +1084,31 @@
       var frameLinkButton = ''
       var linkClickHandler = ''
       if (frame.link) {
-        // Calculate button size based on aspect ratio
+        // Calculate button size based on aspect ratio and scale factor
         var isLandscape = story.format === 'landscape'
         var aspectRatio = width / height
         var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-        // Button size calculations based on aspect ratio
-        var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-        var buttonFontSize = isWide ? '12px' : '15px'
+        // Base button sizes (reference dimensions)
+        var basePaddingV = isWide ? 8 : 12
+        var basePaddingH = isWide ? 16 : 24
+        var baseFontSize = isWide ? 12 : 15
+
+        // Apply scale factor to button sizes
+        var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+        var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+        var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+        // For floater embeds, ensure minimum readable font size
+        if (floaterOptions && floaterOptions.isFloater) {
+          buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+        }
+        var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+        var buttonFontSizePx = buttonFontSize + 'px'
         var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-        // Position button below text element with gap
-        var buttonGap = 24 // Gap between text and button
-        var buttonTop =
-          textElementBottom !== null
-            ? textElementBottom + buttonGap
-            : height - 100 // Fallback if no text element
+        // Button is fixed at bottom
+        var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+        var buttonBottom = buttonBottomPadding + 'px'
 
         // Calculate button horizontal position based on text element or aspect ratio
         var buttonLeft = ''
@@ -839,13 +1119,13 @@
           // Center button relative to text element
           var buttonWidth = isWide
             ? Math.min(textElementWidth, width * 0.8)
-            : Math.min(textElementWidth, width - 32)
+            : Math.min(textElementWidth, width - Math.round(32 * scaleFactor))
           buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
           buttonTransform = 'translateX(-50%)'
           buttonMarginLeft = '0'
         } else {
           // Fallback: center based on aspect ratio
-          buttonLeft = isWide ? '50%' : '16px'
+          buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
           buttonTransform = isWide ? 'translateX(-50%)' : 'none'
           buttonMarginLeft = isWide ? '0' : '0'
         }
@@ -856,43 +1136,23 @@
             ? frame.linkText.trim()
             : 'Read More'
 
-        // Create clickable link button with proper event handling
-        frameLinkButton =
-          '<a href="' +
-          escapeAttr(frame.link) +
-          '" target="_blank" rel="noopener noreferrer" id="snappy-frame-link-btn-' +
-          idx +
-          '" onclick="event.stopPropagation();" style="position:absolute;left:' +
-          buttonLeft +
-          ';margin-left:' +
-          buttonMarginLeft +
-          ';top:' +
-          buttonTop +
-          'px;z-index:20;display:block;text-decoration:none;transform:' +
-          buttonTransform +
-          ';max-width:' +
-          buttonMaxWidth +
-          ';pointer-events:auto;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
-          buttonPadding +
-          ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
-          buttonFontSize +
-          ';cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.15);pointer-events:none;">' +
-          escapeHtml(linkButtonText) +
-          '</div></a>'
+        // Store button data instead of creating inline HTML (for consistent visibility handling)
+        buttonData.push({
+          idx: idx,
+          link: frame.link,
+          text: linkButtonText,
+          left: buttonLeft,
+          bottom: buttonBottom, // Fixed at bottom
+          transform: buttonTransform,
+          marginLeft: buttonMarginLeft,
+          maxWidth: buttonMaxWidth,
+          padding: buttonPadding,
+          fontSize: buttonFontSizePx,
+          hidden: false, // Regular frame buttons are always visible (unless overflow)
+        })
 
         // Remove parent slide click handler when button exists (navigation still works via nav areas)
         linkClickHandler = ''
-      } else if (story.ctaType) {
-        // Fallback to story-level CTA if no frame link
-        var ctaText = ''
-        if (story.ctaType === 'redirect') ctaText = 'Visit Link'
-        if (story.ctaType === 'form') ctaText = 'Fill Form'
-        if (story.ctaType === 'promo') ctaText = 'Get Promo'
-        if (story.ctaType === 'sell') ctaText = 'Buy Now'
-        frameLinkButton =
-          '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
-          ctaText +
-          '</div></div>'
       }
 
       // Progress bar
@@ -931,7 +1191,14 @@
 
     // Create buttons container outside slides
     var buttonsHtml = buttonData
+      .filter(function (btn) {
+        return !btn.hidden
+      })
       .map(function (btn) {
+        // Use bottom if available (for fixed bottom positioning), otherwise use top
+        var positionStyle = btn.bottom
+          ? 'bottom:' + btn.bottom + ';'
+          : 'top:' + (btn.top || '0px') + ';'
         return (
           '<a href="' +
           escapeAttr(btn.link) +
@@ -943,9 +1210,9 @@
           btn.left +
           ';margin-left:' +
           btn.marginLeft +
-          ';top:' +
-          btn.top +
-          'px;z-index:70;display:none;text-decoration:none;transform:' +
+          ';' +
+          positionStyle +
+          'z-index:70;display:none;text-decoration:none;transform:' +
           btn.transform +
           ';max-width:' +
           btn.maxWidth +
@@ -971,7 +1238,6 @@
       .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
       .nav-area.left{left:0;}
       .nav-area.right{right:0;}
-      #snappy-cta-btn > div { cursor: pointer; }
       .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
       .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
       .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
@@ -987,22 +1253,28 @@
     window.googletag = window.googletag || {cmd: []};
     
     // Initialize ads for ad frames
+    // Use a global Set to track initialized and displayed slots across all calls
+    if (!window.snappyInitializedAdSlots) {
+      window.snappyInitializedAdSlots = new Set();
+    }
+    if (!window.snappyDisplayedAdSlots) {
+      window.snappyDisplayedAdSlots = new Set();
+    }
+    
     function initializeAds() {
       if (window.googletag && window.googletag.defineSlot) {
-        // Enable services once
+        // Enable services once (safe to call multiple times)
         window.googletag.pubads().enableSingleRequest();
         window.googletag.pubads().enableAsyncRendering();
         window.googletag.enableServices();
-        
-        // Create a map to track created slots
-        var createdSlots = new Set();
         
         frames.forEach(function(frame) {
           if (frame.type === 'ad' && frame.adConfig) {
             var adId = frame.adConfig.adId;
             
-            // Skip if we already created this slot
-            if (createdSlots.has(adId)) {
+            // Skip if we already initialized and displayed this slot
+            if (window.snappyInitializedAdSlots.has(adId) && window.snappyDisplayedAdSlots.has(adId)) {
+              console.log('Ad slot already initialized and displayed:', adId);
               return;
             }
             
@@ -1017,16 +1289,31 @@
                 }
               });
               
-              if (!slotExists) {
-                var slot = window.googletag.defineSlot(frame.adConfig.adUnitPath, [300, 250], adId);
+              if (!slotExists && !window.snappyInitializedAdSlots.has(adId)) {
+                // Create the slot only if it doesn't exist and hasn't been initialized
+                var sizes = Array.isArray(frame.adConfig.sizes) && frame.adConfig.sizes.length 
+                  ? frame.adConfig.sizes 
+                  : (Array.isArray(frame.adConfig.size) 
+                    ? [frame.adConfig.size] 
+                    : [[300, 250]]);
+                var slot = window.googletag.defineSlot(frame.adConfig.adUnitPath, sizes, adId);
                 if (slot) {
                   slot.addService(window.googletag.pubads());
-                  window.googletag.display(adId);
-                  createdSlots.add(adId);
+                  // Mark as initialized
+                  window.snappyInitializedAdSlots.add(adId);
                   console.log('Created ad slot:', adId);
                 }
-              } else {
-                console.log('Slot already exists:', adId);
+              } else if (slotExists && !window.snappyInitializedAdSlots.has(adId)) {
+                // Slot exists but not in our tracking - mark it as initialized
+                window.snappyInitializedAdSlots.add(adId);
+                console.log('Slot already exists in GPT, marked as initialized:', adId);
+              }
+              
+              // Display the ad only once per slot
+              if (window.snappyInitializedAdSlots.has(adId) && !window.snappyDisplayedAdSlots.has(adId)) {
+                window.googletag.display(adId);
+                window.snappyDisplayedAdSlots.add(adId);
+                console.log('Displayed ad slot:', adId);
               }
             } catch (error) {
               console.error('Error creating slot for', adId, ':', error);
@@ -1043,7 +1330,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});var storyId='${storyData.id}';var apiBaseUrl='${apiBaseUrl || DEFAULT_API_BASE_URL}';var sessionId='session_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);var frameStartTime=Date.now();var timeSpentTracker=null;function trackEvent(eventType,options){try{var eventData={storyId:storyId,eventType:eventType,sessionId:sessionId,frameIndex:options?.frameIndex,value:options?.value,metadata:{timestamp:new Date().toISOString()}};fetch(apiBaseUrl+'/api/analytics/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(eventData),keepalive:true}).catch(function(e){console.debug('Analytics error:',e);});}catch(e){console.debug('Analytics error:',e);}}function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){if(timeSpentTracker){clearInterval(timeSpentTracker);}var timeSpent=Date.now()-frameStartTime;if(timeSpent>100){trackEvent('time_spent',{value:timeSpent});}frameStartTime=Date.now();slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);trackEvent('frame_view',{frameIndex:i});var currentFrame=frames[i];if(currentFrame&&currentFrame.type==='ad'&&currentFrame.adConfig){trackEvent('ad_impression',{adId:currentFrame.adConfig.adId});}timeSpentTracker=setInterval(function(){var elapsed=Date.now()-frameStartTime;if(elapsed>=1000){trackEvent('time_spent',{value:1000});frameStartTime=Date.now();}},1000);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}trackEvent('story_view',{});show(idx);if(${!!autoplay}){scheduleNext();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -1085,7 +1372,7 @@
         'Fetching story from:',
         apiBaseUrl + '/api/stories/public/' + storyId
       )
-      fetch(apiBaseUrl + '/api/stories/public/' + storyId)
+      fetch(apiBaseUrl + '/api/stories/public/' + storyId + '?ts=' + Date.now())
         .then(function (response) {
           console.log('Response status:', response.status)
           if (!response.ok) {
@@ -1104,18 +1391,50 @@
           console.log('Format from API:', storyData.format)
           console.log('Device Frame from API:', storyData.deviceFrame)
 
-          // Cache the story data to prevent duplicate API calls
-          storyDataCache.set(storyId, storyData)
+          // Resolve autoplay/loop from embedConfig - always prefer config over passed parameters
+          var cfg = storyData.embedConfig || {}
+          // Always read from config if it exists, otherwise use passed parameter or default
+          if (cfg.regular || cfg.floater) {
+            if (isFloater && cfg.floater) {
+              if (typeof cfg.floater.autoplay === 'boolean') {
+                autoplay = cfg.floater.autoplay
+              }
+              if (typeof cfg.floater.loop === 'boolean') {
+                loop = cfg.floater.loop
+              }
+            } else if (!isFloater && cfg.regular) {
+              if (typeof cfg.regular.autoplay === 'boolean') {
+                autoplay = cfg.regular.autoplay
+              }
+              if (typeof cfg.regular.loop === 'boolean') {
+                loop = cfg.regular.loop
+              }
+            }
+          }
+          // Fallback to passed parameters if config doesn't have values
+          if (typeof autoplay === 'undefined') {
+            autoplay = false
+          }
+          if (typeof loop === 'undefined') {
+            loop = false
+          }
+          // Ensure loop and autoplay are proper booleans
+          loop = !!loop
+          autoplay = !!autoplay
+          console.log('Loop value:', loop, 'Type:', typeof loop, 'Config:', cfg)
+          console.log('Autoplay value:', autoplay, 'Type:', typeof autoplay)
+
+          // Cache the story data with timestamp to prevent staleness
+          storyDataCache.set(storyId, { data: storyData, ts: Date.now() })
 
           var frames = storyData.frames || []
           var story = {
             storyTitle: storyData.title,
             publisherName: storyData.publisherName,
             publisherPic: storyData.publisherPic,
-            ctaType: storyData.ctaType,
-            ctaValue: storyData.ctaValue,
             format: storyData.format || 'portrait',
             deviceFrame: storyData.deviceFrame || 'mobile',
+            defaultDurationMs: storyData.defaultDurationMs || 5000,
           }
 
           console.log('Final story object:', story)
@@ -1123,46 +1442,73 @@
           console.log('Final deviceFrame:', story.deviceFrame)
 
           // Determine ideal container dimensions from story format/device frame
-          var idealDims = calculateRegularContainerDimensions(
-            story.format,
-            story.deviceFrame
-          )
-
-          // If container has no explicit size or is using defaults, set appropriate size
-          var currentWidth = container.style.width || container.offsetWidth
-          var currentHeight = container.style.height || container.offsetHeight
-          if (!currentWidth || !currentHeight) {
-            container.style.width = idealDims.width + 'px'
-            container.style.height = idealDims.height + 'px'
-          } else {
-            // If it's still at portrait defaults (360x640), switch to ideal
-            var cw =
-              typeof currentWidth === 'string' && currentWidth.includes('px')
-                ? parseInt(currentWidth)
-                : currentWidth
-            var ch =
-              typeof currentHeight === 'string' && currentHeight.includes('px')
-                ? parseInt(currentHeight)
-                : currentHeight
-            if ((cw === 360 && ch === 640) || cw === 0 || ch === 0) {
-              container.style.width = idealDims.width + 'px'
-              container.style.height = idealDims.height + 'px'
+          var idealDims = (function () {
+            // Prefer explicit sizes from embedConfig.regular when provided
+            var rc = cfg.regular || {}
+            if (typeof rc.width === 'number' && typeof rc.height === 'number') {
+              var w = rc.width
+              var h = rc.height
+              // If saved size aspect ratio conflicts with story orientation, ignore saved size
+              var isLandscapeSize = w > h
+              var expectLandscape = story.format === 'landscape'
+              if (isLandscapeSize === expectLandscape) {
+                return { width: w, height: h }
+              }
+              // mismatch → fall through to calculated dims
             }
+            return calculateRegularContainerDimensions(
+              story.format,
+              story.deviceFrame
+            )
+          })()
+
+          // Always apply ideal dimensions to container (from embedConfig or calculated)
+          // This ensures consistent sizing regardless of initial element state
+          container.style.cssText = `
+            display: block;
+            width: ${idealDims.width}px;
+            height: ${idealDims.height}px;
+            margin: 20px auto;
+            position: relative;
+            max-width: ${idealDims.width}px;
+            max-height: ${idealDims.height}px;
+            box-sizing: border-box;
+            overflow: hidden;
+          `
+
+          // Use the ideal dimensions directly
+          // For floater, use iframe dimensions (after scaling); for regular, use ideal dimensions
+          var width, height
+          if (floaterOptions && floaterOptions.isFloater) {
+            // For floater, the iframe is sized to floaterDims / scaleFactor
+            // This is the actual size the content sees, so use it for positioning
+            var floaterDims = floaterOptions.floaterDimensions
+            var scaleFactor = floaterOptions.scaleFactor || 1
+            width = floaterDims.width / scaleFactor
+            height = floaterDims.height / scaleFactor
+          } else {
+            width = idealDims.width
+            height = idealDims.height
           }
 
-          // Get container dimensions (after possible adjustment)
-          var width =
-            container.style.width || container.offsetWidth || idealDims.width
-          var height =
-            container.style.height || container.offsetHeight || idealDims.height
-
-          // Ensure dimensions are in pixels
-          if (typeof width === 'string' && width.includes('px')) {
-            width = parseInt(width)
-          }
-          if (typeof height === 'string' && height.includes('px')) {
-            height = parseInt(height)
-          }
+          // Calculate scale factor based on reference dimensions
+          // Reference dimensions: portrait (360x640), landscape (640x360)
+          var referenceWidth = story.format === 'landscape' ? 640 : 360
+          var referenceHeight = story.format === 'landscape' ? 360 : 640
+          var scaleFactor = Math.min(
+            width / referenceWidth,
+            height / referenceHeight
+          )
+          // Clamp scale factor to reasonable range (0.3 to 1.5)
+          scaleFactor = Math.max(0.3, Math.min(1.5, scaleFactor))
+          console.log(
+            'Scale factor:',
+            scaleFactor,
+            'for dimensions:',
+            width,
+            'x',
+            height
+          )
 
           // Calculate frame styling based on story's format and device frame
           var frameStyle = getFrameStyle(story.format, story.deviceFrame)
@@ -1181,7 +1527,7 @@
             iframe.style.height = '100%'
           }
 
-          iframe.style.border = frameStyle.border
+          iframe.style.border = '0'
           iframe.style.borderRadius = frameStyle.borderRadius
           iframe.style.background = frameStyle.background
           iframe.style.boxShadow = frameStyle.boxShadow
@@ -1191,8 +1537,9 @@
           iframe.style.top = '0'
           iframe.style.left = '0'
           iframe.style.outline = 'none'
+          iframe.style.boxSizing = 'border-box'
           iframe.style.zIndex = '1'
-          var slideDuration = 2500
+          var slideDuration = story.defaultDurationMs || 5000 // default; overridden per-frame in inline script
 
           // Helper function to calculate text element position and size based on format/deviceFrame
           function calculateTextElementPosition(
@@ -1201,49 +1548,56 @@
             containerHeight,
             format,
             deviceFrame,
-            hasFrameLink
+            hasFrameLink,
+            scaleFactor
           ) {
-            var isLandscapeVideoPlayer =
-              format === 'landscape' && deviceFrame === 'video-player'
-            var isPortraitMobile =
-              format === 'portrait' && deviceFrame === 'mobile'
+            // Button is fixed at bottom, text appears above it
+            // Calculate button height (approximate, scaled)
+            var baseButtonHeight = 44 // Base height for portrait, 36 for landscape (handled in button code)
+            var buttonHeight = Math.round(baseButtonHeight * scaleFactor)
+            var buttonPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+            var buttonMargin = Math.round(24 * scaleFactor) // Gap between text and button
 
-            // Text positioning - button will be positioned below text dynamically
-            var textBottomPadding = 20 // Padding from bottom for text (button will be below with gap)
+            // Text positioning - button is fixed at bottom, text appears above with margin
+            var textBottomPadding = hasFrameLink
+              ? buttonHeight + buttonMargin + buttonPadding
+              : Math.round(20 * scaleFactor)
 
             var textWidth, textLeft, textBottom, textHeight
 
-            if (isLandscapeVideoPlayer) {
-              // Landscape video player: 50% width, centered, bottom with padding
-              textWidth = Math.round(containerWidth * 0.5)
-              textLeft = Math.round((containerWidth - textWidth) / 2)
-              textBottom = textBottomPadding
-              // Height stays dynamic based on content, but ensure minimum
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
-            } else if (isPortraitMobile) {
-              // Portrait mobile: 90% width, centered, bottom with padding
+            // Base text height (scaled)
+            var baseTextHeight = 60
+            var scaledTextHeight = Math.round(baseTextHeight * scaleFactor)
+
+            if (format === 'portrait') {
+              // Portrait (mobile and video-player): 90% width, centered, above button
               textWidth = Math.round(containerWidth * 0.9)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              // Height stays dynamic based on content, but ensure minimum
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+              // Scale text height based on aspect ratio and container height
+              textHeight = Math.max(
+                scaledTextHeight,
+                Math.round(containerHeight * 0.15 * scaleFactor)
+              )
             } else {
-              // Other formats (portrait video-player, landscape mobile): use similar logic as portrait mobile
-              textWidth = Math.round(containerWidth * 0.85)
+              // Landscape (mobile and video-player): 50% width, centered, above button
+              textWidth = Math.round(containerWidth * 0.5)
               textLeft = Math.round((containerWidth - textWidth) / 2)
               textBottom = textBottomPadding
-              textHeight = el.height || Math.max(60, containerHeight * 0.15)
+              // Scale text height based on aspect ratio and container height
+              textHeight = Math.max(
+                scaledTextHeight,
+                Math.round(containerHeight * 0.15 * scaleFactor)
+              )
             }
 
             // Convert bottom to top position (since we use top in CSS)
-            // Position from bottom, accounting for button space if needed
-            var buttonSpace = hasFrameLink ? 80 : 0 // Space for button + gap
-            var textTop =
-              containerHeight - textBottom - textHeight - buttonSpace
+            // Position from bottom, accounting for button space
+            var textTop = containerHeight - textBottom - textHeight
 
             return {
               left: textLeft,
-              top: Math.max(80, textTop), // Ensure text doesn't overlap with header (top:32px + 32px height + 16px padding)
+              top: Math.max(Math.round(80 * scaleFactor), textTop), // Ensure text doesn't overlap with header (scaled)
               width: textWidth,
               height: textHeight,
             }
@@ -1292,19 +1646,41 @@
               // Frame Link Button for ad frames - store data instead of creating HTML
               var adLinkClickHandler = ''
               if (frame.link) {
-                // Calculate button size based on aspect ratio
+                // Calculate button size based on aspect ratio and scale factor
                 var isLandscape = story.format === 'landscape'
                 var aspectRatio = width / height
                 var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-                // Button size calculations based on aspect ratio
-                var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-                var buttonFontSize = isWide ? '12px' : '15px'
-                var buttonLeft = isWide ? '50%' : '16px'
-                var buttonRight = isWide ? 'auto' : '16px'
+                // Base button sizes (reference dimensions)
+                var basePaddingV = isWide ? 8 : 12
+                var basePaddingH = isWide ? 16 : 24
+                var baseFontSize = isWide ? 12 : 15
+                var baseButtonHeight = isWide ? 36 : 44
+
+                // Apply scale factor to button sizes
+                var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+                var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+                var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+                // For floater embeds, ensure minimum readable font size
+                if (floaterOptions && floaterOptions.isFloater) {
+                  buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+                }
+                var buttonPadding =
+                  buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+                var buttonFontSizePx = buttonFontSize + 'px'
+                var approxButtonHeight = Math.round(
+                  baseButtonHeight * scaleFactor
+                )
+
+                var buttonLeft = isWide
+                  ? '50%'
+                  : Math.round(16 * scaleFactor) + 'px'
+                var buttonRight = isWide ? 'auto' : 'auto'
                 var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 var buttonMaxWidth = isWide ? '80%' : 'auto'
-                var buttonTop = height - 80 + 'px' // Position from bottom (32px bottom + ~48px button height)
+                // Button is fixed at bottom
+                var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+                var buttonBottom = buttonBottomPadding + 'px'
 
                 // Use frame-specific link text or default
                 var linkButtonText =
@@ -1318,12 +1694,13 @@
                   link: frame.link,
                   text: linkButtonText,
                   left: buttonLeft,
-                  top: buttonTop,
+                  bottom: buttonBottom, // Fixed at bottom
                   transform: buttonTransform,
                   marginLeft: '0',
                   maxWidth: buttonMaxWidth,
                   padding: buttonPadding,
-                  fontSize: buttonFontSize,
+                  fontSize: buttonFontSizePx,
+                  hidden: false, // Ad frame buttons are always visible (unless overflow)
                 })
 
                 // Remove parent slide click handler when button exists (navigation still works via nav areas)
@@ -1349,15 +1726,45 @@
             // Handle regular story frames
             var bg = ''
             var bgImg = ''
+            // Compute background transforms from saved frame background settings
+            var bgZoom = 1,
+              bgX = 0,
+              bgY = 0,
+              bgRot = 0
+            if (frame.background) {
+              if (typeof frame.background.zoom === 'number')
+                bgZoom = frame.background.zoom / 100
+              if (typeof frame.background.offsetX === 'number')
+                bgX = frame.background.offsetX
+              if (typeof frame.background.offsetY === 'number')
+                bgY = frame.background.offsetY
+              if (typeof frame.background.rotation === 'number')
+                bgRot = frame.background.rotation
+            }
             if (frame.background) {
               if (frame.background.type === 'color') {
                 bg = 'background:' + frame.background.value + ';'
               } else if (frame.background.type === 'image') {
                 bg = 'background:#000;'
                 bgImg =
+                  // Background: blurred cover fill layer
                   '<img src="' +
                   frame.background.value +
-                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;border-radius:' +
+                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:cover;transform:translate(-50%,-50%);z-index:0;filter:blur(20px) brightness(0.85);border-radius:' +
+                  frameStyle.innerBorderRadius +
+                  ';" />' +
+                  // Foreground: main image using contain so it is not over-zoomed
+                  '<img src="' +
+                  frame.background.value +
+                  '" style="position:absolute;left:50%;top:50%;width:100%;height:100%;object-fit:contain;transform:translate(-50%,-50%) translate(' +
+                  bgX +
+                  'px, ' +
+                  bgY +
+                  'px) rotate(' +
+                  bgRot +
+                  'deg) scale(' +
+                  bgZoom +
+                  ');z-index:1;border-radius:' +
                   frameStyle.innerBorderRadius +
                   ';" />'
               }
@@ -1383,7 +1790,8 @@
                     height,
                     story.format,
                     story.deviceFrame,
-                    !!frame.link
+                    !!frame.link,
+                    scaleFactor
                   )
                   elementWidth = textPos.width
                   elementHeight = textPos.height
@@ -1394,7 +1802,10 @@
                   // Since height is auto, estimate actual height (at least min-height)
                   var estimatedHeight = Math.max(
                     elementHeight,
-                    Math.max(24, Math.round(el.height || 0))
+                    Math.max(
+                      Math.round(24 * scaleFactor),
+                      Math.round(el.height || 0)
+                    )
                   )
                   textElementBottom = elementTop + estimatedHeight
                   textElementLeft = elementLeft
@@ -1412,12 +1823,22 @@
                   elementHeight +
                   'px;'
                 if (el.type === 'text') {
-                  var minH = Math.max(24, Math.round(elementHeight || 0))
+                  var minH = Math.max(
+                    Math.round(24 * scaleFactor),
+                    Math.round(elementHeight || 0)
+                  )
+                  // Apply scale factor to font size
+                  var baseFontSize = el.style.fontSize || 18
+                  var scaledFontSize = Math.round(baseFontSize * scaleFactor)
+                  // For floater embeds, ensure minimum readable font size
+                  if (floaterOptions && floaterOptions.isFloater) {
+                    scaledFontSize = Math.max(scaledFontSize, 12)
+                  }
                   style +=
                     'color:' +
                     (el.style.color || '#fff') +
                     ';font-size:' +
-                    (el.style.fontSize || 18) +
+                    scaledFontSize +
                     'px;font-family:' +
                     (el.style.fontFamily || 'inherit') +
                     ';font-weight:' +
@@ -1426,7 +1847,9 @@
                     (el.style.backgroundColor || 'transparent') +
                     ';opacity:' +
                     (el.style.opacity || 100) / 100 +
-                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;' +
+                    ';display:flex;align-items:center;justify-content:center;text-align:center;padding:' +
+                    Math.round(2 * scaleFactor) +
+                    'px;' +
                     'height:auto;min-height:' +
                     minH +
                     'px;z-index:5;word-break:break-word;overflow-wrap:break-word;'
@@ -1478,22 +1901,31 @@
             var frameLinkButton = ''
             var linkClickHandler = ''
             if (frame.link) {
-              // Calculate button size based on aspect ratio
+              // Calculate button size based on aspect ratio and scale factor
               var isLandscape = story.format === 'landscape'
               var aspectRatio = width / height
               var isWide = aspectRatio > 1.2 // Wide aspect ratio (landscape video player)
 
-              // Button size calculations based on aspect ratio
-              var buttonPadding = isWide ? '8px 16px' : '12px 24px'
-              var buttonFontSize = isWide ? '12px' : '15px'
+              // Base button sizes (reference dimensions)
+              var basePaddingV = isWide ? 8 : 12
+              var basePaddingH = isWide ? 16 : 24
+              var baseFontSize = isWide ? 12 : 15
+
+              // Apply scale factor to button sizes
+              var buttonPaddingV = Math.round(basePaddingV * scaleFactor)
+              var buttonPaddingH = Math.round(basePaddingH * scaleFactor)
+              var buttonFontSize = Math.round(baseFontSize * scaleFactor)
+              // For floater embeds, ensure minimum readable font size
+              if (floaterOptions && floaterOptions.isFloater) {
+                buttonFontSize = Math.max(buttonFontSize, isWide ? 11 : 13)
+              }
+              var buttonPadding = buttonPaddingV + 'px ' + buttonPaddingH + 'px'
+              var buttonFontSizePx = buttonFontSize + 'px'
               var buttonMaxWidth = isWide ? '80%' : 'auto'
 
-              // Position button below text element with gap
-              var buttonGap = 24 // Gap between text and button
-              var buttonTop =
-                textElementBottom !== null
-                  ? textElementBottom + buttonGap
-                  : height - 100 // Fallback if no text element
+              // Button is fixed at bottom
+              var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
+              var buttonBottom = buttonBottomPadding + 'px'
 
               // Calculate button horizontal position based on text element or aspect ratio
               var buttonLeft = ''
@@ -1504,13 +1936,18 @@
                 // Center button relative to text element
                 var buttonWidth = isWide
                   ? Math.min(textElementWidth, width * 0.8)
-                  : Math.min(textElementWidth, width - 32)
+                  : Math.min(
+                      textElementWidth,
+                      width - Math.round(32 * scaleFactor)
+                    )
                 buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
                 buttonTransform = 'translateX(-50%)'
                 buttonMarginLeft = '0'
               } else {
                 // Fallback: center based on aspect ratio
-                buttonLeft = isWide ? '50%' : '16px'
+                buttonLeft = isWide
+                  ? '50%'
+                  : Math.round(16 * scaleFactor) + 'px'
                 buttonTransform = isWide ? 'translateX(-50%)' : 'none'
                 buttonMarginLeft = isWide ? '0' : '0'
               }
@@ -1527,27 +1964,17 @@
                 link: frame.link,
                 text: linkButtonText,
                 left: buttonLeft,
-                top: buttonTop,
+                bottom: buttonBottom, // Fixed at bottom
                 transform: buttonTransform,
                 marginLeft: buttonMarginLeft,
                 maxWidth: buttonMaxWidth,
                 padding: buttonPadding,
-                fontSize: buttonFontSize,
+                fontSize: buttonFontSizePx,
+                hidden: false, // Regular frame buttons are always visible (unless overflow)
               })
 
               // Remove parent slide click handler when button exists (navigation still works via nav areas)
               linkClickHandler = ''
-            } else if (story.ctaType) {
-              // Fallback to story-level CTA if no frame link
-              var ctaText = ''
-              if (story.ctaType === 'redirect') ctaText = 'Visit Link'
-              if (story.ctaType === 'form') ctaText = 'Fill Form'
-              if (story.ctaType === 'promo') ctaText = 'Get Promo'
-              if (story.ctaType === 'sell') ctaText = 'Buy Now'
-              frameLinkButton =
-                '<div id="snappy-cta-btn" style="position:absolute;left:16px;right:16px;bottom:32px;z-index:10;"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:12px 24px;text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:15px;cursor:pointer;">' +
-                ctaText +
-                '</div></div>'
             }
 
             // Progress bar
@@ -1586,7 +2013,14 @@
 
           // Create buttons container outside slides
           var buttonsHtml = buttonData
+            .filter(function (btn) {
+              return !btn.hidden
+            })
             .map(function (btn) {
+              // Use bottom if available (for fixed bottom positioning), otherwise use top
+              var positionStyle = btn.bottom
+                ? 'bottom:' + btn.bottom + ';'
+                : 'top:' + (btn.top || '0px') + ';'
               return (
                 '<a href="' +
                 escapeAttr(btn.link) +
@@ -1598,9 +2032,9 @@
                 btn.left +
                 ';margin-left:' +
                 btn.marginLeft +
-                ';top:' +
-                btn.top +
-                'px;z-index:70;display:none;text-decoration:none;transform:' +
+                ';' +
+                positionStyle +
+                'z-index:70;display:none;text-decoration:none;transform:' +
                 btn.transform +
                 ';max-width:' +
                 btn.maxWidth +
@@ -1626,7 +2060,6 @@
           .nav-area{position:absolute;top:0;bottom:0;width:50%;z-index:50;}
           .nav-area.left{left:0;}
           .nav-area.right{right:0;}
-          #snappy-cta-btn > div { cursor: pointer; }
           .snappy-frame-link-btn { cursor: pointer !important; pointer-events: auto !important; z-index: 70 !important; }
           .snappy-frame-link-btn > div { cursor: pointer; pointer-events: none; }
           .snappy-frame-link-btn > div:hover { background: rgba(255,255,255,1); transform: scale(1.05); }
@@ -1698,7 +2131,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var interval=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${loop};function animateProgressBar(i){var bars=document.querySelectorAll('.progress-bar');bars.forEach(function(bar,bidx){bar.style.transition='none';if(bidx<i){bar.style.width='100%';bar.style.transition='width 0.3s';}else if(bidx===i){bar.style.width='0%';setTimeout(function(){bar.style.transition='width '+${slideDuration}+'ms linear';bar.style.width='100%';},0);}else{bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);attachCTAHandler();}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}}show(idx);if(${autoplay}){resetAutoplay();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}}show(idx);if(${autoplay}){resetAutoplay();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function resetAutoplay(){if(interval){clearTimeout(interval);}animateProgressBar(idx);interval=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);resetAutoplay();},${slideDuration});}function attachCTAHandler(){var cta=document.getElementById('snappy-cta-btn');if(cta){cta.onclick=function(e){e.stopPropagation();if(story.ctaType==='redirect'&&story.ctaValue){window.open(story.ctaValue,'_blank');}else{alert('CTA clicked: '+(story.ctaType||''));}};}}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${autoplay}){resetAutoplay();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});var storyId='${storyData.id}';var apiBaseUrl='${apiBaseUrl}';var sessionId='session_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);var frameStartTime=Date.now();var timeSpentTracker=null;function trackEvent(eventType,options){try{var eventData={storyId:storyId,eventType:eventType,sessionId:sessionId,frameIndex:options?.frameIndex,value:options?.value,metadata:{timestamp:new Date().toISOString()}};fetch(apiBaseUrl+'/api/analytics/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(eventData),keepalive:true}).catch(function(e){console.debug('Analytics error:',e);});}catch(e){console.debug('Analytics error:',e);}}function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){if(timeSpentTracker){clearInterval(timeSpentTracker);}var timeSpent=Date.now()-frameStartTime;if(timeSpent>100){trackEvent('time_spent',{value:timeSpent});}frameStartTime=Date.now();slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);trackEvent('frame_view',{frameIndex:i});var currentFrame=frames[i];if(currentFrame&&currentFrame.type==='ad'&&currentFrame.adConfig){trackEvent('ad_impression',{adId:currentFrame.adConfig.adId});}timeSpentTracker=setInterval(function(){var elapsed=Date.now()-frameStartTime;if(elapsed>=1000){trackEvent('time_spent',{value:1000});frameStartTime=Date.now();}},1000);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}trackEvent('story_view',{});show(idx);if(${!!autoplay}){scheduleNext();}
         </script></body></html>`
 
           iframe.srcdoc = html
@@ -1706,6 +2139,35 @@
           // Clear container and append iframe directly
           container.innerHTML = ''
           container.appendChild(iframe)
+
+          // If embedConfig requests floater, initialize it too (feature parity)
+          try {
+            var floaterCfg = cfg.floater || {}
+            var floaterEnabled = !!(
+              cfg.type === 'floater' || floaterCfg.enabled
+            )
+            var hasExplicitFloater =
+              container.getAttribute('data-floater') === 'true'
+            if (floaterEnabled && !hasExplicitFloater) {
+              processFloaterWithData(
+                storyData,
+                container,
+                apiBaseUrl,
+                floaterCfg.direction || 'right',
+                typeof floaterCfg.triggerScroll === 'number'
+                  ? floaterCfg.triggerScroll
+                  : 50,
+                floaterCfg.position || 'bottom',
+                floaterCfg.size || 'medium',
+                !!floaterCfg.autoHide,
+                typeof floaterCfg.autoHideDelay === 'number'
+                  ? floaterCfg.autoHideDelay
+                  : 5000
+              )
+            }
+          } catch (e) {
+            console.warn('Floater initialization skipped:', e)
+          }
 
           // Remove from pending requests
           pendingRequests.delete(requestKey)

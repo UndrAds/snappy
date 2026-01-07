@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Card,
@@ -19,7 +19,15 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
-import { Upload, Save, Smartphone, Monitor, Info, Rss } from 'lucide-react'
+import {
+  Upload,
+  Save,
+  Smartphone,
+  Monitor,
+  Info,
+  Rss,
+  Megaphone,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
 import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
@@ -28,6 +36,7 @@ import type {
   DeviceFrame,
   StoryType,
   RSSConfig,
+  AdInsertionConfig,
 } from '@snappy/shared-types'
 import {
   Tooltip,
@@ -43,28 +52,18 @@ interface SnapData {
     name: string
     profilePic: File | null
   }
-  thumbnails: {
-    large: File | null
-    small: File | null
-  }
-  cta: {
-    type: 'redirect' | 'form' | 'promo' | 'sell' | null
-    value: string
-    text: string
-  }
+  // thumbnails removed
   format: StoryFormat
   deviceFrame: DeviceFrame
   storyType: StoryType
   rssConfig?: RSSConfig
+  defaultDurationMs?: number
 }
 
 export default function CreateSnapPage() {
   const defaultPublisherPic =
     'https://ui-avatars.com/api/?name=John+Doe&background=random'
-  const defaultLargeThumbnail =
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80'
-  const defaultSmallThumbnail =
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=200&q=80'
+  // default thumbnails removed
 
   const navigate = useNavigate()
   const [snapData, setSnapData] = useState<SnapData>({
@@ -73,29 +72,18 @@ export default function CreateSnapPage() {
       name: 'John Doe',
       profilePic: null, // File upload will still work, but preview will use default
     },
-    thumbnails: {
-      large: null,
-      small: null,
-    },
-    cta: {
-      type: null,
-      value: '',
-      text: '',
-    },
+    // thumbnails removed
     format: 'portrait' as const,
     deviceFrame: 'mobile' as const,
     storyType: 'static' as const,
     rssConfig: undefined,
+    defaultDurationMs: 2500,
   })
 
   const [previewUrls, setPreviewUrls] = useState<{
     publisherPic?: string
-    largeThumbnail?: string
-    smallThumbnail?: string
   }>({
     publisherPic: defaultPublisherPic,
-    largeThumbnail: defaultLargeThumbnail,
-    smallThumbnail: defaultSmallThumbnail,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -112,6 +100,18 @@ export default function CreateSnapPage() {
   const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
     string | null
   >(null)
+
+  // Initialize adInsertionConfig when story type is dynamic
+  useEffect(() => {
+    if (snapData.storyType === 'dynamic' && !rssConfig.adInsertionConfig) {
+      setRssConfig((prev) => ({
+        ...prev,
+        adInsertionConfig: {
+          strategy: 'start-end',
+        },
+      }))
+    }
+  }, [snapData.storyType, rssConfig.adInsertionConfig])
 
   const handleInputChange = (field: string, value: string) => {
     setSnapData((prev) => ({
@@ -130,10 +130,7 @@ export default function CreateSnapPage() {
     }))
   }
 
-  const handleFileUpload = async (
-    type: 'publisherPic' | 'largeThumbnail' | 'smallThumbnail',
-    file: File
-  ) => {
+  const handlePublisherPicUpload = async (file: File) => {
     try {
       setIsLoading(true)
 
@@ -142,28 +139,12 @@ export default function CreateSnapPage() {
 
       if (response.success && response.data) {
         const url = response.data.url
-        setPreviewUrls((prev) => ({
-          ...prev,
-          [type]: url,
-        }))
+        setPreviewUrls((prev) => ({ ...prev, publisherPic: url }))
 
-        if (type === 'publisherPic') {
-          setSnapData((prev) => ({
-            ...prev,
-            publisher: {
-              ...prev.publisher,
-              profilePic: file,
-            },
-          }))
-        } else {
-          setSnapData((prev) => ({
-            ...prev,
-            thumbnails: {
-              ...prev.thumbnails,
-              [type === 'largeThumbnail' ? 'large' : 'small']: file,
-            },
-          }))
-        }
+        setSnapData((prev) => ({
+          ...prev,
+          publisher: { ...prev.publisher, profilePic: file },
+        }))
 
         toast.success('File uploaded successfully!')
       } else {
@@ -177,29 +158,7 @@ export default function CreateSnapPage() {
     }
   }
 
-  const handleCtaChange = (type: string, value: string) => {
-    setSnapData((prev) => ({
-      ...prev,
-      cta: {
-        type:
-          type === 'none'
-            ? null
-            : (type as 'redirect' | 'form' | 'promo' | 'sell' | null),
-        value: type === 'none' ? '' : value,
-        text: prev.cta.text, // Preserve existing text
-      },
-    }))
-  }
-
-  const handleCtaTextChange = (text: string) => {
-    setSnapData((prev) => ({
-      ...prev,
-      cta: {
-        ...prev.cta,
-        text,
-      },
-    }))
-  }
+  // CTA removed: story-level CTA no longer supported
 
   const handleStoryTypeChange = (value: StoryType) => {
     setSnapData((prev) => ({
@@ -269,18 +228,8 @@ export default function CreateSnapPage() {
       toast.error('Please upload a publisher profile picture')
       return
     }
-    if (!snapData.thumbnails.large && !previewUrls.largeThumbnail) {
-      toast.error('Please upload a large thumbnail')
-      return
-    }
-    if (!snapData.thumbnails.small && !previewUrls.smallThumbnail) {
-      toast.error('Please upload a small thumbnail')
-      return
-    }
-    if (snapData.cta.type && !snapData.cta.value.trim()) {
-      toast.error('Please enter a CTA value')
-      return
-    }
+    // thumbnail requirements removed
+    // No story-level CTA validation
 
     // Validate RSS configuration if dynamic story
     if (snapData.storyType === 'dynamic') {
@@ -308,11 +257,6 @@ export default function CreateSnapPage() {
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,
-        largeThumbnail: previewUrls.largeThumbnail,
-        smallThumbnail: previewUrls.smallThumbnail,
-        ctaType: snapData.cta.type || undefined,
-        ctaValue: snapData.cta.value || undefined,
-        ctaText: snapData.cta.text || undefined,
         format: snapData.format,
         deviceFrame: snapData.deviceFrame,
         storyType: snapData.storyType,
@@ -332,13 +276,11 @@ export default function CreateSnapPage() {
             storyTitle: snapData.name,
             publisherName: snapData.publisher.name,
             publisherPic: previewUrls.publisherPic,
-            thumbnail: previewUrls.largeThumbnail,
-            background: previewUrls.largeThumbnail,
-            ctaType: snapData.cta.type || undefined,
-            ctaValue: snapData.cta.value || undefined,
-            ctaText: snapData.cta.text || undefined,
+            thumbnail: '',
+            background: '',
             format: snapData.format,
             deviceFrame: snapData.deviceFrame,
+            defaultDurationMs: snapData.defaultDurationMs || 2500,
           }
 
           navigate(`/editor/${storyResponse.data.uniqueId}`, {
@@ -610,6 +552,124 @@ export default function CreateSnapPage() {
             </Card>
           )}
 
+          {/* Ad Insertion Configuration - Only show for dynamic stories */}
+          {snapData.storyType === 'dynamic' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="h-5 w-5" />
+                  Ad Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure how and where ads should be automatically inserted
+                  in your dynamic story
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Ad Insertion Strategy</Label>
+                  <RadioGroup
+                    value={rssConfig.adInsertionConfig?.strategy || 'start-end'}
+                    onValueChange={(value) => {
+                      const strategy = value as AdInsertionConfig['strategy']
+                      handleRssConfigChange('adInsertionConfig', {
+                        strategy,
+                        ...(strategy === 'interval'
+                          ? {
+                              interval:
+                                rssConfig.adInsertionConfig?.interval || 3,
+                              intervalPosition:
+                                rssConfig.adInsertionConfig?.intervalPosition ||
+                                'after',
+                            }
+                          : {}),
+                      } as AdInsertionConfig)
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="start-end" id="start-end" />
+                        <Label htmlFor="start-end">
+                          Start & End (ads at beginning and end)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="alternate" id="alternate" />
+                        <Label htmlFor="alternate">
+                          Alternate each post (ad after each post)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="interval" id="interval" />
+                        <Label htmlFor="interval">
+                          After/before/between each N posts
+                        </Label>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {rssConfig.adInsertionConfig?.strategy === 'interval' && (
+                  <div className="space-y-4 rounded-md border p-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ad-interval">Number of Posts (N)</Label>
+                      <Input
+                        id="ad-interval"
+                        type="number"
+                        min="1"
+                        value={rssConfig.adInsertionConfig?.interval || 3}
+                        onChange={(e) =>
+                          handleRssConfigChange('adInsertionConfig', {
+                            ...rssConfig.adInsertionConfig,
+                            interval: Math.max(
+                              1,
+                              parseInt(e.target.value) || 3
+                            ),
+                          } as AdInsertionConfig)
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Insert an ad after every N posts
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Ad Position</Label>
+                      <RadioGroup
+                        value={
+                          rssConfig.adInsertionConfig?.intervalPosition ||
+                          'after'
+                        }
+                        onValueChange={(value) =>
+                          handleRssConfigChange('adInsertionConfig', {
+                            ...rssConfig.adInsertionConfig,
+                            intervalPosition:
+                              value as AdInsertionConfig['intervalPosition'],
+                          } as AdInsertionConfig)
+                        }
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="before" id="before" />
+                            <Label htmlFor="before">Before posts</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="after" id="after" />
+                            <Label htmlFor="after">After posts</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="between" id="between" />
+                            <Label htmlFor="between">Between posts</Label>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Format and Device Selection */}
           <Card>
             <CardHeader>
@@ -696,117 +756,74 @@ export default function CreateSnapPage() {
               </div>
               <FileUpload
                 label="Publisher Profile Picture"
-                onFileSelect={(file) => handleFileUpload('publisherPic', file)}
+                onFileSelect={(file) => handlePublisherPicUpload(file)}
                 previewUrl={previewUrls.publisherPic}
               />
             </CardContent>
           </Card>
 
-          {/* Story Configuration */}
+          {/* Story Configuration (thumbnails removed) */}
           <Card>
             <CardHeader>
               <CardTitle>Story Configuration</CardTitle>
               <CardDescription>
-                Upload thumbnails for your story
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FileUpload
-                label="Large Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('largeThumbnail', file)
-                }
-                previewUrl={previewUrls.largeThumbnail}
-              />
-              <FileUpload
-                label="Small Thumbnail"
-                onFileSelect={(file) =>
-                  handleFileUpload('smallThumbnail', file)
-                }
-                previewUrl={previewUrls.smallThumbnail}
-              />
-            </CardContent>
-          </Card>
-
-          {/* CTA Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Call to Action</CardTitle>
-              <CardDescription>
-                Configure the action users will take
+                Set default settings for your story
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="cta-type">CTA Type</Label>
-                <Select
-                  value={snapData.cta.type || 'none'}
-                  onValueChange={(value) =>
-                    handleCtaChange(value, snapData.cta.value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select CTA type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No CTA</SelectItem>
-                    <SelectItem value="redirect">Redirect to URL</SelectItem>
-                    <SelectItem value="form">Open a Form</SelectItem>
-                    <SelectItem value="promo">Give a Promo Code</SelectItem>
-                    <SelectItem value="sell">Sell an Item</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Default Frame Duration</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[5000, 10000, 15000, 20000, 30000].map((ms) => (
+                    <Button
+                      key={ms}
+                      type="button"
+                      variant={
+                        (snapData.defaultDurationMs || 2500) === ms
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() =>
+                        setSnapData((prev) => ({
+                          ...prev,
+                          defaultDurationMs: ms,
+                        }))
+                      }
+                    >
+                      {ms / 1000}s
+                    </Button>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      className="w-24"
+                      value={Math.round(
+                        (snapData.defaultDurationMs || 2500) / 1000
+                      )}
+                      onChange={(e) =>
+                        setSnapData((prev) => ({
+                          ...prev,
+                          defaultDurationMs:
+                            Math.max(1, Number(e.target.value) || 5) * 1000,
+                        }))
+                      }
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      seconds
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Used for all new frames by default. Frames can override this
+                  in editor.
+                </p>
               </div>
-              {snapData.cta.type && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-value">
-                    {snapData.cta.type === 'redirect' && 'URL'}
-                    {snapData.cta.type === 'form' && 'Form Name'}
-                    {snapData.cta.type === 'promo' && 'Promo Code'}
-                    {snapData.cta.type === 'sell' && 'Product Name'}
-                  </Label>
-                  <Input
-                    id="cta-value"
-                    placeholder={
-                      snapData.cta.type === 'redirect'
-                        ? 'https://example.com'
-                        : snapData.cta.type === 'form'
-                          ? 'Contact Form'
-                          : snapData.cta.type === 'promo'
-                            ? 'SAVE20'
-                            : 'Product Name'
-                    }
-                    value={snapData.cta.value}
-                    onChange={(e) =>
-                      handleCtaChange(snapData.cta.type!, e.target.value)
-                    }
-                  />
-                </div>
-              )}
-              {snapData.cta.type && (
-                <div className="space-y-2">
-                  <Label htmlFor="cta-text">CTA Button Text</Label>
-                  <Input
-                    id="cta-text"
-                    placeholder={
-                      snapData.cta.type === 'redirect'
-                        ? 'Visit Link'
-                        : snapData.cta.type === 'form'
-                          ? 'Fill Form'
-                          : snapData.cta.type === 'promo'
-                            ? 'Get Promo'
-                            : 'Buy Now'
-                    }
-                    value={snapData.cta.text}
-                    onChange={(e) => handleCtaTextChange(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave empty to use default text
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {/* CTA removed: story-level CTA is no longer supported */}
         </div>
 
         {/* Right Panel - Mobile Preview */}
@@ -816,10 +833,7 @@ export default function CreateSnapPage() {
               publisherName={snapData.publisher.name}
               storyTitle={snapData.name}
               publisherPic={previewUrls.publisherPic}
-              mainContent={previewUrls.largeThumbnail}
-              ctaType={snapData.cta.type}
-              ctaValue={snapData.cta.value}
-              ctaText={snapData.cta.text}
+              mainContent={undefined}
               currentSlide={1}
               totalSlides={4}
               showProgressBar={true}
@@ -834,7 +848,6 @@ export default function CreateSnapPage() {
       {/* Bottom Bar - Static */}
       <div className="border-t bg-background px-6 py-3">
         <div className="flex justify-end space-x-4">
-          <Button variant="outline">Save Draft</Button>
           <Button
             onClick={handleSaveAndEdit}
             className="flex items-center space-x-2"

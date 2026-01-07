@@ -40,6 +40,9 @@ model Story {
   format      String   @default("portrait") // 'portrait' | 'landscape'
   deviceFrame String   @default("mobile") // 'mobile' | 'video-player'
   storyType   String   @default("static") // 'static' | 'dynamic'
+  defaultDurationMs Int @default(2500) // Default frame duration in ms
+  // Embed configuration stored as JSON, controls autoplay/loop/sizing and floater options
+  embedConfig Json?
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -50,6 +53,8 @@ model Story {
   // Relations
   user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   frames  StoryFrame[]
+  analytics StoryAnalytics?
+  analyticsEvents StoryAnalyticsEvent[]
 
   @@map("stories")
 }
@@ -62,6 +67,7 @@ model StoryFrame {
   name      String?  // Custom frame name
   link      String?  // Optional link URL for the frame
   linkText  String?  // Custom link text (defaults to "Link")
+  durationMs Int      @default(2500) // Per-frame duration in milliseconds
   storyId   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,4 +123,40 @@ model StoryBackground {
   frame StoryFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
 
   @@map("story_backgrounds")
+}
+
+model StoryAnalytics {
+  id          String   @id @default(cuid())
+  storyId     String   @unique
+  views       Int      @default(0) // Total number of story views
+  avgPostsSeen Float   @default(0) // Average number of frames/posts seen per view
+  avgTimeSpent Float   @default(0) // Average time spent in milliseconds
+  avgAdsSeen  Float   @default(0) // Average number of ads seen per view
+  impressions Int      @default(0) // Total ad impressions
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@map("story_analytics")
+}
+
+model StoryAnalyticsEvent {
+  id          String   @id @default(cuid())
+  storyId     String
+  eventType   String   // 'story_view' | 'frame_view' | 'ad_impression' | 'time_spent' | 'story_complete'
+  frameIndex  Int?     // Frame index for frame_view events
+  value       Float?   // Value for time_spent events (in ms)
+  sessionId   String?  // Session identifier to group events from same user session
+  metadata    Json?    // Additional metadata (user agent, referrer, etc.)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@index([storyId])
+  @@index([storyId, eventType])
+  @@index([storyId, createdAt])
+  @@map("story_analytics_events")
 } 

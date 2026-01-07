@@ -39,6 +39,7 @@ export class SchedulerService {
         removeOnComplete: 10,
         removeOnFail: 5,
         attempts: 3,
+        timeout: 300000, // 5 minutes timeout per job to prevent indefinite blocking
         backoff: {
           type: 'exponential',
           delay: 2000,
@@ -54,8 +55,9 @@ export class SchedulerService {
    * Setup queue processors
    */
   private setupQueueProcessors() {
-    // Process RSS update jobs
-    this.rssQueue.process('update-story', async (job) => {
+    // Process RSS update jobs with concurrency limit to prevent blocking
+    // Concurrency of 2 allows parallel processing while keeping resource usage reasonable
+    this.rssQueue.process('update-story', 2, async (job) => {
       const { storyId, rssConfig } = job.data;
 
       try {

@@ -116,3 +116,6 @@ packages/backend/prisma/migrations/
 
 # Vite
 packages/frontend/.vite/ 
+
+# OpenMemory - IDE/Assistant specific rules
+.cursor/rules/openmemory.mdc

@@ -14,6 +14,7 @@ import storyRoutes from './routes/stories';
 import uploadRoutes from './routes/uploads';
 import contentRoutes from './routes/content';
 import rssRoutes from './routes/rss';
+import analyticsRoutes from './routes/analytics';
 import { SchedulerService } from './services/schedulerService';
 
 const app = express();
@@ -71,6 +72,7 @@ app.use('/api/stories', storyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/rss', rssRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 handler
 app.use(notFound);

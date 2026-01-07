@@ -348,4 +348,85 @@ export const contentAPI = {
   },
 }
 
+// Analytics API
+export interface StoryAnalytics {
+  storyId: string
+  views: number
+  avgPostsSeen: number
+  avgTimeSpent: number
+  avgAdsSeen: number
+  impressions: number
+}
+
+export interface AnalyticsEvent {
+  id: string
+  eventType: string
+  frameIndex: number | null
+  value: number | null
+  sessionId: string | null
+  metadata: any
+  createdAt: string
+}
+
+export const analyticsAPI = {
+  // Get analytics for all user's stories
+  getUserStoriesAnalytics: async (): Promise<ApiResponse<StoryAnalytics[]>> => {
+    const response = await api.get('/api/analytics')
+    return response.data
+  },
+
+  // Get analytics for a specific story
+  getStoryAnalytics: async (
+    storyId: string
+  ): Promise<ApiResponse<StoryAnalytics>> => {
+    const response = await api.get(`/api/analytics/${storyId}`)
+    return response.data
+  },
+
+  // Get detailed analytics events for a story
+  getStoryAnalyticsEvents: async (
+    storyId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<
+    ApiResponse<{
+      events: AnalyticsEvent[]
+      total: number
+    }>
+  > => {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+    if (offset) params.append('offset', offset.toString())
+    const queryString = params.toString()
+    const url = `/api/analytics/${storyId}/events${queryString ? `?${queryString}` : ''}`
+    const response = await api.get(url)
+    return response.data
+  },
+
+  // Get day-wise analytics for a story
+  getStoryDayWiseAnalytics: async (
+    storyId: string,
+    days?: number
+  ): Promise<
+    ApiResponse<
+      Array<{
+        date: string
+        views: number
+        impressions: number
+        avgPostsSeen: number
+        avgTimeSpent: number
+        avgAdsSeen: number
+        sessions: number
+      }>
+    >
+  > => {
+    const params = new URLSearchParams()
+    if (days) params.append('days', days.toString())
+    const queryString = params.toString()
+    const url = `/api/analytics/${storyId}/daywise${queryString ? `?${queryString}` : ''}`
+    const response = await api.get(url)
+    return response.data
+  },
+}
+
 export default api

@@ -67,6 +67,77 @@
   var storyDataCache = new Map() // Cache for story data to prevent duplicate API calls
   var CACHE_TTL_MS = 30000 // 30s TTL to avoid stale format/deviceFrame after edits
 
+  // Analytics tracking
+  var analyticsSessions = new Map() // Map of storyId -> session data
+  var ANALYTICS_API_ENDPOINT = '/api/analytics/track'
+
+  // Generate unique session ID
+  function generateSessionId() {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+  }
+
+  // Track analytics event
+  function trackAnalyticsEvent(storyId, eventType, options) {
+    if (!storyId) return
+
+    // Get or create session
+    if (!analyticsSessions.has(storyId)) {
+      analyticsSessions.set(storyId, {
+        sessionId: generateSessionId(),
+        apiBaseUrl: options?.apiBaseUrl || DEFAULT_API_BASE_URL,
+        startTime: Date.now(),
+        lastFrameIndex: -1,
+        framesSeen: new Set(),
+        timeSpent: 0,
+        adsSeen: new Set(),
+      })
+    }
+
+    var session = analyticsSessions.get(storyId)
+    var apiBaseUrl = session.apiBaseUrl
+
+    // Prepare event data
+    var eventData = {
+      storyId: storyId,
+      eventType: eventType,
+      sessionId: session.sessionId,
+      frameIndex: options?.frameIndex,
+      value: options?.value,
+      metadata: {
+        userAgent: navigator.userAgent,
+        referrer: document.referrer || '',
+        timestamp: new Date().toISOString(),
+      },
+    }
+
+    // Update session tracking
+    if (eventType === 'frame_view' && options?.frameIndex !== undefined) {
+      session.framesSeen.add(options.frameIndex)
+      session.lastFrameIndex = options.frameIndex
+    } else if (eventType === 'time_spent' && options?.value !== undefined) {
+      session.timeSpent += options.value
+    } else if (eventType === 'ad_impression' && options?.adId) {
+      session.adsSeen.add(options.adId)
+    }
+
+    // Send event to backend (fire and forget - don't block UI)
+    try {
+      fetch(apiBaseUrl + ANALYTICS_API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
+        keepalive: true, // Keep request alive even if page unloads
+      }).catch(function (error) {
+        // Silently fail - analytics shouldn't break the user experience
+        console.debug('Analytics tracking failed:', error)
+      })
+    } catch (error) {
+      console.debug('Analytics tracking error:', error)
+    }
+  }
+
   // Wait for DOM to be ready
   function initializeEmbeds() {
     // Clear any pending initialization
@@ -370,7 +441,7 @@
     `
 
     // Render the story in the regular container first (reuse the fetched data)
-    renderStoryDirectly(storyData, regularContainer, false, false, null, false)
+    renderStoryDirectly(storyData, regularContainer, false, false, null, false, apiBaseUrl)
 
     // Create floater container with calculated dimensions
     var floaterContainer = document.createElement('div')
@@ -520,7 +591,8 @@
         scaleFactor: dimensions.width / width,
         floaterDimensions: dimensions,
       },
-      false
+      false,
+      apiBaseUrl
     )
 
     // Start scroll detection
@@ -537,7 +609,8 @@
     autoplay,
     isFloater,
     floaterOptions,
-    loop
+    loop,
+    apiBaseUrl
   ) {
     // Read from embedConfig first, then fallback to passed parameters or defaults
     try {
@@ -1257,7 +1330,7 @@
       window.googletag.cmd.push(initializeAds);
     }
     
-    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${!!autoplay}){scheduleNext();}
+    var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});var storyId='${storyData.id}';var apiBaseUrl='${apiBaseUrl || DEFAULT_API_BASE_URL}';var sessionId='session_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);var frameStartTime=Date.now();var timeSpentTracker=null;function trackEvent(eventType,options){try{var eventData={storyId:storyId,eventType:eventType,sessionId:sessionId,frameIndex:options?.frameIndex,value:options?.value,metadata:{timestamp:new Date().toISOString()}};fetch(apiBaseUrl+'/api/analytics/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(eventData),keepalive:true}).catch(function(e){console.debug('Analytics error:',e);});}catch(e){console.debug('Analytics error:',e);}}function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){if(timeSpentTracker){clearInterval(timeSpentTracker);}var timeSpent=Date.now()-frameStartTime;if(timeSpent>100){trackEvent('time_spent',{value:timeSpent});}frameStartTime=Date.now();slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);trackEvent('frame_view',{frameIndex:i});var currentFrame=frames[i];if(currentFrame&&currentFrame.type==='ad'&&currentFrame.adConfig){trackEvent('ad_impression',{adId:currentFrame.adConfig.adId});}timeSpentTracker=setInterval(function(){var elapsed=Date.now()-frameStartTime;if(elapsed>=1000){trackEvent('time_spent',{value:1000});frameStartTime=Date.now();}},1000);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}trackEvent('story_view',{});show(idx);if(${!!autoplay}){scheduleNext();}
     </script></body></html>`
 
     iframe.srcdoc = html
@@ -2058,7 +2131,7 @@
           window.googletag.cmd.push(initializeAds);
         }
         
-        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}show(idx);if(${!!autoplay}){scheduleNext();}
+        var slides=document.querySelectorAll('.slide');var idx=0;var timer=null;var story=${JSON.stringify(story)};var frames=${JSON.stringify(frames)};var loop=${!!loop};var defaultDur=story.defaultDurationMs||5000;var frameDurations=(frames||[]).map(function(f){return (f&&typeof f.durationMs==='number'&&f.durationMs>0)?f.durationMs:defaultDur;});var storyId='${storyData.id}';var apiBaseUrl='${apiBaseUrl}';var sessionId='session_'+Date.now()+'_'+Math.random().toString(36).substr(2,9);var frameStartTime=Date.now();var timeSpentTracker=null;function trackEvent(eventType,options){try{var eventData={storyId:storyId,eventType:eventType,sessionId:sessionId,frameIndex:options?.frameIndex,value:options?.value,metadata:{timestamp:new Date().toISOString()}};fetch(apiBaseUrl+'/api/analytics/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(eventData),keepalive:true}).catch(function(e){console.debug('Analytics error:',e);});}catch(e){console.debug('Analytics error:',e);}}function animateProgressBar(i){var activeSlide=slides[i];if(!activeSlide)return;var bars=activeSlide.querySelectorAll('.progress-bar');var dur=frameDurations[i]||defaultDur;bars.forEach(function(bar,bidx){var dataIdx=parseInt(bar.getAttribute('data-idx')||bidx);if(dataIdx<i){bar.style.transition='none';bar.style.width='100%';}else if(dataIdx===i){bar.style.transition='none';bar.style.width='0%';bar.style.display='block';setTimeout(function(){bar.style.transition='width '+dur+'ms linear';bar.style.width='100%';},10);}else{bar.style.transition='none';bar.style.width='0%';}});}function show(i){if(timeSpentTracker){clearInterval(timeSpentTracker);}var timeSpent=Date.now()-frameStartTime;if(timeSpent>100){trackEvent('time_spent',{value:timeSpent});}frameStartTime=Date.now();slides.forEach(function(s,j){s.classList.toggle('active',j===i);});var buttons=document.querySelectorAll('.snappy-frame-link-btn');buttons.forEach(function(btn){var btnIdx=parseInt(btn.getAttribute('data-frame-idx')||'-1');btn.style.display=btnIdx===i?'block':'none';});animateProgressBar(i);trackEvent('frame_view',{frameIndex:i});var currentFrame=frames[i];if(currentFrame&&currentFrame.type==='ad'&&currentFrame.adConfig){trackEvent('ad_impression',{adId:currentFrame.adConfig.adId});}timeSpentTracker=setInterval(function(){var elapsed=Date.now()-frameStartTime;if(elapsed>=1000){trackEvent('time_spent',{value:1000});frameStartTime=Date.now();}},1000);}function next(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(${!!autoplay}){scheduleNext();}}function prev(){if(loop){idx=(idx-1+slides.length)%slides.length;}else{if(idx>0){idx--;}else{return;}}show(idx);if(${!!autoplay}){scheduleNext();}}document.getElementById('navLeft').onclick=prev;document.getElementById('navRight').onclick=next;function scheduleNext(){if(timer){clearTimeout(timer);}var dur=frameDurations[idx]||defaultDur;timer=setTimeout(function(){if(loop){idx=(idx+1)%slides.length;}else{if(idx<slides.length-1){idx++;}else{trackEvent('story_complete',{});return;}}show(idx);if(loop){scheduleNext();}else if(idx<slides.length-1){scheduleNext();}},dur);}function handleFrameLink(url){try{if(url){window.open(url,'_blank','noopener,noreferrer');}}catch(e){}}trackEvent('story_view',{});show(idx);if(${!!autoplay}){scheduleNext();}
         </script></body></html>`
 
           iframe.srcdoc = html

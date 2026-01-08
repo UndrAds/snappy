@@ -24,7 +24,7 @@ export class AnalyticsController {
       }
 
       // Validate eventType
-      const validEventTypes = ['story_view', 'frame_view', 'ad_impression', 'time_spent', 'story_complete'];
+      const validEventTypes = ['story_view', 'frame_view', 'ad_impression', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
       if (!validEventTypes.includes(eventType)) {
         const response: ApiResponse = {
           success: false,

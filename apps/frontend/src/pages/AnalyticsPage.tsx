@@ -61,6 +61,7 @@ export default function AnalyticsPage() {
       avgTimeSpent: acc.avgTimeSpent + a.avgTimeSpent,
       avgAdsSeen: acc.avgAdsSeen + a.avgAdsSeen,
       impressions: acc.impressions + a.impressions,
+      clicks: acc.clicks + (a.clicks || 0),
     }),
     {
       views: 0,
@@ -68,6 +69,7 @@ export default function AnalyticsPage() {
       avgTimeSpent: 0,
       avgAdsSeen: 0,
       impressions: 0,
+      clicks: 0,
     }
   )
 
@@ -201,9 +203,11 @@ export default function AnalyticsPage() {
                   <tr className="border-b">
                     <th className="px-4 py-3 text-left text-sm font-medium">Story Title</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Views</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Clicks</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">CTR</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Viewability</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Avg. Posts Seen</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Avg. Time Spent</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Avg. Ads Seen</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Impressions</th>
                     <th className="px-4 py-3 text-left text-sm font-medium">Type</th>
                   </tr>
@@ -223,14 +227,18 @@ export default function AnalyticsPage() {
                           {story?.title || 'Unknown Story'}
                         </td>
                         <td className="px-4 py-3">{analyticsItem.views}</td>
+                        <td className="px-4 py-3">{analyticsItem.clicks || 0}</td>
+                        <td className="px-4 py-3">
+                          {(analyticsItem.ctr || 0).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-3">
+                          {(analyticsItem.viewability || 0).toFixed(1)}%
+                        </td>
                         <td className="px-4 py-3">
                           {analyticsItem.avgPostsSeen.toFixed(1)}
                         </td>
                         <td className="px-4 py-3">
                           {formatTime(analyticsItem.avgTimeSpent)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {analyticsItem.avgAdsSeen.toFixed(1)}
                         </td>
                         <td className="px-4 py-3">{analyticsItem.impressions}</td>
                         <td className="px-4 py-3">

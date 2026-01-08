@@ -88,6 +88,12 @@ export default function StoryAnalyticsPage() {
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'
   const textColor = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)'
   
+  // Bar chart colors that work in both light and dark mode
+  const barColors = {
+    impressions: isDark ? '#3b82f6' : '#2563eb', // Blue
+    sessions: isDark ? '#8b5cf6' : '#7c3aed', // Purple
+  }
+  
   // Tooltip colors - explicit colors that work well in both themes
   const tooltipStyle = isDark
     ? {
@@ -229,7 +235,7 @@ export default function StoryAnalyticsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Views</CardTitle>
@@ -279,6 +285,32 @@ export default function StoryAnalyticsPage() {
               {formatTime(analytics?.avgTimeSpent || 0)}
             </div>
             <p className="text-xs text-muted-foreground">Per story view</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">CTR</CardTitle>
+            <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(analytics?.ctr || 0).toFixed(2)}%
+            </div>
+            <p className="text-xs text-muted-foreground">Click-through rate</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Viewability</CardTitle>
+            <Image className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(analytics?.viewability || 0).toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">Frames viewed / total</p>
           </CardContent>
         </Card>
       </div>
@@ -353,7 +385,7 @@ export default function StoryAnalyticsPage() {
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Bar
                   dataKey="impressions"
-                  fill="hsl(var(--chart-1))"
+                  fill={barColors.impressions}
                   name="Impressions"
                 />
               </BarChart>
@@ -442,7 +474,7 @@ export default function StoryAnalyticsPage() {
                   formatter={(value: number) => [value, 'Sessions']}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
-                <Bar dataKey="sessions" fill="hsl(var(--chart-4))" name="Sessions" />
+                <Bar dataKey="sessions" fill={barColors.sessions} name="Sessions" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -456,7 +488,7 @@ export default function StoryAnalyticsPage() {
           <CardDescription>Key performance indicators</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <TrendingUp className="h-4 w-4 text-green-600" />
@@ -470,6 +502,30 @@ export default function StoryAnalyticsPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <MousePointerClick className="h-4 w-4 text-blue-600" />
+                CTR
+              </div>
+              <p className="text-2xl font-bold">
+                {(analytics?.ctr || 0).toFixed(2)}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Click-through rate for CTA
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Image className="h-4 w-4 text-purple-600" />
+                Viewability
+              </div>
+              <p className="text-2xl font-bold">
+                {(analytics?.viewability || 0).toFixed(1)}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Frames viewed / total frames
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BarChart3 className="h-4 w-4 text-orange-600" />
                 Engagement Rate
               </div>
               <p className="text-2xl font-bold">
@@ -484,7 +540,7 @@ export default function StoryAnalyticsPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Image className="h-4 w-4 text-purple-600" />
+                <TrendingUp className="h-4 w-4 text-indigo-600" />
                 Ad Performance
               </div>
               <p className="text-2xl font-bold">

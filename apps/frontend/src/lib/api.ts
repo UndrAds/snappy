@@ -356,6 +356,9 @@ export interface StoryAnalytics {
   avgTimeSpent: number
   avgAdsSeen: number
   impressions: number
+  clicks: number // Total clicks (navigation clicks + CTA clicks)
+  ctr: number // Click-through rate for CTA clicks (percentage)
+  viewability: number // Viewability percentage (frames viewed / total frames)
 }
 
 export interface AnalyticsEvent {

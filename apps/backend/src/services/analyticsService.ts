@@ -7,7 +7,9 @@ export type AnalyticsEventType =
   | 'frame_view'
   | 'ad_impression'
   | 'time_spent'
-  | 'story_complete';
+  | 'story_complete'
+  | 'navigation_click'
+  | 'cta_click';
 
 export interface TrackEventData {
   storyId: string;
@@ -25,6 +27,9 @@ export interface StoryAnalytics {
   avgTimeSpent: number;
   avgAdsSeen: number;
   impressions: number;
+  clicks: number; // Total clicks (navigation clicks + CTA clicks)
+  ctr: number; // Click-through rate for CTA clicks (percentage)
+  viewability: number; // Viewability percentage (frames viewed / total frames)
 }
 
 export class AnalyticsService {
@@ -76,6 +81,16 @@ export class AnalyticsService {
       // Calculate metrics
       const storyViews = events.filter((e: any) => e.eventType === 'story_view').length;
       const adImpressions = events.filter((e: any) => e.eventType === 'ad_impression').length;
+      const navigationClicks = events.filter((e: any) => e.eventType === 'navigation_click').length;
+      const ctaClicks = events.filter((e: any) => e.eventType === 'cta_click').length;
+      const totalClicks = navigationClicks + ctaClicks;
+
+      // Get total number of frames in the story
+      const story = await prisma.story.findUnique({
+        where: { id: storyId },
+        include: { frames: true },
+      });
+      const totalFrames = story?.frames?.length || 1;
 
       // Group events by session to calculate per-session metrics
       const sessions = new Map<
@@ -117,6 +132,12 @@ export class AnalyticsService {
       const avgAdsSeen =
         Array.from(sessions.values()).reduce((sum, s) => sum + s.adsSeen, 0) / sessionCount;
 
+      // Calculate CTR: (CTA clicks / story views) * 100
+      const ctr = storyViews > 0 ? (ctaClicks / storyViews) * 100 : 0;
+
+      // Calculate viewability: (average frames seen / total frames) * 100
+      const viewability = totalFrames > 0 ? (avgPostsSeen / totalFrames) * 100 : 0;
+
       // Upsert aggregated analytics
       await (prisma as any).storyAnalytics.upsert({
         where: { storyId },
@@ -127,6 +148,9 @@ export class AnalyticsService {
           avgTimeSpent,
           avgAdsSeen,
           impressions: adImpressions,
+          clicks: totalClicks,
+          ctr,
+          viewability,
         },
         update: {
           views: storyViews,
@@ -134,6 +158,9 @@ export class AnalyticsService {
           avgTimeSpent,
           avgAdsSeen,
           impressions: adImpressions,
+          clicks: totalClicks,
+          ctr,
+          viewability,
         },
       });
     } catch (error: any) {
@@ -160,6 +187,9 @@ export class AnalyticsService {
           avgTimeSpent: 0,
           avgAdsSeen: 0,
           impressions: 0,
+          clicks: 0,
+          ctr: 0,
+          viewability: 0,
         };
       }
 
@@ -170,6 +200,9 @@ export class AnalyticsService {
         avgTimeSpent: analytics.avgTimeSpent,
         avgAdsSeen: analytics.avgAdsSeen,
         impressions: analytics.impressions,
+        clicks: analytics.clicks ?? 0,
+        ctr: analytics.ctr ?? 0,
+        viewability: analytics.viewability ?? 0,
       };
     } catch (error: any) {
       console.error('Error getting story analytics:', error);
@@ -198,6 +231,9 @@ export class AnalyticsService {
           avgTimeSpent: analytics?.avgTimeSpent ?? 0,
           avgAdsSeen: analytics?.avgAdsSeen ?? 0,
           impressions: analytics?.impressions ?? 0,
+          clicks: analytics?.clicks ?? 0,
+          ctr: analytics?.ctr ?? 0,
+          viewability: analytics?.viewability ?? 0,
         };
       });
     } catch (error: any) {

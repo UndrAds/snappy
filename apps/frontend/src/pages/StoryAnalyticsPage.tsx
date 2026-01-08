@@ -29,7 +29,6 @@ import {
   TrendingUp,
   BarChart3,
   ArrowLeft,
-  Users,
   MousePointerClick,
 } from 'lucide-react'
 import { analyticsAPI, storyAPI } from '@/lib/api'
@@ -341,7 +340,7 @@ export default function StoryAnalyticsPage() {
                   labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number) => [value, 'Views']}
+                  formatter={(value: number | undefined) => [value ?? 0, 'Views']}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Line
@@ -380,7 +379,7 @@ export default function StoryAnalyticsPage() {
                   labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number) => [value, 'Impressions']}
+                  formatter={(value: number | undefined) => [value ?? 0, 'Impressions']}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Bar
@@ -418,11 +417,11 @@ export default function StoryAnalyticsPage() {
                   labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number, name: string) => {
+                  formatter={(value: number | undefined, name: string | undefined) => {
                     if (name === 'avgTimeSpent') {
-                      return [formatTime(value), 'Avg Time Spent']
+                      return [formatTime(value ?? 0), 'Avg Time Spent']
                     }
-                    return [value.toFixed(1), 'Avg Posts Seen']
+                    return [(value ?? 0).toFixed(1), 'Avg Posts Seen']
                   }}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
@@ -471,7 +470,7 @@ export default function StoryAnalyticsPage() {
                   labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number) => [value, 'Sessions']}
+                  formatter={(value: number | undefined) => [value ?? 0, 'Sessions']}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Bar dataKey="sessions" fill={barColors.sessions} name="Sessions" />

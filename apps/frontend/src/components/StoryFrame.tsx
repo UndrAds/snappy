@@ -705,7 +705,7 @@ export default function StoryFrame({
 
     // Using full container size with object-fit: contain; no need for pixel dimensions
 
-    let style: React.CSSProperties = {
+    const style: React.CSSProperties = {
       position: 'absolute',
       left: '50%',
       top: '50%',

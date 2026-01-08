@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Eye, Clock, Image, TrendingUp, BarChart3 } from 'lucide-react'
 import { analyticsAPI, storyAPI } from '@/lib/api'
@@ -20,7 +19,6 @@ export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<StoryAnalytics[]>([])
   const [stories, setStories] = useState<Story[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null)
 
   // Load analytics and stories
   useEffect(() => {

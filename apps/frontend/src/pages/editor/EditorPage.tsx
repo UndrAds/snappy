@@ -500,7 +500,7 @@ export default function EditorPage() {
 
     // Best practice: Always create on backend first if storyId exists
     if (currentStoryId) {
-      ;(async () => {
+      (async () => {
         try {
           const response = await storyAPI.createStoryFrame(currentStoryId, {
             order: frames.length + 1,

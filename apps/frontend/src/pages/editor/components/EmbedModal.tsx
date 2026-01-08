@@ -290,7 +290,7 @@ const EmbedModal: React.FC<EmbedModalProps> = ({
   useEffect(() => {
     const cfg = (storyData as any)?.story?.embedConfig
     if (open && !cfg && storyId) {
-      ;(async () => {
+      (async () => {
         try {
           // Prefer public uniqueId route first (works in preview and embed contexts)
           const res = await storyAPI.getStoryByUniqueId(storyId)

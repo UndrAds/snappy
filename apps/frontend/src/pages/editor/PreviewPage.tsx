@@ -68,7 +68,7 @@ export default function PreviewPage() {
 
     try {
       if (!window.googletag) {
-        ;(window as any).googletag = { cmd: [] }
+        (window as any).googletag = { cmd: [] }
       }
       const adUnitPath: string | undefined = cur.adConfig.adUnitPath
       if (!adUnitPath) return
@@ -82,7 +82,7 @@ export default function PreviewPage() {
             ? [cur.adConfig.size]
             : [[300, 250]]
 
-      function defineAndDisplay() {
+      const defineAndDisplay = () => {
         try {
           // Wait a bit for the div to be rendered
           setTimeout(() => {

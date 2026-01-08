@@ -250,10 +250,8 @@ export default function CreateSnapPage() {
     try {
       setIsLoading(true)
 
-      let storyResponse
-
       // Create story (both static and dynamic)
-      storyResponse = await storyAPI.createStory({
+      const storyResponse = await storyAPI.createStory({
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,

@@ -82,7 +82,7 @@ export class AdminController {
       const response: ApiResponse = {
         success: true,
         data: {
-          advertisers: advertisers.map((user) => ({
+          advertisers: advertisers.map((user: { id: string; email: string; name: string | null }) => ({
             id: user.id,
             email: user.email,
             name: user.name,

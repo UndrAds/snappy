@@ -96,23 +96,6 @@ export default function AdminDashboardPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
-  const [userAnalyticsDialogOpen, setUserAnalyticsDialogOpen] = useState(false)
-  const [selectedUserAnalytics, setSelectedUserAnalytics] = useState<{
-    user: { id: string; email: string; name: string | null; role: string }
-    analytics: Array<{
-      storyId: string
-      storyTitle: string
-      views: number
-      avgPostsSeen: number
-      avgTimeSpent: number
-      avgAdsSeen: number
-      impressions: number
-      clicks: number
-      ctr: number
-      viewability: number
-    }>
-  } | null>(null)
-  const [loadingUserAnalytics, setLoadingUserAnalytics] = useState(false)
 
   useEffect(() => {
     loadStats()
@@ -199,23 +182,8 @@ export default function AdminDashboardPage() {
     }, 100)
   }
 
-  const handleViewUserAnalytics = async (userId: string) => {
-    try {
-      setLoadingUserAnalytics(true)
-      const response = await adminAPI.getUserAnalytics(userId)
-
-      if (response.success && response.data) {
-        setSelectedUserAnalytics(response.data)
-        setUserAnalyticsDialogOpen(true)
-      } else {
-        toast.error('Failed to load user analytics')
-      }
-    } catch (error) {
-      console.error('Load user analytics error:', error)
-      toast.error('Failed to load user analytics')
-    } finally {
-      setLoadingUserAnalytics(false)
-    }
+  const handleViewUserAnalytics = (userId: string) => {
+    navigate(`/admin/user/${userId}/analytics`)
   }
 
   const loadStories = async () => {
@@ -743,139 +711,6 @@ export default function AdminDashboardPage() {
               Delete
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* User Analytics Dialog */}
-      <Dialog
-        open={userAnalyticsDialogOpen}
-        onOpenChange={setUserAnalyticsDialogOpen}
-      >
-        <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Analytics for {selectedUserAnalytics?.user.email}
-            </DialogTitle>
-            <DialogDescription>
-              View analytics for all stories created by this user
-            </DialogDescription>
-          </DialogHeader>
-          {loadingUserAnalytics ? (
-            <div className="py-8 text-center">Loading analytics...</div>
-          ) : selectedUserAnalytics &&
-            selectedUserAnalytics.analytics.length > 0 ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Total Stories</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {selectedUserAnalytics.analytics.length}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Total Views</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {selectedUserAnalytics.analytics.reduce(
-                        (sum, a) => sum + a.views,
-                        0
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Total Impressions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {selectedUserAnalytics.analytics.reduce(
-                        (sum, a) => sum + a.impressions,
-                        0
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Total Clicks</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {selectedUserAnalytics.analytics.reduce(
-                        (sum, a) => sum + (a.clicks || 0),
-                        0
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[200px]">
-                        Story Title
-                      </TableHead>
-                      <TableHead>Views</TableHead>
-                      <TableHead>Impressions</TableHead>
-                      <TableHead>Clicks</TableHead>
-                      <TableHead>CTR</TableHead>
-                      <TableHead>Avg Posts Seen</TableHead>
-                      <TableHead>Avg Time (ms)</TableHead>
-                      <TableHead>Avg Ads Seen</TableHead>
-                      <TableHead>Viewability</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedUserAnalytics.analytics.map((analytics) => (
-                      <TableRow key={analytics.storyId}>
-                        <TableCell className="font-medium">
-                          {analytics.storyTitle || 'Untitled Story'}
-                        </TableCell>
-                        <TableCell>
-                          {analytics.views.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {analytics.impressions.toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {(analytics.clicks || 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          {analytics.ctr
-                            ? `${analytics.ctr.toFixed(2)}%`
-                            : '0%'}
-                        </TableCell>
-                        <TableCell>
-                          {analytics.avgPostsSeen.toFixed(1)}
-                        </TableCell>
-                        <TableCell>
-                          {Math.round(analytics.avgTimeSpent).toLocaleString()}
-                        </TableCell>
-                        <TableCell>{analytics.avgAdsSeen.toFixed(1)}</TableCell>
-                        <TableCell>
-                          {analytics.viewability
-                            ? `${analytics.viewability.toFixed(2)}%`
-                            : '0%'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ) : (
-            <div className="py-8 text-center text-muted-foreground">
-              No analytics data available for this user
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>

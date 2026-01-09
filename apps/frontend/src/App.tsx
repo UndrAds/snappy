@@ -10,6 +10,7 @@ import EditStoryPage from '@/pages/EditStoryPage'
 import AnalyticsPage from '@/pages/AnalyticsPage'
 import StoryAnalyticsPage from '@/pages/StoryAnalyticsPage'
 import AdminDashboardPage from '@/pages/AdminDashboardPage'
+import UserAnalyticsPage from '@/pages/UserAnalyticsPage'
 import EditorPage from '@/pages/editor/EditorPage'
 import PreviewPage from '@/pages/editor/PreviewPage'
 import TestEmbedPage from '@/pages/editor/TestEmbedPage'
@@ -73,6 +74,14 @@ function App() {
               element={
                 <AdminProtectedRoute>
                   <AdminDashboardPage />
+                </AdminProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/user/:userId/analytics"
+              element={
+                <AdminProtectedRoute>
+                  <UserAnalyticsPage />
                 </AdminProtectedRoute>
               }
             />

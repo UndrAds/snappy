@@ -4,12 +4,12 @@ import { AuthRequest } from './auth';
 
 export const requireAdmin = async (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const userRole = req.user?.role;
+    const userRole = (req.user as any)?.role;
 
     if (!userId) {
       const error = new Error('User not authenticated') as any;

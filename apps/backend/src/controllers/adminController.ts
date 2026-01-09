@@ -6,7 +6,7 @@ import { StoryService } from '../services/storyService';
 
 export class AdminController {
   // Get admin dashboard stats
-  static async getStats(req: AuthRequest, res: Response) {
+  static async getStats(_req: AuthRequest, res: Response) {
     try {
       const [totalUsers, totalAdvertisers, totalStories, totalViews, totalImpressions] =
         await Promise.all([
@@ -98,7 +98,7 @@ export class AdminController {
         prisma.user.count({ where }),
       ]);
 
-      const usersWithCounts = users.map((user) => ({
+      const usersWithCounts = users.map((user: any) => ({
         id: user.id,
         email: user.email,
         name: user.name,
@@ -337,7 +337,7 @@ export class AdminController {
   }
 
   // Get analytics for all stories
-  static async getAllStoriesAnalytics(req: AuthRequest, res: Response) {
+  static async getAllStoriesAnalytics(_req: AuthRequest, res: Response) {
     try {
       const allStories = await prisma.story.findMany({
         include: {

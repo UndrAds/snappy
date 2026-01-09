@@ -24,10 +24,10 @@ export const authenticateToken = (req: AuthRequest, _res: Response, next: NextFu
       id: decoded.id,
       email: decoded.email,
       name: decoded.name,
-      role: decoded.role,
+      role: decoded.role as any,
       createdAt: decoded.createdAt,
       updatedAt: decoded.updatedAt,
-    };
+    } as any;
     next();
   } catch (error) {
     const jwtError = new Error('Invalid or expired token') as any;

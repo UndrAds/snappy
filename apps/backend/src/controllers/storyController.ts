@@ -6,7 +6,11 @@ export class StoryController {
   // Create a new story
   static async createStory(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
+      // Admins can assign story to any user via userId in body, otherwise use their own ID
+      const userId = userRole === 'admin' && (req.body as any).userId
+        ? (req.body as any).userId
+        : (req as any).user.id;
       const story = await StoryService.createStory(userId, req.body);
 
       const response: ApiResponse = {
@@ -136,7 +140,7 @@ export class StoryController {
       const userId = (req as any).user.id;
       const userRole = (req as any).user.role;
 
-      // Admins can update any story, regular users can only update their own
+      // Admins can update any story and reassign userId, regular users can only update their own
       const story = userRole === 'admin'
         ? await StoryService.updateStoryAsAdmin(id || '', req.body)
         : await StoryService.updateStory(id || '', userId || '', req.body);

@@ -48,6 +48,61 @@ export class AdminController {
     }
   }
 
+  // Get advertisers for story assignment (searchable, role='advertiser' only)
+  static async getAdvertisers(req: AuthRequest, res: Response) {
+    try {
+      const { search = '' } = req.query;
+
+      // Build where clause for search - only advertisers
+      const where: any = {
+        role: 'advertiser',
+      };
+
+      if (search) {
+        where.OR = [
+          { email: { contains: search as string, mode: 'insensitive' } },
+          { name: { contains: search as string, mode: 'insensitive' } },
+        ];
+      }
+
+      // Get advertisers (limit to 50 for dropdown)
+      const advertisers = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
+        take: 50,
+        orderBy: {
+          email: 'asc',
+        },
+      });
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          advertisers: advertisers.map((user) => ({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            displayText: `${user.email}${user.name ? ` <${user.name}>` : ''}`,
+          })),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          message: error.message || 'Failed to get advertisers',
+        },
+      };
+      res.status(500).json(response);
+    }
+  }
+
   // Get all users with story counts
   static async getUsers(req: AuthRequest, res: Response) {
     try {

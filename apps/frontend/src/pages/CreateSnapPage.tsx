@@ -30,7 +30,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import StoryFrame from '@/components/StoryFrame'
-import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
+import { storyAPI, uploadAPI, rssAPI, adminAPI } from '@/lib/api'
+import { useAuth } from '@/hooks/useAuth'
 import type {
   StoryFormat,
   DeviceFrame,
@@ -59,6 +60,7 @@ interface SnapData {
   rssConfig?: RSSConfig
   defaultDurationMs?: number
   cpm?: number
+  userId?: string // For admin to assign story to advertiser
 }
 
 export default function CreateSnapPage() {
@@ -67,6 +69,9 @@ export default function CreateSnapPage() {
   // default thumbnails removed
 
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  
   const [snapData, setSnapData] = useState<SnapData>({
     name: 'My Amazing Story',
     publisher: {
@@ -80,7 +85,21 @@ export default function CreateSnapPage() {
     rssConfig: undefined,
     defaultDurationMs: 2500,
     cpm: undefined,
+    userId: undefined,
   })
+
+  // Advertiser search state (admin only)
+  const [advertiserSearch, setAdvertiserSearch] = useState('')
+  const [advertisers, setAdvertisers] = useState<
+    Array<{ id: string; email: string; name: string | null; displayText: string }>
+  >([])
+  const [selectedAdvertiser, setSelectedAdvertiser] = useState<{
+    id: string
+    email: string
+    name: string | null
+    displayText: string
+  } | null>(null)
+  const [isLoadingAdvertisers, setIsLoadingAdvertisers] = useState(false)
 
   const [previewUrls, setPreviewUrls] = useState<{
     publisherPic?: string
@@ -114,6 +133,38 @@ export default function CreateSnapPage() {
       }))
     }
   }, [snapData.storyType, rssConfig.adInsertionConfig])
+
+  // Load advertisers when admin searches (debounced)
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const timeoutId = setTimeout(() => {
+      if (advertiserSearch.trim().length >= 2) {
+        loadAdvertisers(advertiserSearch.trim())
+      } else if (advertiserSearch.trim().length === 0) {
+        // Load initial list when search is cleared
+        loadAdvertisers('')
+      } else {
+        setAdvertisers([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [advertiserSearch, isAdmin])
+
+  const loadAdvertisers = async (search: string) => {
+    try {
+      setIsLoadingAdvertisers(true)
+      const response = await adminAPI.getAdvertisers({ search })
+      if (response.success && response.data) {
+        setAdvertisers(response.data.advertisers)
+      }
+    } catch (error) {
+      console.error('Failed to load advertisers:', error)
+    } finally {
+      setIsLoadingAdvertisers(false)
+    }
+  }
 
   const handleInputChange = (field: string, value: string | number | undefined) => {
     setSnapData((prev) => ({
@@ -253,7 +304,7 @@ export default function CreateSnapPage() {
       setIsLoading(true)
 
       // Create story (both static and dynamic)
-      const storyResponse = await storyAPI.createStory({
+      const storyData: any = {
         title: snapData.name,
         publisherName: snapData.publisher.name,
         publisherPic: previewUrls.publisherPic,
@@ -262,7 +313,14 @@ export default function CreateSnapPage() {
         storyType: snapData.storyType,
         rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
         cpm: snapData.cpm,
-      })
+      }
+      
+      // Include userId if admin is assigning to advertiser
+      if (isAdmin && selectedAdvertiser) {
+        storyData.userId = selectedAdvertiser.id
+      }
+      
+      const storyResponse = await storyAPI.createStory(storyData)
 
       if (storyResponse.success && storyResponse.data) {
         if (snapData.storyType === 'dynamic') {
@@ -415,6 +473,87 @@ export default function CreateSnapPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Advertiser Selection - Admin Only */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Assign to Advertiser</CardTitle>
+                <CardDescription>
+                  Select which advertiser this story belongs to
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="advertiser-search">Advertiser</Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="advertiser-search"
+                      placeholder="Search by email or name..."
+                      value={advertiserSearch}
+                      onChange={(e) => setAdvertiserSearch(e.target.value)}
+                      onFocus={() => {
+                        if (advertisers.length === 0 && !isLoadingAdvertisers) {
+                          loadAdvertisers('')
+                        }
+                      }}
+                    />
+                    {advertiserSearch && advertisers.length > 0 && (
+                      <div className="border rounded-md max-h-60 overflow-auto bg-background">
+                        {advertisers.map((advertiser) => (
+                          <div
+                            key={advertiser.id}
+                            className="px-4 py-2 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            onClick={() => {
+                              setSelectedAdvertiser(advertiser)
+                              setSnapData((prev) => ({
+                                ...prev,
+                                userId: advertiser.id,
+                              }))
+                              setAdvertiserSearch(advertiser.displayText)
+                            }}
+                          >
+                            <div className="text-sm font-medium">
+                              {advertiser.displayText}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedAdvertiser && (
+                      <div className="mt-2 p-2 bg-muted rounded-md">
+                        <div className="text-sm text-foreground">
+                          <span className="font-medium">Selected: </span>
+                          {selectedAdvertiser.displayText}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1 h-6 text-xs"
+                          onClick={() => {
+                            setSelectedAdvertiser(null)
+                            setSnapData((prev) => ({
+                              ...prev,
+                              userId: undefined,
+                            }))
+                            setAdvertiserSearch('')
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                    {isLoadingAdvertisers && (
+                      <div className="text-sm text-muted-foreground">
+                        Loading advertisers...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Story Type Selection */}
           <Card>

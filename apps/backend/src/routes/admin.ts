@@ -13,6 +13,7 @@ router.use(requireAdmin);
 router.get('/stats', AdminController.getStats);
 
 // User management
+router.get('/advertisers', AdminController.getAdvertisers);
 router.get('/users/:userId/analytics', AdminController.getUserAnalytics);
 router.get('/users', AdminController.getUsers);
 

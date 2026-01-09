@@ -457,6 +457,23 @@ export const adminAPI = {
     return response.data
   },
 
+  // Get advertisers for story assignment (searchable)
+  getAdvertisers: async (params?: {
+    search?: string
+  }): Promise<
+    ApiResponse<{
+      advertisers: Array<{
+        id: string
+        email: string
+        name: string | null
+        displayText: string
+      }>
+    }>
+  > => {
+    const response = await api.get('/api/admin/advertisers', { params })
+    return response.data
+  },
+
   // Get all users with pagination and filters
   getUsers: async (params?: {
     page?: number

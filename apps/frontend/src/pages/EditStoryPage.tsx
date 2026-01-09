@@ -28,10 +28,11 @@ import {
   Monitor,
   Megaphone,
 } from 'lucide-react'
-import { storyAPI, uploadAPI, rssAPI } from '@/lib/api'
+import { storyAPI, uploadAPI, rssAPI, adminAPI } from '@/lib/api'
 import RSSProgressLoader from '@/components/RSSProgressLoader'
 import { Story, AdInsertionConfig } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
+import { useAuth } from '@/hooks/useAuth'
 import {
   Tooltip,
   TooltipContent,
@@ -42,6 +43,9 @@ import {
 export default function EditStoryPage() {
   const navigate = useNavigate()
   const { uniqueId } = useParams()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  
   const [story, setStory] = useState<Story | null>(null)
   const [frames, setFrames] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -57,6 +61,19 @@ export default function EditStoryPage() {
   const [currentStoryUniqueId, setCurrentStoryUniqueId] = useState<
     string | null
   >(null)
+
+  // Advertiser search state (admin only)
+  const [advertiserSearch, setAdvertiserSearch] = useState('')
+  const [advertisers, setAdvertisers] = useState<
+    Array<{ id: string; email: string; name: string | null; displayText: string }>
+  >([])
+  const [selectedAdvertiser, setSelectedAdvertiser] = useState<{
+    id: string
+    email: string
+    name: string | null
+    displayText: string
+  } | null>(null)
+  const [isLoadingAdvertisers, setIsLoadingAdvertisers] = useState(false)
 
   // Load story data
   useEffect(() => {
@@ -88,6 +105,38 @@ export default function EditStoryPage() {
     }
   }, [story])
 
+  // Load advertisers when admin searches (debounced)
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const timeoutId = setTimeout(() => {
+      if (advertiserSearch.trim().length >= 2) {
+        loadAdvertisers(advertiserSearch.trim())
+      } else if (advertiserSearch.trim().length === 0) {
+        // Load initial list when search is cleared
+        loadAdvertisers('')
+      } else {
+        setAdvertisers([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timeoutId)
+  }, [advertiserSearch, isAdmin])
+
+  const loadAdvertisers = async (search: string) => {
+    try {
+      setIsLoadingAdvertisers(true)
+      const response = await adminAPI.getAdvertisers({ search })
+      if (response.success && response.data) {
+        setAdvertisers(response.data.advertisers)
+      }
+    } catch (error) {
+      console.error('Failed to load advertisers:', error)
+    } finally {
+      setIsLoadingAdvertisers(false)
+    }
+  }
+
   const loadStory = async () => {
     try {
       setIsLoading(true)
@@ -95,6 +144,25 @@ export default function EditStoryPage() {
 
       if (response.success && response.data) {
         setStory(response.data)
+        // Load story's userId for admin
+        if (isAdmin && (response.data as any).userId) {
+          const userId = (response.data as any).userId
+          // Load advertisers to find the current one
+          try {
+            const advResponse = await adminAPI.getAdvertisers({ search: '' })
+            if (advResponse.success && advResponse.data) {
+              const currentAdvertiser = advResponse.data.advertisers.find(
+                (a) => a.id === userId
+              )
+              if (currentAdvertiser) {
+                setSelectedAdvertiser(currentAdvertiser)
+                setAdvertiserSearch(currentAdvertiser.displayText)
+              }
+            }
+          } catch (error) {
+            console.error('Failed to load current advertiser:', error)
+          }
+        }
         // Load frames from story data
         if (
           (response.data as any).frames &&
@@ -176,7 +244,7 @@ export default function EditStoryPage() {
       setIsSaving(true)
 
       // Update story metadata
-      const response = await storyAPI.updateStory(story.id, {
+      const updateData: any = {
         title: story.title,
         publisherName: story.publisherName,
         publisherPic: story.publisherPic,
@@ -189,7 +257,14 @@ export default function EditStoryPage() {
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
             : null,
-      } as any)
+      }
+      
+      // Include userId if admin is reassigning
+      if (isAdmin && selectedAdvertiser) {
+        updateData.userId = selectedAdvertiser.id
+      }
+
+      const response = await storyAPI.updateStory(story.id, updateData)
 
       if (response.success) {
         // Check if defaultDurationMs has changed from the original
@@ -508,6 +583,79 @@ export default function EditStoryPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Advertiser Selection - Admin Only */}
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Assign to Advertiser</CardTitle>
+                <CardDescription>
+                  Change which advertiser this story belongs to
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="advertiser-search">Advertiser</Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="advertiser-search"
+                      placeholder="Search by email or name..."
+                      value={advertiserSearch}
+                      onChange={(e) => setAdvertiserSearch(e.target.value)}
+                      onFocus={() => {
+                        if (advertisers.length === 0 && !isLoadingAdvertisers) {
+                          loadAdvertisers('')
+                        }
+                      }}
+                    />
+                    {advertiserSearch && advertisers.length > 0 && (
+                      <div className="border rounded-md max-h-60 overflow-auto bg-background">
+                        {advertisers.map((advertiser) => (
+                          <div
+                            key={advertiser.id}
+                            className="px-4 py-2 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            onClick={() => {
+                              setSelectedAdvertiser(advertiser)
+                              setAdvertiserSearch(advertiser.displayText)
+                            }}
+                          >
+                            <div className="text-sm font-medium">
+                              {advertiser.displayText}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedAdvertiser && (
+                      <div className="mt-2 p-2 bg-muted rounded-md">
+                        <div className="text-sm text-foreground">
+                          <span className="font-medium">Selected: </span>
+                          {selectedAdvertiser.displayText}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1 h-6 text-xs"
+                          onClick={() => {
+                            setSelectedAdvertiser(null)
+                            setAdvertiserSearch('')
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                    {isLoadingAdvertisers && (
+                      <div className="text-sm text-muted-foreground">
+                        Loading advertisers...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* CPM Configuration */}
           <Card>

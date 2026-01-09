@@ -133,6 +133,7 @@ export interface CreateStoryRequest {
   uniqueId?: string; // Optional: allow providing a specific unique ID
   defaultDurationMs?: number;
   cpm?: number; // Cost Per Mille (cost per 1000 impressions) for revenue calculation
+  userId?: string; // Optional: for admin to assign story to a specific advertiser
 }
 
 export interface UpdateStoryRequest {
@@ -154,6 +155,7 @@ export interface UpdateStoryRequest {
   defaultDurationMs?: number;
   cpm?: number; // Cost Per Mille (cost per 1000 impressions) for revenue calculation
   applyDefaultDurationToAll?: boolean; // If true, set all frames' durationMs to story default
+  userId?: string; // Optional: for admin to reassign story to a different advertiser
 }
 
 export interface StoryFrame {

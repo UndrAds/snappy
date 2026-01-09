@@ -1184,6 +1184,8 @@ export class StoryService {
     if (typeof (data as any).defaultDurationMs !== 'undefined')
       updateData.defaultDurationMs = (data as any).defaultDurationMs;
     if (typeof (data as any).cpm !== 'undefined') updateData.cpm = (data as any).cpm;
+    // Allow admins to reassign story to different user
+    if (typeof (data as any).userId !== 'undefined') updateData.userId = (data as any).userId;
     if (typeof (data as any).rssConfig !== 'undefined') {
       updateData.rssConfig = (data as any).rssConfig
         ? JSON.parse(JSON.stringify((data as any).rssConfig))

@@ -49,7 +49,7 @@ export const register = async (
     // Generate JWT token with role
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role || 'advertiser' },
-      config.JWT_SECRET as string,
+      config.JWT_SECRET,
       { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
     );
 
@@ -82,22 +82,50 @@ export const login = async (
   try {
     const { email, password } = req.body;
 
+    // Validate JWT_SECRET before proceeding
+    if (!config.JWT_SECRET || config.JWT_SECRET.trim() === '') {
+      console.error('❌ JWT_SECRET is missing or empty');
+      res.status(500).json({
+        success: false,
+        error: { message: 'Server configuration error. Please contact support.' },
+      });
+      return;
+    }
+
+    // Log login attempt in production for debugging (without sensitive data)
+    if (config.NODE_ENV === 'production') {
+      console.log(`[LOGIN] Attempt for email: ${email}`);
+    }
+
     // Find user with role
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        password: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (dbError: any) {
+      console.error('❌ Database error during login:', dbError);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Database connection error. Please try again later.' },
+      });
+      return;
+    }
 
     if (!user) {
       // User not found
+      if (config.NODE_ENV === 'production') {
+        console.log(`[LOGIN] User not found: ${email}`);
+      }
       res.status(404).json({
         success: false,
         error: { message: 'User not found. Please sign up first.' },
@@ -110,6 +138,9 @@ export const login = async (
 
     if (!isPasswordValid) {
       // Invalid password
+      if (config.NODE_ENV === 'production') {
+        console.log(`[LOGIN] Invalid password for: ${email}`);
+      }
       res.status(401).json({
         success: false,
         error: { message: 'Invalid credentials' },
@@ -118,11 +149,21 @@ export const login = async (
     }
 
     // Generate JWT token with role
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role || 'advertiser' },
-      config.JWT_SECRET as string,
-      { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
-    );
+    let token: string;
+    try {
+      token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role || 'advertiser' },
+        config.JWT_SECRET,
+        { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
+      );
+    } catch (jwtError: any) {
+      console.error('JWT signing error:', jwtError);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to generate authentication token. Please contact support.' },
+      });
+      return;
+    }
 
     const response: AuthResponse = {
       user: {

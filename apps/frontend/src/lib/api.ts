@@ -409,7 +409,9 @@ export const analyticsAPI = {
   // Get day-wise analytics for a story
   getStoryDayWiseAnalytics: async (
     storyId: string,
-    days?: number
+    days?: number,
+    startDate?: string,
+    endDate?: string
   ): Promise<
     ApiResponse<
       Array<{
@@ -420,11 +422,18 @@ export const analyticsAPI = {
         avgTimeSpent: number
         avgAdsSeen: number
         sessions: number
+        ctaClicks?: number
+        ctr?: number
       }>
     >
   > => {
     const params = new URLSearchParams()
-    if (days) params.append('days', days.toString())
+    if (startDate && endDate) {
+      params.append('startDate', startDate)
+      params.append('endDate', endDate)
+    } else if (days) {
+      params.append('days', days.toString())
+    }
     const queryString = params.toString()
     const url = `/api/analytics/${storyId}/daywise${queryString ? `?${queryString}` : ''}`
     const response = await api.get(url)

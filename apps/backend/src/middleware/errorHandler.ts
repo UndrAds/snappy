@@ -11,17 +11,25 @@ export const errorHandler = (
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
-  // Log error in development
-  if (config.NODE_ENV === 'development') {
-    console.error('Error:', {
-      message: err.message,
+  // Log error details
+  const errorDetails = {
+    message: err.message,
+    statusCode,
+    url: req.url,
+    method: req.method,
+    ...(config.NODE_ENV === 'development' && {
       stack: err.stack,
-      url: req.url,
-      method: req.method,
       body: req.body,
       params: req.params,
       query: req.query,
-    });
+    }),
+  };
+
+  // Always log errors in production (but without sensitive data)
+  if (config.NODE_ENV === 'production') {
+    console.error('❌ Error:', errorDetails);
+  } else {
+    console.error('Error:', errorDetails);
   }
 
   res.status(statusCode).json({

@@ -103,7 +103,7 @@ export class AdminController {
         email: user.email,
         name: user.name,
         role: user.role,
-        storyCount: (user as any)._count.stories,
+        storyCount: (user)._count.stories,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       }));

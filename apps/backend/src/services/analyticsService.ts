@@ -4,6 +4,7 @@ const prisma = new PrismaClient();
 
 export type AnalyticsEventType =
   | 'story_view'
+  | 'player_viewport'
   | 'frame_view'
   | 'time_spent'
   | 'story_complete'
@@ -77,20 +78,41 @@ export class AnalyticsService {
         orderBy: { createdAt: 'asc' },
       });
 
-      // Calculate metrics
-      const storyViews = events.filter((e: any) => e.eventType === 'story_view').length;
-      // Count frame_view events as impressions (story impressions)
-      const storyImpressions = events.filter((e: any) => e.eventType === 'frame_view').length;
-      const navigationClicks = events.filter((e: any) => e.eventType === 'navigation_click').length;
-      const ctaClicks = events.filter((e: any) => e.eventType === 'cta_click').length;
-      const totalClicks = navigationClicks + ctaClicks;
-
-      // Get total number of frames in the story
+      // Get story first to know total frames count
       const story = await prisma.story.findUnique({
         where: { id: storyId },
         include: { frames: true },
       });
       const totalFrames = story?.frames?.length || 1;
+
+      // Calculate metrics
+      // Views = number of times player appears in viewport
+      const storyViews = events.filter((e: any) => e.eventType === 'player_viewport').length;
+
+      // Impressions = stories viewed more than 50% of frames
+      // Group by session and count only sessions where >50% of frames were viewed
+      const sessionFrameCounts = new Map<string, Set<number>>();
+      events.forEach((event: any) => {
+        if (event.eventType === 'frame_view' && event.frameIndex !== null) {
+          const sessionId = event.sessionId || 'anonymous';
+          if (!sessionFrameCounts.has(sessionId)) {
+            sessionFrameCounts.set(sessionId, new Set());
+          }
+          sessionFrameCounts.get(sessionId)!.add(event.frameIndex);
+        }
+      });
+
+      // Count impressions: sessions where frames seen > 50% of total frames
+      const threshold = Math.ceil(totalFrames * 0.5); // 50% threshold
+      let storyImpressions = 0;
+      sessionFrameCounts.forEach((framesSeen) => {
+        if (framesSeen.size > threshold) {
+          storyImpressions += 1;
+        }
+      });
+      const navigationClicks = events.filter((e: any) => e.eventType === 'navigation_click').length;
+      const ctaClicks = events.filter((e: any) => e.eventType === 'cta_click').length;
+      const totalClicks = navigationClicks + ctaClicks;
 
       // Group events by session to calculate per-session metrics
       const sessions = new Map<
@@ -295,7 +317,9 @@ export class AnalyticsService {
    */
   static async getStoryDayWiseAnalytics(
     storyId: string,
-    days: number = 30
+    days: number | undefined = 30,
+    startDate?: Date,
+    endDate?: Date
   ): Promise<
     Array<{
       date: string; // YYYY-MM-DD format
@@ -305,20 +329,43 @@ export class AnalyticsService {
       avgTimeSpent: number;
       avgAdsSeen: number;
       sessions: number;
+      ctaClicks: number;
+      ctr: number;
     }>
   > {
     try {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+      // Use provided dates or calculate from days
+      const finalEndDate = endDate || new Date();
+      const finalStartDate =
+        startDate ||
+        (() => {
+          const date = new Date();
+          date.setDate(date.getDate() - (days || 30));
+          return date;
+        })();
+
+      // Calculate number of days for result generation
+      const daysDiff = Math.ceil(
+        (finalEndDate.getTime() - finalStartDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      // Use calculated daysDiff if we have a date range, otherwise use provided days (or 30 as fallback)
+      const actualDays = startDate && endDate ? daysDiff : daysDiff > 0 ? daysDiff : days || 30;
+
+      // Get story to know total frames count
+      const story = await prisma.story.findUnique({
+        where: { id: storyId },
+        include: { frames: true },
+      });
+      const totalFrames = story?.frames?.length || 1;
+      const threshold = Math.ceil(totalFrames * 0.5); // 50% threshold
 
       // Get all events for this story in the date range
       const events = await (prisma as any).storyAnalyticsEvent.findMany({
         where: {
           storyId,
           createdAt: {
-            gte: startDate,
-            lte: endDate,
+            gte: finalStartDate,
+            lte: finalEndDate,
           },
         },
         orderBy: { createdAt: 'asc' },
@@ -334,6 +381,7 @@ export class AnalyticsService {
           framesSeen: Map<string, Set<number>>; // sessionId -> Set<frameIndex>
           timeSpent: Map<string, number>; // sessionId -> total time
           adsSeen: Map<string, number>; // sessionId -> count
+          ctaClicks: number; // CTA clicks for CTR calculation
         }
       >();
 
@@ -349,23 +397,25 @@ export class AnalyticsService {
             framesSeen: new Map(),
             timeSpent: new Map(),
             adsSeen: new Map(),
+            ctaClicks: 0,
           });
         }
 
         const dayData = dailyData.get(dateStr)!;
         dayData.sessions.add(sessionId);
 
-        if (event.eventType === 'story_view') {
+        if (event.eventType === 'player_viewport') {
+          // Views = number of times player appears in viewport
           dayData.views.add(sessionId);
         } else if (event.eventType === 'frame_view' && event.frameIndex !== null) {
-          // Count frame_view events as impressions (story impressions)
-          dayData.impressions += 1;
           if (!dayData.framesSeen.has(sessionId)) {
             dayData.framesSeen.set(sessionId, new Set());
           }
           dayData.framesSeen.get(sessionId)!.add(event.frameIndex);
         } else if (event.eventType === 'time_spent' && event.value !== null) {
           dayData.timeSpent.set(sessionId, (dayData.timeSpent.get(sessionId) || 0) + event.value);
+        } else if (event.eventType === 'cta_click') {
+          dayData.ctaClicks += 1;
         }
       });
 
@@ -378,11 +428,13 @@ export class AnalyticsService {
         avgTimeSpent: number;
         avgAdsSeen: number;
         sessions: number;
+        ctaClicks: number;
+        ctr: number;
       }> = [];
 
       // Generate all dates in range (including days with no data)
-      for (let i = 0; i < days; i++) {
-        const date = new Date(startDate);
+      for (let i = 0; i < actualDays; i++) {
+        const date = new Date(finalStartDate);
         date.setDate(date.getDate() + i);
         const dateStr: string = date.toISOString().split('T')[0] || '';
         const dayData = dailyData.get(dateStr) || {
@@ -392,6 +444,7 @@ export class AnalyticsService {
           framesSeen: new Map(),
           timeSpent: new Map(),
           adsSeen: new Map(),
+          ctaClicks: 0,
         };
 
         const sessionCount = dayData.sessions.size || 1;
@@ -404,14 +457,27 @@ export class AnalyticsService {
         const avgAdsSeen =
           Array.from(dayData.adsSeen.values()).reduce((sum, ads) => sum + ads, 0) / sessionCount;
 
+        // Calculate impressions: sessions where frames seen > 50% of total frames
+        let dayImpressions = 0;
+        dayData.framesSeen.forEach((framesSeen) => {
+          if (framesSeen.size > threshold) {
+            dayImpressions += 1;
+          }
+        });
+
+        // Calculate CTR for this day: (CTA clicks / views) * 100
+        const dayCtr = dayData.views.size > 0 ? (dayData.ctaClicks / dayData.views.size) * 100 : 0;
+
         result.push({
           date: dateStr || '',
           views: dayData.views.size,
-          impressions: dayData.impressions,
+          impressions: dayImpressions,
           avgPostsSeen: isNaN(avgPostsSeen) ? 0 : avgPostsSeen,
           avgTimeSpent: isNaN(avgTimeSpent) ? 0 : avgTimeSpent,
           avgAdsSeen: isNaN(avgAdsSeen) ? 0 : avgAdsSeen,
           sessions: dayData.sessions.size,
+          ctaClicks: dayData.ctaClicks,
+          ctr: dayCtr,
         });
       }
 

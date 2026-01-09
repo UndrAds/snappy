@@ -25,7 +25,7 @@ export class AnalyticsController {
       }
 
       // Validate eventType
-      const validEventTypes = ['story_view', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
+      const validEventTypes = ['story_view', 'player_viewport', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
       if (!validEventTypes.includes(eventType)) {
         const response: ApiResponse = {
           success: false,
@@ -237,7 +237,9 @@ export class AnalyticsController {
   static async getStoryDayWiseAnalytics(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
-      const days = parseInt(req.query['days'] as string) || 30;
+      const daysParam = req.query['days'] as string;
+      const startDateParam = req.query['startDate'] as string;
+      const endDateParam = req.query['endDate'] as string;
 
       if (!storyId) {
         const response: ApiResponse = {
@@ -250,18 +252,69 @@ export class AnalyticsController {
         return;
       }
 
-      if (days < 1 || days > 365) {
-        const response: ApiResponse = {
-          success: false,
-          error: {
-            message: 'Days must be between 1 and 365',
-          },
-        };
-        res.status(400).json(response);
-        return;
+      let startDate: Date | undefined;
+      let endDate: Date | undefined;
+      let days = 30;
+
+      if (startDateParam && endDateParam) {
+        // Custom date range
+        startDate = new Date(startDateParam);
+        endDate = new Date(endDateParam);
+        endDate.setHours(23, 59, 59, 999); // End of day
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          const response: ApiResponse = {
+            success: false,
+            error: {
+              message: 'Invalid date format. Use YYYY-MM-DD',
+            },
+          };
+          res.status(400).json(response);
+          return;
+        }
+        
+        if (startDate > endDate) {
+          const response: ApiResponse = {
+            success: false,
+            error: {
+              message: 'Start date must be before end date',
+            },
+          };
+          res.status(400).json(response);
+          return;
+        }
+      } else if (daysParam) {
+        days = parseInt(daysParam);
+        // For "All" option (days >= 3650), use story creation date as start
+        if (days >= 3650) {
+          // "All" option - fetch story creation date and use it as start date
+          const story = await prisma.story.findUnique({
+            where: { id: storyId },
+            select: { createdAt: true },
+          });
+          
+          if (story) {
+            startDate = story.createdAt;
+            endDate = new Date();
+            endDate.setHours(23, 59, 59, 999);
+            days = undefined; // Don't use days calculation, use date range instead
+          } else {
+            // Fallback: use 365 days if story not found
+            days = 365;
+          }
+        } else if (days < 1 || days > 365) {
+          const response: ApiResponse = {
+            success: false,
+            error: {
+              message: 'Days must be between 1 and 365',
+            },
+          };
+          res.status(400).json(response);
+          return;
+        }
       }
 
-      const result = await AnalyticsService.getStoryDayWiseAnalytics(storyId, days);
+      const result = await AnalyticsService.getStoryDayWiseAnalytics(storyId, days, startDate, endDate);
 
       const response: ApiResponse = {
         success: true,

@@ -12,7 +12,7 @@ router.post(
   [
     body('storyId').notEmpty().withMessage('storyId is required'),
     body('eventType')
-      .isIn(['story_view', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'])
+      .isIn(['story_view', 'player_viewport', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'])
       .withMessage('Invalid eventType'),
     body('frameIndex').optional().isInt().withMessage('frameIndex must be an integer'),
     body('value').optional().isNumeric().withMessage('value must be a number'),

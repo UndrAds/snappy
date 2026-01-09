@@ -24,7 +24,7 @@ export const authenticateToken = (req: AuthRequest, _res: Response, next: NextFu
       id: decoded.id,
       email: decoded.email,
       name: decoded.name,
-      role: decoded.role as any,
+      role: decoded.role,
       createdAt: decoded.createdAt,
       updatedAt: decoded.updatedAt,
     } as any;

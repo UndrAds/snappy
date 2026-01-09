@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// This is a deployment script - Prisma types may not be fully up to date
+// but the role field exists in the schema and will work at runtime
 import bcrypt from 'bcryptjs';
 import prisma from '../src/config/database';
 
@@ -6,43 +9,75 @@ async function initAdmin() {
     const adminEmail = 'admin@tektag.ai';
     const adminPassword = 'admin0';
 
-    // Check if admin already exists
-    const existingAdmin = await prisma.user.findUnique({
+    // First, check if admin exists by email
+    let existingAdmin = (await prisma.user.findUnique({
       where: { email: adminEmail },
-    });
+    })) as { id: string; email: string; password: string; role: string } | null;
+
+    // If not found by email, check if there's any user with admin role
+    if (!existingAdmin) {
+      existingAdmin = (await prisma.user.findFirst({
+        where: { role: 'admin' } as any,
+      })) as { id: string; email: string; password: string; role: string } | null;
+    }
 
     if (existingAdmin) {
-      // Update existing admin to ensure role is set
+      // Admin exists - check if updates are needed
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+
+      const updates: {
+        email?: string;
+        password?: string;
+        role?: string;
+      } = {};
+
+      // Update email if it changed
+      if (existingAdmin.email !== adminEmail) {
+        updates.email = adminEmail;
+      }
+
+      // Always update password to ensure it matches the script
+      updates.password = hashedPassword;
+
+      // Ensure role is admin
       if (existingAdmin.role !== 'admin') {
+        updates.role = 'admin';
+      }
+
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
         await prisma.user.update({
           where: { id: existingAdmin.id },
-          data: { role: 'admin' },
+          data: updates as any,
         });
-        console.log('✅ Updated existing user to admin role');
+        console.log('✅ Admin user updated');
+        if (updates.email) {
+          console.log(`   Email updated to: ${adminEmail}`);
+        }
+        if (updates.password) {
+          console.log(`   Password updated`);
+        }
+        if (updates.role) {
+          console.log(`   Role set to: admin`);
+        }
       } else {
-        // Update password in case it changed
-        const saltRounds = 12;
-        const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
-        await prisma.user.update({
-          where: { id: existingAdmin.id },
-          data: { password: hashedPassword },
-        });
-        console.log('✅ Admin user already exists, password updated');
+        console.log('✅ Admin user already exists with correct credentials');
       }
       return;
     }
 
-    // Create admin user
+    // Create admin user if it doesn't exist
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
 
-    const admin = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: adminEmail,
         password: hashedPassword,
         name: 'Admin',
         role: 'admin',
-      },
+      } as any,
     });
 
     console.log('✅ Admin user created successfully');

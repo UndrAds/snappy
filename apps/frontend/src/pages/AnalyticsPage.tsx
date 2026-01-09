@@ -9,7 +9,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Eye, Clock, Image, TrendingUp, BarChart3 } from 'lucide-react'
+import { Eye, Clock, Image, TrendingUp, BarChart3, Info } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { analyticsAPI, storyAPI } from '@/lib/api'
 import type { StoryAnalytics } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
@@ -96,36 +102,57 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground">
-            Track performance and engagement metrics for your stories
-          </p>
+    <TooltipProvider>
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Analytics</h1>
+            <p className="text-muted-foreground">
+              Track performance and engagement metrics for your stories
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Total Views</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Number of times the Snappy player appears in the viewport</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.views}</div>
             <p className="text-xs text-muted-foreground">Across all stories</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Posts Seen
-            </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Avg. Posts Seen
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Average number of frames viewed per story session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {overallAvgPostsSeen.toFixed(1)}
@@ -134,13 +161,23 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Time Spent
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Avg. Time Spent
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Average time spent viewing stories per session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {formatTime(overallAvgTimeSpent)}
@@ -149,11 +186,21 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Ads Seen</CardTitle>
-            <Image className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Avg. Ads Seen</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Average number of ad frames viewed per story session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Image className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {overallAvgAdsSeen.toFixed(1)}
@@ -162,21 +209,31 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Impressions
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totals.impressions}</div>
-            <p className="text-xs text-muted-foreground">Story impressions</p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Impressions
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Number of stories viewed more than 50% of frames</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totals.impressions}</div>
+              <p className="text-xs text-muted-foreground">Story impressions</p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Stories Analytics Table */}
+        {/* Stories Analytics Table */}
       <Card>
         <CardHeader>
           <CardTitle>Story Analytics</CardTitle>
@@ -191,16 +248,27 @@ export default function AnalyticsPage() {
               your stories are viewed.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      Story Title
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
-                      Views
-                    </th>
+            <TooltipProvider>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Story Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        <div className="flex items-center gap-1">
+                          Views
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Number of times the Snappy player appears in the viewport</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
                       Clicks
                     </th>
@@ -217,7 +285,17 @@ export default function AnalyticsPage() {
                       Avg. Time Spent
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
-                      Impressions
+                      <div className="flex items-center gap-1">
+                        Impressions
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Number of stories viewed more than 50% of frames</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
                       Type
@@ -273,12 +351,14 @@ export default function AnalyticsPage() {
                       </tr>
                     )
                   })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                    </tbody>
+                  </table>
+                </div>
+              </TooltipProvider>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </TooltipProvider>
   )
 }

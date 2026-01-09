@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
 } from 'recharts'
@@ -30,16 +30,22 @@ import {
   BarChart3,
   ArrowLeft,
   MousePointerClick,
+  Info,
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Input } from '@/components/ui/input'
 import { analyticsAPI, storyAPI } from '@/lib/api'
-import type { StoryAnalytics } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
 
 export default function StoryAnalyticsPage() {
   const { storyId } = useParams<{ storyId: string }>()
   const navigate = useNavigate()
   const [story, setStory] = useState<Story | null>(null)
-  const [analytics, setAnalytics] = useState<StoryAnalytics | null>(null)
   const [dayWiseData, setDayWiseData] = useState<
     Array<{
       date: string
@@ -49,10 +55,17 @@ export default function StoryAnalyticsPage() {
       avgTimeSpent: number
       avgAdsSeen: number
       sessions: number
+      ctaClicks?: number
+      ctr?: number
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedDays, setSelectedDays] = useState(30)
+  const [selectedDays, setSelectedDays] = useState<number | null>(30)
+  const [dateRange, setDateRange] = useState<
+    'today' | 'yesterday' | 'custom' | 'all' | null
+  >(null)
+  const [customStartDate, setCustomStartDate] = useState<string>('')
+  const [customEndDate, setCustomEndDate] = useState<string>('')
   const { theme } = useTheme()
   const [isDark, setIsDark] = useState(false)
 
@@ -116,26 +129,51 @@ export default function StoryAnalyticsPage() {
     if (storyId) {
       loadData()
     }
-  }, [storyId, selectedDays])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyId, selectedDays, dateRange, customStartDate, customEndDate])
 
   const loadData = async () => {
     if (!storyId) return
 
     try {
       setIsLoading(true)
-      const [storyResponse, analyticsResponse, dayWiseResponse] =
-        await Promise.all([
-          storyAPI.getStoryById(storyId),
-          analyticsAPI.getStoryAnalytics(storyId),
-          analyticsAPI.getStoryDayWiseAnalytics(storyId, selectedDays),
-        ])
+
+      // Calculate date range based on selection
+      let startDate: string | undefined
+      let endDate: string | undefined
+      let days: number | undefined
+
+      if (dateRange === 'today') {
+        const today = new Date()
+        startDate = today.toISOString().split('T')[0]
+        endDate = today.toISOString().split('T')[0]
+      } else if (dateRange === 'yesterday') {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        startDate = yesterday.toISOString().split('T')[0]
+        endDate = yesterday.toISOString().split('T')[0]
+      } else if (dateRange === 'custom' && customStartDate && customEndDate) {
+        startDate = customStartDate
+        endDate = customEndDate
+      } else if (dateRange === 'all') {
+        // For "ALL", use a very large number of days (10 years) to get all data
+        days = 3650
+      } else if (selectedDays !== null) {
+        days = selectedDays
+      }
+
+      const [storyResponse, dayWiseResponse] = await Promise.all([
+        storyAPI.getStoryById(storyId),
+        analyticsAPI.getStoryDayWiseAnalytics(
+          storyId,
+          days,
+          startDate,
+          endDate
+        ),
+      ])
 
       if (storyResponse.success && storyResponse.data) {
         setStory(storyResponse.data)
-      }
-
-      if (analyticsResponse.success && analyticsResponse.data) {
-        setAnalytics(analyticsResponse.data)
       }
 
       if (dayWiseResponse.success && dayWiseResponse.data) {
@@ -162,16 +200,41 @@ export default function StoryAnalyticsPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  // Calculate insights
+  // Calculate metrics from dayWiseData (filtered by selected date range)
   const totalViews = dayWiseData.reduce((sum, d) => sum + d.views, 0)
   const totalImpressions = dayWiseData.reduce(
     (sum, d) => sum + d.impressions,
     0
   )
+  const totalSessions = dayWiseData.reduce((sum, d) => sum + d.sessions, 0)
+  const totalTimeSpent = dayWiseData.reduce(
+    (sum, d) => sum + d.avgTimeSpent * d.sessions,
+    0
+  )
+  const totalPostsSeen = dayWiseData.reduce(
+    (sum, d) => sum + d.avgPostsSeen * d.sessions,
+    0
+  )
+  const totalCtaClicks = dayWiseData.reduce(
+    (sum, d) => sum + (d.ctaClicks || 0),
+    0
+  )
+
+  // Calculate averages
   const avgDailyViews =
     dayWiseData.length > 0 ? totalViews / dayWiseData.length : 0
   const avgDailyImpressions =
     dayWiseData.length > 0 ? totalImpressions / dayWiseData.length : 0
+  const avgPostsSeen = totalSessions > 0 ? totalPostsSeen / totalSessions : 0
+  const avgTimeSpent = totalSessions > 0 ? totalTimeSpent / totalSessions : 0
+  // Calculate CTR from filtered data: (CTA clicks / views) * 100
+  const ctr = totalViews > 0 ? (totalCtaClicks / totalViews) * 100 : 0
+  const viewability =
+    story?.frames?.length && story.frames.length > 0
+      ? (avgPostsSeen / story.frames.length) * 100
+      : 0
+
+  // Calculate insights
   const peakDay = dayWiseData.reduce(
     (max, d) => (d.views > max.views ? d : max),
     dayWiseData[0] || { date: '', views: 0, impressions: 0 }
@@ -213,121 +276,329 @@ export default function StoryAnalyticsPage() {
             <p className="text-muted-foreground">Analytics Dashboard</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={dateRange === 'today' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setDateRange('today')
+              setSelectedDays(null)
+            }}
+          >
+            Today
+          </Button>
+          <Button
+            variant={dateRange === 'yesterday' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setDateRange('yesterday')
+              setSelectedDays(null)
+            }}
+          >
+            Yesterday
+          </Button>
           <Button
             variant={selectedDays === 7 ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedDays(7)}
+            onClick={() => {
+              setSelectedDays(7)
+              setDateRange(null)
+            }}
           >
             7 Days
           </Button>
           <Button
             variant={selectedDays === 30 ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedDays(30)}
+            onClick={() => {
+              setSelectedDays(30)
+              setDateRange(null)
+            }}
           >
             30 Days
           </Button>
           <Button
             variant={selectedDays === 90 ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedDays(90)}
+            onClick={() => {
+              setSelectedDays(90)
+              setDateRange(null)
+            }}
           >
             90 Days
           </Button>
+          <Button
+            variant={dateRange === 'custom' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setDateRange('custom')
+              setSelectedDays(null)
+            }}
+          >
+            Custom
+          </Button>
+          <Button
+            variant={dateRange === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setDateRange('all')
+              setSelectedDays(null)
+            }}
+          >
+            All
+          </Button>
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="h-8 w-32"
+              />
+              <span className="text-sm text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="h-8 w-32"
+              />
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Insights - Moved to top */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Insights</CardTitle>
+          <CardDescription>Key performance indicators</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                Peak Day
+              </div>
+              <p className="text-2xl font-bold">{peakDay.views}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatDate(peakDay.date)} - {peakDay.views} views
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <MousePointerClick className="h-4 w-4 text-blue-600" />
+                CTR
+              </div>
+              <p className="text-2xl font-bold">{ctr.toFixed(2)}%</p>
+              <p className="text-xs text-muted-foreground">
+                Click-through rate for CTA
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Image className="h-4 w-4 text-purple-600" />
+                Viewability
+              </div>
+              <p className="text-2xl font-bold">{viewability.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground">
+                Frames viewed / total frames
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BarChart3 className="h-4 w-4 text-orange-600" />
+                Engagement Rate
+              </div>
+              <p className="text-2xl font-bold">
+                {story?.frames?.length && story.frames.length > 0
+                  ? ((avgPostsSeen / story.frames.length) * 100).toFixed(1)
+                  : 0}
+                %
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Average frames viewed per session
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <TrendingUp className="h-4 w-4 text-indigo-600" />
+                Ad Performance
+              </div>
+              <p className="text-2xl font-bold">
+                {totalViews > 0
+                  ? (totalImpressions / totalViews).toFixed(2)
+                  : 0}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Impressions per view
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics?.views || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {avgDailyViews.toFixed(1)} avg per day
-            </p>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Views
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Number of times the Snappy player appears in the viewport
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalViews}</div>
+              <p className="text-xs text-muted-foreground">
+                {avgDailyViews.toFixed(1)} avg per day
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Impressions
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {analytics?.impressions || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {avgDailyImpressions.toFixed(1)} avg per day
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Impressions
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Number of stories viewed more than 50% of frames</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalImpressions}</div>
+              <p className="text-xs text-muted-foreground">
+                {avgDailyImpressions.toFixed(1)} avg per day
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Posts Seen
-            </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(analytics?.avgPostsSeen || 0).toFixed(1)}
-            </div>
-            <p className="text-xs text-muted-foreground">Frames per view</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Avg. Posts Seen
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Average number of frames viewed per story session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {avgPostsSeen.toFixed(1)}
+              </div>
+              <p className="text-xs text-muted-foreground">Frames per view</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg. Time Spent
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatTime(analytics?.avgTimeSpent || 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Per story view</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Avg. Time Spent
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Average time spent viewing the story per session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatTime(avgTimeSpent)}
+              </div>
+              <p className="text-xs text-muted-foreground">Per story view</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CTR</CardTitle>
-            <MousePointerClick className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(analytics?.ctr || 0).toFixed(2)}%
-            </div>
-            <p className="text-xs text-muted-foreground">Click-through rate</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">CTR</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Click-through rate: Percentage of views that resulted in
+                      CTA clicks
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{ctr.toFixed(2)}%</div>
+              <p className="text-xs text-muted-foreground">
+                Click-through rate
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Viewability</CardTitle>
-            <Image className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(analytics?.viewability || 0).toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Frames viewed / total
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">
+                  Viewability
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Percentage of total frames that were viewed on average
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Image className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {viewability.toFixed(1)}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Frames viewed / total
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
 
       {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -350,7 +621,7 @@ export default function StoryAnalyticsPage() {
                   tick={{ fill: textColor, fontSize: 12 }}
                 />
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
-                <Tooltip
+                <RechartsTooltip
                   contentStyle={tooltipStyle}
                   labelStyle={{
                     color: tooltipStyle.color,
@@ -358,7 +629,7 @@ export default function StoryAnalyticsPage() {
                     fontWeight: 500,
                   }}
                   itemStyle={{ color: tooltipStyle.color }}
-                  labelFormatter={(label) => formatDate(label as string)}
+                  labelFormatter={(label: string) => formatDate(label)}
                   formatter={(value: number | undefined) => [
                     value ?? 0,
                     'Views',
@@ -396,7 +667,7 @@ export default function StoryAnalyticsPage() {
                   tick={{ fill: textColor, fontSize: 12 }}
                 />
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
-                <Tooltip
+                <RechartsTooltip
                   contentStyle={tooltipStyle}
                   labelStyle={{
                     color: tooltipStyle.color,
@@ -404,7 +675,7 @@ export default function StoryAnalyticsPage() {
                     fontWeight: 500,
                   }}
                   itemStyle={{ color: tooltipStyle.color }}
-                  labelFormatter={(label) => formatDate(label as string)}
+                  labelFormatter={(label: string) => formatDate(label)}
                   formatter={(value: number | undefined) => [
                     value ?? 0,
                     'Impressions',
@@ -448,7 +719,7 @@ export default function StoryAnalyticsPage() {
                   orientation="right"
                   tick={{ fill: textColor, fontSize: 12 }}
                 />
-                <Tooltip
+                <RechartsTooltip
                   contentStyle={tooltipStyle}
                   labelStyle={{
                     color: tooltipStyle.color,
@@ -456,7 +727,7 @@ export default function StoryAnalyticsPage() {
                     fontWeight: 500,
                   }}
                   itemStyle={{ color: tooltipStyle.color }}
-                  labelFormatter={(label) => formatDate(label as string)}
+                  labelFormatter={(label: string) => formatDate(label)}
                   formatter={(
                     value: number | undefined,
                     name: string | undefined
@@ -508,7 +779,7 @@ export default function StoryAnalyticsPage() {
                   tick={{ fill: textColor, fontSize: 12 }}
                 />
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
-                <Tooltip
+                <RechartsTooltip
                   contentStyle={tooltipStyle}
                   labelStyle={{
                     color: tooltipStyle.color,
@@ -516,7 +787,7 @@ export default function StoryAnalyticsPage() {
                     fontWeight: 500,
                   }}
                   itemStyle={{ color: tooltipStyle.color }}
-                  labelFormatter={(label) => formatDate(label as string)}
+                  labelFormatter={(label: string) => formatDate(label)}
                   formatter={(value: number | undefined) => [
                     value ?? 0,
                     'Sessions',
@@ -533,84 +804,6 @@ export default function StoryAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Insights */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Insights</CardTitle>
-          <CardDescription>Key performance indicators</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                Peak Day
-              </div>
-              <p className="text-2xl font-bold">{peakDay.views}</p>
-              <p className="text-xs text-muted-foreground">
-                {formatDate(peakDay.date)} - {peakDay.views} views
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <MousePointerClick className="h-4 w-4 text-blue-600" />
-                CTR
-              </div>
-              <p className="text-2xl font-bold">
-                {(analytics?.ctr || 0).toFixed(2)}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Click-through rate for CTA
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Image className="h-4 w-4 text-purple-600" />
-                Viewability
-              </div>
-              <p className="text-2xl font-bold">
-                {(analytics?.viewability || 0).toFixed(1)}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Frames viewed / total frames
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <BarChart3 className="h-4 w-4 text-orange-600" />
-                Engagement Rate
-              </div>
-              <p className="text-2xl font-bold">
-                {analytics?.views
-                  ? (
-                      (analytics.avgPostsSeen / (story.frames?.length || 1)) *
-                      100
-                    ).toFixed(1)
-                  : 0}
-                %
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Average frames viewed per session
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <TrendingUp className="h-4 w-4 text-indigo-600" />
-                Ad Performance
-              </div>
-              <p className="text-2xl font-bold">
-                {analytics?.views
-                  ? (analytics.impressions / analytics.views).toFixed(2)
-                  : 0}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Impressions per view
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

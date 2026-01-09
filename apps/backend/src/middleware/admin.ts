@@ -9,6 +9,7 @@ export const requireAdmin = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
+    const userRole = req.user?.role;
 
     if (!userId) {
       const error = new Error('User not authenticated') as any;
@@ -17,7 +18,14 @@ export const requireAdmin = async (
       return;
     }
 
-    // Get user from database to check role
+    // First check role from JWT token (faster)
+    if (userRole === 'admin') {
+      (req as any).isAdmin = true;
+      next();
+      return;
+    }
+
+    // If role not in token or not admin, check database
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, role: true },

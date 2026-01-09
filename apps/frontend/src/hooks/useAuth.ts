@@ -67,12 +67,21 @@ export const useAuth = (): UseAuthReturn => {
     },
   })
 
-  // Get user profile query
-  useQuery({
+  // Get user profile query - refresh on mount to get latest role
+  const { data: profileData } = useQuery({
     queryKey: ['user', 'profile'],
     queryFn: userAPI.getProfile,
     enabled: !!user,
   })
+
+  // Update user state when profile is fetched
+  useEffect(() => {
+    if (profileData?.success && profileData.data?.user) {
+      const updatedUser = profileData.data.user
+      setUser(updatedUser)
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+    }
+  }, [profileData])
 
   // Update profile mutation
   const updateProfileMutation = useMutation({

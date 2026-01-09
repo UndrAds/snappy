@@ -16,7 +16,7 @@ model User {
   email     String   @unique
   password  String
   name      String?
-  role      String   @default("publisher") // 'admin' | 'publisher'
+  role      String   @default("advertiser") // 'admin' | 'advertiser'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -133,7 +133,7 @@ model StoryAnalytics {
   avgPostsSeen Float   @default(0) // Average number of frames/posts seen per view
   avgTimeSpent Float   @default(0) // Average time spent in milliseconds
   avgAdsSeen  Float   @default(0) // Average number of ads seen per view
-  impressions Int      @default(0) // Total ad impressions
+  impressions Int      @default(0) // Total story impressions (frame views)
   clicks      Int      @default(0) // Total clicks (navigation clicks + CTA clicks)
   ctr         Float    @default(0) // Click-through rate for CTA clicks (percentage)
   viewability Float    @default(0) // Viewability percentage (frames viewed / total frames)
@@ -149,7 +149,7 @@ model StoryAnalytics {
 model StoryAnalyticsEvent {
   id          String   @id @default(cuid())
   storyId     String
-  eventType   String   // 'story_view' | 'frame_view' | 'ad_impression' | 'time_spent' | 'story_complete' | 'navigation_click' | 'cta_click'
+  eventType   String   // 'story_view' | 'frame_view' | 'time_spent' | 'story_complete' | 'navigation_click' | 'cta_click'
   frameIndex  Int?     // Frame index for frame_view events
   value       Float?   // Value for time_spent events (in ms)
   sessionId   String?  // Session identifier to group events from same user session

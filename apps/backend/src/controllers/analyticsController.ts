@@ -25,7 +25,7 @@ export class AnalyticsController {
       }
 
       // Validate eventType
-      const validEventTypes = ['story_view', 'frame_view', 'ad_impression', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
+      const validEventTypes = ['story_view', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
       if (!validEventTypes.includes(eventType)) {
         const response: ApiResponse = {
           success: false,
@@ -67,10 +67,14 @@ export class AnalyticsController {
   /**
    * GET /api/analytics/:storyId
    * Get analytics for a specific story (protected endpoint)
+   * Regular users can only view their own stories' analytics
+   * Admins can view any story's analytics
    */
   static async getStoryAnalytics(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
+      const userId = (req as any).user?.id;
+      const userRole = (req as any).user?.role;
 
       if (!storyId) {
         const response: ApiResponse = {
@@ -83,9 +87,46 @@ export class AnalyticsController {
         return;
       }
 
-      // Verify user owns the story (optional - can be removed if analytics should be public)
-      // For now, we'll allow any authenticated user to view analytics
-      // You can add ownership check here if needed
+      if (!userId) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'User not authenticated',
+          },
+        };
+        res.status(401).json(response);
+        return;
+      }
+
+      // Check ownership for regular users (admins can view any story)
+      if (userRole !== 'admin') {
+        const story = await prisma.story.findUnique({
+          where: { id: storyId },
+          select: { userId: true },
+        });
+
+        if (!story) {
+          const response: ApiResponse = {
+            success: false,
+            error: {
+              message: 'Story not found',
+            },
+          };
+          res.status(404).json(response);
+          return;
+        }
+
+        if (story.userId !== userId) {
+          const response: ApiResponse = {
+            success: false,
+            error: {
+              message: 'You do not have permission to view this story\'s analytics',
+            },
+          };
+          res.status(403).json(response);
+          return;
+        }
+      }
 
       const analytics = await AnalyticsService.getStoryAnalytics(storyId);
 
@@ -110,12 +151,11 @@ export class AnalyticsController {
   /**
    * GET /api/analytics
    * Get analytics for all stories owned by the user (protected endpoint)
-   * Admins can see analytics for all stories
+   * All users (including admins) see only their own stories' analytics
    */
   static async getUserStoriesAnalytics(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.id;
-      const userRole = (req as any).user?.role;
 
       if (!userId) {
         const response: ApiResponse = {
@@ -128,33 +168,7 @@ export class AnalyticsController {
         return;
       }
 
-      // If admin, get analytics for all stories
-      if (userRole === 'admin') {
-        const allStories = await prisma.story.findMany({
-          include: {
-            analytics: true,
-          },
-        });
-
-        const analytics = allStories.map((story: any) => ({
-          storyId: story.id,
-          views: story.analytics?.views ?? 0,
-          avgPostsSeen: story.analytics?.avgPostsSeen ?? 0,
-          avgTimeSpent: story.analytics?.avgTimeSpent ?? 0,
-          avgAdsSeen: story.analytics?.avgAdsSeen ?? 0,
-          impressions: story.analytics?.impressions ?? 0,
-        }));
-
-        const response: ApiResponse = {
-          success: true,
-          data: analytics,
-        };
-
-        res.status(200).json(response);
-        return;
-      }
-
-      // Regular users see only their own stories' analytics
+      // All users (including admins) see only their own stories' analytics
       const analytics = await AnalyticsService.getUserStoriesAnalytics(userId);
 
       const response: ApiResponse = {

@@ -86,13 +86,13 @@ export default function StoryAnalyticsPage() {
   // Chart colors based on theme
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'
   const textColor = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)'
-  
+
   // Bar chart colors that work in both light and dark mode
   const barColors = {
     impressions: isDark ? '#3b82f6' : '#2563eb', // Blue
     sessions: isDark ? '#8b5cf6' : '#7c3aed', // Purple
   }
-  
+
   // Tooltip colors - explicit colors that work well in both themes
   const tooltipStyle = isDark
     ? {
@@ -123,11 +123,12 @@ export default function StoryAnalyticsPage() {
 
     try {
       setIsLoading(true)
-      const [storyResponse, analyticsResponse, dayWiseResponse] = await Promise.all([
-        storyAPI.getStoryById(storyId),
-        analyticsAPI.getStoryAnalytics(storyId),
-        analyticsAPI.getStoryDayWiseAnalytics(storyId, selectedDays),
-      ])
+      const [storyResponse, analyticsResponse, dayWiseResponse] =
+        await Promise.all([
+          storyAPI.getStoryById(storyId),
+          analyticsAPI.getStoryAnalytics(storyId),
+          analyticsAPI.getStoryDayWiseAnalytics(storyId, selectedDays),
+        ])
 
       if (storyResponse.success && storyResponse.data) {
         setStory(storyResponse.data)
@@ -163,8 +164,12 @@ export default function StoryAnalyticsPage() {
 
   // Calculate insights
   const totalViews = dayWiseData.reduce((sum, d) => sum + d.views, 0)
-  const totalImpressions = dayWiseData.reduce((sum, d) => sum + d.impressions, 0)
-  const avgDailyViews = dayWiseData.length > 0 ? totalViews / dayWiseData.length : 0
+  const totalImpressions = dayWiseData.reduce(
+    (sum, d) => sum + d.impressions,
+    0
+  )
+  const avgDailyViews =
+    dayWiseData.length > 0 ? totalViews / dayWiseData.length : 0
   const avgDailyImpressions =
     dayWiseData.length > 0 ? totalImpressions / dayWiseData.length : 0
   const peakDay = dayWiseData.reduce(
@@ -250,11 +255,15 @@ export default function StoryAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Impressions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Impressions
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics?.impressions || 0}</div>
+            <div className="text-2xl font-bold">
+              {analytics?.impressions || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
               {avgDailyImpressions.toFixed(1)} avg per day
             </p>
@@ -263,7 +272,9 @@ export default function StoryAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Posts Seen</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg. Posts Seen
+            </CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -276,7 +287,9 @@ export default function StoryAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Time Spent</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg. Time Spent
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -309,7 +322,9 @@ export default function StoryAnalyticsPage() {
             <div className="text-2xl font-bold">
               {(analytics?.viewability || 0).toFixed(1)}%
             </div>
-            <p className="text-xs text-muted-foreground">Frames viewed / total</p>
+            <p className="text-xs text-muted-foreground">
+              Frames viewed / total
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -337,10 +352,17 @@ export default function StoryAnalyticsPage() {
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
+                  labelStyle={{
+                    color: tooltipStyle.color,
+                    marginBottom: '4px',
+                    fontWeight: 500,
+                  }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number | undefined) => [value ?? 0, 'Views']}
+                  formatter={(value: number | undefined) => [
+                    value ?? 0,
+                    'Views',
+                  ]}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Line
@@ -359,7 +381,7 @@ export default function StoryAnalyticsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Impressions Over Time</CardTitle>
-            <CardDescription>Daily ad impressions</CardDescription>
+            <CardDescription>Daily story impressions</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -376,10 +398,17 @@ export default function StoryAnalyticsPage() {
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
+                  labelStyle={{
+                    color: tooltipStyle.color,
+                    marginBottom: '4px',
+                    fontWeight: 500,
+                  }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number | undefined) => [value ?? 0, 'Impressions']}
+                  formatter={(value: number | undefined) => [
+                    value ?? 0,
+                    'Impressions',
+                  ]}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
                 <Bar
@@ -410,14 +439,28 @@ export default function StoryAnalyticsPage() {
                   height={80}
                   tick={{ fill: textColor, fontSize: 12 }}
                 />
-                <YAxis yAxisId="left" tick={{ fill: textColor, fontSize: 12 }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: textColor, fontSize: 12 }} />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fill: textColor, fontSize: 12 }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fill: textColor, fontSize: 12 }}
+                />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
+                  labelStyle={{
+                    color: tooltipStyle.color,
+                    marginBottom: '4px',
+                    fontWeight: 500,
+                  }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number | undefined, name: string | undefined) => {
+                  formatter={(
+                    value: number | undefined,
+                    name: string | undefined
+                  ) => {
                     if (name === 'avgTimeSpent') {
                       return [formatTime(value ?? 0), 'Avg Time Spent']
                     }
@@ -467,13 +510,24 @@ export default function StoryAnalyticsPage() {
                 <YAxis tick={{ fill: textColor, fontSize: 12 }} />
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  labelStyle={{ color: tooltipStyle.color, marginBottom: '4px', fontWeight: 500 }}
+                  labelStyle={{
+                    color: tooltipStyle.color,
+                    marginBottom: '4px',
+                    fontWeight: 500,
+                  }}
                   itemStyle={{ color: tooltipStyle.color }}
                   labelFormatter={(label) => formatDate(label as string)}
-                  formatter={(value: number | undefined) => [value ?? 0, 'Sessions']}
+                  formatter={(value: number | undefined) => [
+                    value ?? 0,
+                    'Sessions',
+                  ]}
                 />
                 <Legend wrapperStyle={{ color: textColor }} />
-                <Bar dataKey="sessions" fill={barColors.sessions} name="Sessions" />
+                <Bar
+                  dataKey="sessions"
+                  fill={barColors.sessions}
+                  name="Sessions"
+                />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -529,7 +583,10 @@ export default function StoryAnalyticsPage() {
               </div>
               <p className="text-2xl font-bold">
                 {analytics?.views
-                  ? ((analytics.avgPostsSeen / (story.frames?.length || 1)) * 100).toFixed(1)
+                  ? (
+                      (analytics.avgPostsSeen / (story.frames?.length || 1)) *
+                      100
+                    ).toFixed(1)
                   : 0}
                 %
               </p>

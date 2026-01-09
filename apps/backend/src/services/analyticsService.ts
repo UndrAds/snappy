@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 export type AnalyticsEventType =
   | 'story_view'
   | 'frame_view'
-  | 'ad_impression'
   | 'time_spent'
   | 'story_complete'
   | 'navigation_click'
@@ -80,7 +79,8 @@ export class AnalyticsService {
 
       // Calculate metrics
       const storyViews = events.filter((e: any) => e.eventType === 'story_view').length;
-      const adImpressions = events.filter((e: any) => e.eventType === 'ad_impression').length;
+      // Count frame_view events as impressions (story impressions)
+      const storyImpressions = events.filter((e: any) => e.eventType === 'frame_view').length;
       const navigationClicks = events.filter((e: any) => e.eventType === 'navigation_click').length;
       const ctaClicks = events.filter((e: any) => e.eventType === 'cta_click').length;
       const totalClicks = navigationClicks + ctaClicks;
@@ -118,8 +118,6 @@ export class AnalyticsService {
           session.framesSeen.add(event.frameIndex);
         } else if (event.eventType === 'time_spent' && event.value !== null) {
           session.timeSpent += event.value;
-        } else if (event.eventType === 'ad_impression') {
-          session.adsSeen += 1;
         }
       });
 
@@ -147,7 +145,7 @@ export class AnalyticsService {
           avgPostsSeen,
           avgTimeSpent,
           avgAdsSeen,
-          impressions: adImpressions,
+          impressions: storyImpressions,
           clicks: totalClicks,
           ctr,
           viewability,
@@ -157,7 +155,7 @@ export class AnalyticsService {
           avgPostsSeen,
           avgTimeSpent,
           avgAdsSeen,
-          impressions: adImpressions,
+          impressions: storyImpressions,
           clicks: totalClicks,
           ctr,
           viewability,
@@ -359,10 +357,9 @@ export class AnalyticsService {
 
         if (event.eventType === 'story_view') {
           dayData.views.add(sessionId);
-        } else if (event.eventType === 'ad_impression') {
-          dayData.impressions += 1;
-          dayData.adsSeen.set(sessionId, (dayData.adsSeen.get(sessionId) || 0) + 1);
         } else if (event.eventType === 'frame_view' && event.frameIndex !== null) {
+          // Count frame_view events as impressions (story impressions)
+          dayData.impressions += 1;
           if (!dayData.framesSeen.has(sessionId)) {
             dayData.framesSeen.set(sessionId, new Set());
           }

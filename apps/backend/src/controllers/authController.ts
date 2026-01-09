@@ -48,7 +48,7 @@ export const register = async (
 
     // Generate JWT token with role
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role || 'publisher' },
+      { id: user.id, email: user.email, role: user.role || 'advertiser' },
       config.JWT_SECRET as string,
       { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
     );
@@ -58,7 +58,7 @@ export const register = async (
         id: user.id,
         email: user.email,
         name: user.name || undefined,
-        role: (user.role || 'publisher') as any,
+        role: (user.role || 'advertiser') as any,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       } as any,
@@ -119,7 +119,7 @@ export const login = async (
 
     // Generate JWT token with role
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role || 'publisher' },
+      { id: user.id, email: user.email, role: user.role || 'advertiser' },
       config.JWT_SECRET as string,
       { expiresIn: config.JWT_EXPIRES_IN } as jwt.SignOptions
     );
@@ -129,7 +129,7 @@ export const login = async (
         id: user.id,
         email: user.email,
         name: user.name || undefined,
-        role: (user.role || 'publisher') as any,
+        role: (user.role || 'advertiser') as any,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       } as any,

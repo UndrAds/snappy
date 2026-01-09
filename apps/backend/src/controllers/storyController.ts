@@ -32,8 +32,12 @@ export class StoryController {
     try {
       const { id } = req.params;
       const userId = (req as any).user?.id;
+      const userRole = (req as any).user?.role;
 
-      const story = await StoryService.getStoryById(id || '', userId || undefined);
+      // Admins can get any story, regular users can only get their own
+      const story = userRole === 'admin'
+        ? await StoryService.getStoryByIdAsAdmin(id || '')
+        : await StoryService.getStoryById(id || '', userId || undefined);
 
       if (!story) {
         const response: ApiResponse = {
@@ -100,16 +104,12 @@ export class StoryController {
     }
   }
 
-  // Get all stories for a user (admins see all stories)
+  // Get all stories for a user (admins see only their own stories on home page)
   static async getUserStories(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const userRole = (req as any).user.role;
-
-      // Admins can see all stories
-      const stories = userRole === 'admin'
-        ? await StoryService.getAllStories()
-        : await StoryService.getUserStories(userId);
+      // All users (including admins) see only their own stories on home page
+      const stories = await StoryService.getUserStories(userId);
 
       const response: ApiResponse = {
         success: true,
@@ -195,9 +195,13 @@ export class StoryController {
   static async saveCompleteStory(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
       const storyData = req.body;
 
-      const story = await StoryService.saveCompleteStory(userId, storyData);
+      // Admins can save any story, regular users can only save their own
+      const story = userRole === 'admin'
+        ? await StoryService.saveCompleteStoryAsAdmin(userId, storyData)
+        : await StoryService.saveCompleteStory(userId, storyData);
 
       const response: ApiResponse = {
         success: true,
@@ -222,8 +226,12 @@ export class StoryController {
     try {
       const { storyId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const frame = await StoryService.createStoryFrame(storyId || '', userId || '', req.body);
+      // Admins can create frames for any story, regular users only for their own
+      const frame = userRole === 'admin'
+        ? await StoryService.createStoryFrameAsAdmin(storyId || '', req.body)
+        : await StoryService.createStoryFrame(storyId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -248,8 +256,12 @@ export class StoryController {
     try {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const frame = await StoryService.updateStoryFrame(frameId || '', userId || '', req.body);
+      // Admins can update frames for any story, regular users only for their own
+      const frame = userRole === 'admin'
+        ? await StoryService.updateStoryFrameAsAdmin(frameId || '', req.body)
+        : await StoryService.updateStoryFrame(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -274,8 +286,14 @@ export class StoryController {
     try {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      await StoryService.deleteStoryFrame(frameId || '', userId || '');
+      // Admins can delete frames for any story, regular users only for their own
+      if (userRole === 'admin') {
+        await StoryService.deleteStoryFrameAsAdmin(frameId || '');
+      } else {
+        await StoryService.deleteStoryFrame(frameId || '', userId || '');
+      }
 
       const response: ApiResponse = {
         success: true,
@@ -300,8 +318,12 @@ export class StoryController {
     try {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const element = await StoryService.createStoryElement(frameId || '', userId || '', req.body);
+      // Admins can create elements for any story, regular users only for their own
+      const element = userRole === 'admin'
+        ? await StoryService.createStoryElementAsAdmin(frameId || '', req.body)
+        : await StoryService.createStoryElement(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -326,8 +348,12 @@ export class StoryController {
     try {
       const { elementId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const element = await StoryService.updateStoryElement(elementId || '', userId || '', req.body);
+      // Admins can update elements for any story, regular users only for their own
+      const element = userRole === 'admin'
+        ? await StoryService.updateStoryElementAsAdmin(elementId || '', req.body)
+        : await StoryService.updateStoryElement(elementId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -352,8 +378,14 @@ export class StoryController {
     try {
       const { elementId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      await StoryService.deleteStoryElement(elementId || '', userId || '');
+      // Admins can delete elements for any story, regular users only for their own
+      if (userRole === 'admin') {
+        await StoryService.deleteStoryElementAsAdmin(elementId || '');
+      } else {
+        await StoryService.deleteStoryElement(elementId || '', userId || '');
+      }
 
       const response: ApiResponse = {
         success: true,
@@ -378,8 +410,12 @@ export class StoryController {
     try {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      const background = await StoryService.upsertStoryBackground(frameId || '', userId || '', req.body);
+      // Admins can update backgrounds for any story, regular users only for their own
+      const background = userRole === 'admin'
+        ? await StoryService.upsertStoryBackgroundAsAdmin(frameId || '', req.body)
+        : await StoryService.upsertStoryBackground(frameId || '', userId || '', req.body);
 
       const response: ApiResponse = {
         success: true,
@@ -404,8 +440,14 @@ export class StoryController {
     try {
       const { frameId } = req.params;
       const userId = (req as any).user.id;
+      const userRole = (req as any).user.role;
 
-      await StoryService.deleteStoryBackground(frameId || '', userId || '');
+      // Admins can delete backgrounds for any story, regular users only for their own
+      if (userRole === 'admin') {
+        await StoryService.deleteStoryBackgroundAsAdmin(frameId || '');
+      } else {
+        await StoryService.deleteStoryBackground(frameId || '', userId || '');
+      }
 
       const response: ApiResponse = {
         success: true,

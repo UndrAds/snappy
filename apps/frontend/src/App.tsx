@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -29,6 +29,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user) {
+        toast.error('You must log in to continue.')
+        navigate('/login', { replace: true })
+      } else if (user.role !== 'admin') {
+        toast.error('Admin access required.')
+        navigate('/', { replace: true })
+      }
+    }
+  }, [user, isLoading, navigate])
+
+  if (isLoading) return null
+  if (!user || user.role !== 'admin') return null
+  return <>{children}</>
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="snappy-theme">
@@ -47,7 +68,14 @@ function App() {
             <Route path="edit/:uniqueId" element={<EditStoryPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="analytics/:storyId" element={<StoryAnalyticsPage />} />
-            <Route path="admin" element={<AdminDashboardPage />} />
+            <Route
+              path="admin"
+              element={
+                <AdminProtectedRoute>
+                  <AdminDashboardPage />
+                </AdminProtectedRoute>
+              }
+            />
           </Route>
           <Route path="editor" element={<EditorPage />} />
           <Route path="editor/:uniqueId" element={<EditorPage />} />

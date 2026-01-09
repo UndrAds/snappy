@@ -43,6 +43,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from 'lucide-react'
 import { adminAPI } from '@/lib/api'
 import { Story } from '@snappy/shared-types'
@@ -71,7 +72,9 @@ export default function AdminDashboardPage() {
     Array<Story & { user: { id: string; email: string; name: string | null } }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'stories'>('stats')
+  const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'stories'>(
+    'stats'
+  )
 
   // Pagination for users
   const [usersPage, setUsersPage] = useState(1)
@@ -85,12 +88,31 @@ export default function AdminDashboardPage() {
   const [storiesTotalPages, setStoriesTotalPages] = useState(1)
   const [storiesSearch, setStoriesSearch] = useState('')
   const [storiesSortBy, setStoriesSortBy] = useState('createdAt')
-  const [storiesSortOrder, setStoriesSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [storiesSortOrder, setStoriesSortOrder] = useState<'asc' | 'desc'>(
+    'desc'
+  )
   const [storiesFilterUserId, setStoriesFilterUserId] = useState<string>('')
   const [storiesFilterStatus, setStoriesFilterStatus] = useState<string>('')
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [storyToDelete, setStoryToDelete] = useState<Story | null>(null)
+  const [userAnalyticsDialogOpen, setUserAnalyticsDialogOpen] = useState(false)
+  const [selectedUserAnalytics, setSelectedUserAnalytics] = useState<{
+    user: { id: string; email: string; name: string | null; role: string }
+    analytics: Array<{
+      storyId: string
+      storyTitle: string
+      views: number
+      avgPostsSeen: number
+      avgTimeSpent: number
+      avgAdsSeen: number
+      impressions: number
+      clicks: number
+      ctr: number
+      viewability: number
+    }>
+  } | null>(null)
+  const [loadingUserAnalytics, setLoadingUserAnalytics] = useState(false)
 
   useEffect(() => {
     loadStats()
@@ -100,15 +122,33 @@ export default function AdminDashboardPage() {
     if (activeTab === 'users') {
       loadUsers()
     } else if (activeTab === 'stories') {
-      loadStories()
+      // Load users first if not loaded (for filter dropdown), then load stories
+      if (users.length === 0) {
+        loadUsers().then(() => {
+          // Small delay to ensure state is updated
+          setTimeout(() => loadStories(), 100)
+        })
+      } else {
+        loadStories()
+      }
     }
   }, [activeTab, usersPage, usersSearch, usersSortBy, usersSortOrder])
 
   useEffect(() => {
     if (activeTab === 'stories') {
-      loadStories()
+      // Only reload if stories tab is active and filters change
+      if (users.length > 0 || !isLoading) {
+        loadStories()
+      }
     }
-  }, [storiesPage, storiesSearch, storiesSortBy, storiesSortOrder, storiesFilterUserId, storiesFilterStatus])
+  }, [
+    storiesPage,
+    storiesSearch,
+    storiesSortBy,
+    storiesSortOrder,
+    storiesFilterUserId,
+    storiesFilterStatus,
+  ])
 
   const loadStats = async () => {
     try {
@@ -146,6 +186,35 @@ export default function AdminDashboardPage() {
       toast.error('Failed to load users')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleViewUserStories = (userId: string) => {
+    setStoriesFilterUserId(userId)
+    setActiveTab('stories')
+    setStoriesPage(1)
+    // Load stories after switching tab
+    setTimeout(() => {
+      loadStories()
+    }, 100)
+  }
+
+  const handleViewUserAnalytics = async (userId: string) => {
+    try {
+      setLoadingUserAnalytics(true)
+      const response = await adminAPI.getUserAnalytics(userId)
+
+      if (response.success && response.data) {
+        setSelectedUserAnalytics(response.data)
+        setUserAnalyticsDialogOpen(true)
+      } else {
+        toast.error('Failed to load user analytics')
+      }
+    } catch (error) {
+      console.error('Load user analytics error:', error)
+      toast.error('Failed to load user analytics')
+    } finally {
+      setLoadingUserAnalytics(false)
     }
   }
 
@@ -258,29 +327,37 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">All registered users</p>
+              <p className="text-xs text-muted-foreground">
+                All registered users
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Publishers</CardTitle>
+              <CardTitle className="text-sm font-medium">Advertisers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalPublishers}</div>
-              <p className="text-xs text-muted-foreground">Publisher accounts</p>
+              <p className="text-xs text-muted-foreground">
+                Advertiser accounts
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Stories</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Stories
+              </CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalStories}</div>
-              <p className="text-xs text-muted-foreground">All stories created</p>
+              <p className="text-xs text-muted-foreground">
+                All stories created
+              </p>
             </CardContent>
           </Card>
 
@@ -290,19 +367,23 @@ export default function AdminDashboardPage() {
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalViews.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                {stats.totalViews.toLocaleString()}
+              </div>
               <p className="text-xs text-muted-foreground">Story views</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ad Impressions</CardTitle>
+              <CardTitle className="text-sm font-medium">Impressions</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalImpressions.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Ad impressions</p>
+              <div className="text-2xl font-bold">
+                {stats.totalImpressions.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">Story impressions</p>
             </CardContent>
           </Card>
         </div>
@@ -351,11 +432,13 @@ export default function AdminDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>All Users</CardTitle>
-              <CardDescription>Manage all users on the platform</CardDescription>
+              <CardDescription>
+                Manage all users on the platform
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-8">Loading...</div>
+                <div className="py-8 text-center">Loading...</div>
               ) : (
                 <>
                   <Table>
@@ -368,9 +451,12 @@ export default function AdminDashboardPage() {
                           className="cursor-pointer"
                           onClick={() => handleSortUsers('storyCount')}
                         >
-                          Stories {usersSortBy === 'storyCount' && (usersSortOrder === 'asc' ? '↑' : '↓')}
+                          Stories{' '}
+                          {usersSortBy === 'storyCount' &&
+                            (usersSortOrder === 'asc' ? '↑' : '↓')}
                         </TableHead>
                         <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -379,7 +465,11 @@ export default function AdminDashboardPage() {
                           <TableCell>{user.email}</TableCell>
                           <TableCell>{user.name || '-'}</TableCell>
                           <TableCell>
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            <Badge
+                              variant={
+                                user.role === 'admin' ? 'default' : 'secondary'
+                              }
+                            >
                               {user.role}
                             </Badge>
                           </TableCell>
@@ -387,11 +477,39 @@ export default function AdminDashboardPage() {
                           <TableCell>
                             {new Date(user.createdAt).toLocaleDateString()}
                           </TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              {user.storyCount > 0 && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleViewUserStories(user.id)
+                                    }
+                                  >
+                                    <Eye className="mr-1 h-4 w-4" />
+                                    Stories
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleViewUserAnalytics(user.id)
+                                    }
+                                  >
+                                    <BarChart3 className="mr-1 h-4 w-4" />
+                                    Analytics
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  <div className="flex items-center justify-between mt-4">
+                  <div className="mt-4 flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
                       Page {usersPage} of {usersTotalPages}
                     </div>
@@ -407,7 +525,9 @@ export default function AdminDashboardPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
+                        onClick={() =>
+                          setUsersPage((p) => Math.min(usersTotalPages, p + 1))
+                        }
                         disabled={usersPage === usersTotalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -424,8 +544,8 @@ export default function AdminDashboardPage() {
       {/* Stories Tab */}
       {activeTab === 'stories' && (
         <div className="space-y-4">
-          <div className="flex items-center space-x-2 flex-wrap gap-2">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-wrap items-center gap-2 space-x-2">
+            <div className="relative min-w-[200px] flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search stories..."
@@ -438,9 +558,9 @@ export default function AdminDashboardPage() {
               />
             </div>
             <Select
-              value={storiesFilterUserId}
+              value={storiesFilterUserId || 'all'}
               onValueChange={(value) => {
-                setStoriesFilterUserId(value)
+                setStoriesFilterUserId(value === 'all' ? '' : value)
                 setStoriesPage(1)
               }}
             >
@@ -448,7 +568,7 @@ export default function AdminDashboardPage() {
                 <SelectValue placeholder="Filter by user" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Users</SelectItem>
+                <SelectItem value="all">All Users</SelectItem>
                 {users.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.email}
@@ -457,9 +577,9 @@ export default function AdminDashboardPage() {
               </SelectContent>
             </Select>
             <Select
-              value={storiesFilterStatus}
+              value={storiesFilterStatus || 'all'}
               onValueChange={(value) => {
-                setStoriesFilterStatus(value)
+                setStoriesFilterStatus(value === 'all' ? '' : value)
                 setStoriesPage(1)
               }}
             >
@@ -467,7 +587,7 @@ export default function AdminDashboardPage() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>
@@ -500,11 +620,13 @@ export default function AdminDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>All Stories</CardTitle>
-              <CardDescription>Manage all stories on the platform</CardDescription>
+              <CardDescription>
+                Manage all stories on the platform
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-8">Loading...</div>
+                <div className="py-8 text-center">Loading...</div>
               ) : (
                 <>
                   <Table>
@@ -521,7 +643,9 @@ export default function AdminDashboardPage() {
                     <TableBody>
                       {stories.map((story) => (
                         <TableRow key={story.id}>
-                          <TableCell className="font-medium">{story.title}</TableCell>
+                          <TableCell className="font-medium">
+                            {story.title}
+                          </TableCell>
                           <TableCell>{story.publisherName}</TableCell>
                           <TableCell>{story.user.email}</TableCell>
                           <TableCell>
@@ -530,8 +654,8 @@ export default function AdminDashboardPage() {
                                 story.status === 'published'
                                   ? 'default'
                                   : story.status === 'draft'
-                                  ? 'secondary'
-                                  : 'outline'
+                                    ? 'secondary'
+                                    : 'outline'
                               }
                             >
                               {story.status}
@@ -562,7 +686,7 @@ export default function AdminDashboardPage() {
                       ))}
                     </TableBody>
                   </Table>
-                  <div className="flex items-center justify-between mt-4">
+                  <div className="mt-4 flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
                       Page {storiesPage} of {storiesTotalPages}
                     </div>
@@ -570,7 +694,9 @@ export default function AdminDashboardPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setStoriesPage((p) => Math.max(1, p - 1))}
+                        onClick={() =>
+                          setStoriesPage((p) => Math.max(1, p - 1))
+                        }
                         disabled={storiesPage === 1}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -578,7 +704,11 @@ export default function AdminDashboardPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setStoriesPage((p) => Math.min(storiesTotalPages, p + 1))}
+                        onClick={() =>
+                          setStoriesPage((p) =>
+                            Math.min(storiesTotalPages, p + 1)
+                          )
+                        }
                         disabled={storiesPage === storiesTotalPages}
                       >
                         <ChevronRight className="h-4 w-4" />
@@ -598,17 +728,154 @@ export default function AdminDashboardPage() {
           <DialogHeader>
             <DialogTitle>Delete Story</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{storyToDelete?.title}"? This action cannot be undone.
+              Are you sure you want to delete "{storyToDelete?.title}"? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               Delete
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Analytics Dialog */}
+      <Dialog
+        open={userAnalyticsDialogOpen}
+        onOpenChange={setUserAnalyticsDialogOpen}
+      >
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Analytics for {selectedUserAnalytics?.user.email}
+            </DialogTitle>
+            <DialogDescription>
+              View analytics for all stories created by this user
+            </DialogDescription>
+          </DialogHeader>
+          {loadingUserAnalytics ? (
+            <div className="py-8 text-center">Loading analytics...</div>
+          ) : selectedUserAnalytics &&
+            selectedUserAnalytics.analytics.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Total Stories</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedUserAnalytics.analytics.length}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Total Views</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedUserAnalytics.analytics.reduce(
+                        (sum, a) => sum + a.views,
+                        0
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Total Impressions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedUserAnalytics.analytics.reduce(
+                        (sum, a) => sum + a.impressions,
+                        0
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Total Clicks</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {selectedUserAnalytics.analytics.reduce(
+                        (sum, a) => sum + (a.clicks || 0),
+                        0
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[200px]">
+                        Story Title
+                      </TableHead>
+                      <TableHead>Views</TableHead>
+                      <TableHead>Impressions</TableHead>
+                      <TableHead>Clicks</TableHead>
+                      <TableHead>CTR</TableHead>
+                      <TableHead>Avg Posts Seen</TableHead>
+                      <TableHead>Avg Time (ms)</TableHead>
+                      <TableHead>Avg Ads Seen</TableHead>
+                      <TableHead>Viewability</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedUserAnalytics.analytics.map((analytics) => (
+                      <TableRow key={analytics.storyId}>
+                        <TableCell className="font-medium">
+                          {analytics.storyTitle || 'Untitled Story'}
+                        </TableCell>
+                        <TableCell>
+                          {analytics.views.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {analytics.impressions.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {(analytics.clicks || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          {analytics.ctr
+                            ? `${analytics.ctr.toFixed(2)}%`
+                            : '0%'}
+                        </TableCell>
+                        <TableCell>
+                          {analytics.avgPostsSeen.toFixed(1)}
+                        </TableCell>
+                        <TableCell>
+                          {Math.round(analytics.avgTimeSpent).toLocaleString()}
+                        </TableCell>
+                        <TableCell>{analytics.avgAdsSeen.toFixed(1)}</TableCell>
+                        <TableCell>
+                          {analytics.viewability
+                            ? `${analytics.viewability.toFixed(2)}%`
+                            : '0%'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              No analytics data available for this user
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

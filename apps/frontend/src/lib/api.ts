@@ -489,7 +489,9 @@ export const adminAPI = {
     search?: string
   }): Promise<
     ApiResponse<{
-      stories: Array<Story & { user: { id: string; email: string; name: string | null } }>
+      stories: Array<
+        Story & { user: { id: string; email: string; name: string | null } }
+      >
       pagination: {
         page: number
         limit: number
@@ -532,8 +534,34 @@ export const adminAPI = {
   },
 
   // Delete any story (admin)
-  deleteStory: async (id: string): Promise<ApiResponse<{ message: string }>> => {
+  deleteStory: async (
+    id: string
+  ): Promise<ApiResponse<{ message: string }>> => {
     const response = await api.delete(`/api/admin/stories/${id}`)
+    return response.data
+  },
+
+  // Get analytics for a specific user
+  getUserAnalytics: async (
+    userId: string
+  ): Promise<
+    ApiResponse<{
+      user: { id: string; email: string; name: string | null; role: string }
+      analytics: Array<{
+        storyId: string
+        storyTitle: string
+        views: number
+        avgPostsSeen: number
+        avgTimeSpent: number
+        avgAdsSeen: number
+        impressions: number
+        clicks: number
+        ctr: number
+        viewability: number
+      }>
+    }>
+  > => {
+    const response = await api.get(`/api/admin/users/${userId}/analytics`)
     return response.data
   },
 }

@@ -121,7 +121,7 @@ export default function EditorPage() {
   const [selectedElementId, setSelectedElementId] = useState<string>('')
   const [embedOpen, setEmbedOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [_isLoading, setIsLoading] = useState(false)
+  const [, setIsLoading] = useState(false)
   const [currentStoryId, setCurrentStoryId] = useState<string | undefined>(
     storyId
   )
@@ -500,7 +500,7 @@ export default function EditorPage() {
 
     // Best practice: Always create on backend first if storyId exists
     if (currentStoryId) {
-      (async () => {
+      ;(async () => {
         try {
           const response = await storyAPI.createStoryFrame(currentStoryId, {
             order: frames.length + 1,

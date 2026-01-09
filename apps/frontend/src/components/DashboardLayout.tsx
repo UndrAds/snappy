@@ -3,7 +3,17 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
-import { Moon, Sun, User, LogOut, Plus, ChevronDown, Home, BarChart3, Shield } from 'lucide-react'
+import {
+  Moon,
+  Sun,
+  User,
+  LogOut,
+  Plus,
+  ChevronDown,
+  Home,
+  BarChart3,
+  Shield,
+} from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +41,7 @@ export default function DashboardLayout() {
     return 'Dashboard'
   }
 
+  // Only show admin menu if user is admin
   const isAdmin = user?.role === 'admin'
 
   const menuItems = [
@@ -102,7 +113,10 @@ export default function DashboardLayout() {
         <div className="flex-1 space-y-2 p-4">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.path || (item.path === '/analytics' && location.pathname.startsWith('/analytics'))
+            const isActive =
+              location.pathname === item.path ||
+              (item.path === '/analytics' &&
+                location.pathname.startsWith('/analytics'))
             return (
               <Button
                 key={item.id}

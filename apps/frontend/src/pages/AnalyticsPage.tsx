@@ -115,39 +115,37 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.views}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all stories
-            </p>
+            <p className="text-xs text-muted-foreground">Across all stories</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Posts Seen</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg. Posts Seen
+            </CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {overallAvgPostsSeen.toFixed(1)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Frames per view
-            </p>
+            <p className="text-xs text-muted-foreground">Frames per view</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Time Spent</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg. Time Spent
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {formatTime(overallAvgTimeSpent)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Per story view
-            </p>
+            <p className="text-xs text-muted-foreground">Per story view</p>
           </CardContent>
         </Card>
 
@@ -160,22 +158,20 @@ export default function AnalyticsPage() {
             <div className="text-2xl font-bold">
               {overallAvgAdsSeen.toFixed(1)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Ads per view
-            </p>
+            <p className="text-xs text-muted-foreground">Ads per view</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Impressions</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Impressions
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totals.impressions}</div>
-            <p className="text-xs text-muted-foreground">
-              Ad impressions
-            </p>
+            <p className="text-xs text-muted-foreground">Story impressions</p>
           </CardContent>
         </Card>
       </div>
@@ -199,15 +195,33 @@ export default function AnalyticsPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
-                    <th className="px-4 py-3 text-left text-sm font-medium">Story Title</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Views</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Clicks</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">CTR</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Viewability</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Avg. Posts Seen</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Avg. Time Spent</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Impressions</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Type</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Story Title
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Views
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Clicks
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      CTR
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Viewability
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Avg. Posts Seen
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Avg. Time Spent
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Impressions
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Type
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -216,7 +230,7 @@ export default function AnalyticsPage() {
                     return (
                       <tr
                         key={analyticsItem.storyId}
-                        className="border-b cursor-pointer hover:bg-accent/50 transition-colors"
+                        className="cursor-pointer border-b transition-colors hover:bg-accent/50"
                         onClick={() => {
                           navigate(`/analytics/${analyticsItem.storyId}`)
                         }}
@@ -225,7 +239,9 @@ export default function AnalyticsPage() {
                           {story?.title || 'Unknown Story'}
                         </td>
                         <td className="px-4 py-3">{analyticsItem.views}</td>
-                        <td className="px-4 py-3">{analyticsItem.clicks || 0}</td>
+                        <td className="px-4 py-3">
+                          {analyticsItem.clicks || 0}
+                        </td>
                         <td className="px-4 py-3">
                           {(analyticsItem.ctr || 0).toFixed(2)}%
                         </td>
@@ -238,7 +254,9 @@ export default function AnalyticsPage() {
                         <td className="px-4 py-3">
                           {formatTime(analyticsItem.avgTimeSpent)}
                         </td>
-                        <td className="px-4 py-3">{analyticsItem.impressions}</td>
+                        <td className="px-4 py-3">
+                          {analyticsItem.impressions}
+                        </td>
                         <td className="px-4 py-3">
                           <Badge
                             variant={
@@ -247,7 +265,9 @@ export default function AnalyticsPage() {
                                 : 'secondary'
                             }
                           >
-                            {story?.storyType === 'dynamic' ? 'Dynamic' : 'Static'}
+                            {story?.storyType === 'dynamic'
+                              ? 'Dynamic'
+                              : 'Static'}
                           </Badge>
                         </td>
                       </tr>

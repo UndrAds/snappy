@@ -45,9 +45,21 @@ function convertPrismaStoryToSharedType(prismaStory: any): Story {
         frameLinkText: frame.linkText,
         hasLink: !!frame.link,
         hasLinkText: !!frame.linkText,
+        frameType: frame.type,
+        hasAdConfig: !!frame.adConfig,
       });
       return {
         ...frame,
+        // Ensure adConfig is properly included (it's stored as JSON in Prisma)
+        adConfig:
+          frame.adConfig ||
+          (frame.type === 'ad'
+            ? {
+                adId: `ad-${frame.id}`,
+                adUnitPath: '/6355419/Travel/Europe/France/Paris',
+                size: [300, 250],
+              }
+            : undefined),
         createdAt: frame.createdAt.toISOString(),
         updatedAt: frame.updatedAt.toISOString(),
         elements: frame.elements?.map((element: any) => ({
@@ -1121,11 +1133,28 @@ export class StoryService {
 
   // Admin methods - bypass ownership checks
 
+  // Get story by ID as admin (no ownership check)
+  static async getStoryByIdAsAdmin(storyId: string): Promise<Story | null> {
+    const story = await prisma.story.findFirst({
+      where: { id: storyId },
+      include: {
+        frames: {
+          include: {
+            elements: true,
+            background: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+        },
+      },
+    });
+
+    return story ? convertPrismaStoryToSharedType(story) : null;
+  }
+
   // Update story as admin (no ownership check)
-  static async updateStoryAsAdmin(
-    storyId: string,
-    data: UpdateStoryRequest
-  ): Promise<Story> {
+  static async updateStoryAsAdmin(storyId: string, data: UpdateStoryRequest): Promise<Story> {
     // Whitelist only valid columns for Story update
     const updateData: any = {};
     if (typeof (data as any).title !== 'undefined') updateData.title = (data as any).title;
@@ -1193,5 +1222,251 @@ export class StoryService {
         id: storyId,
       },
     });
+  }
+
+  // Create story frame as admin (no ownership check)
+  static async createStoryFrameAsAdmin(
+    storyId: string,
+    data: CreateStoryFrameRequest
+  ): Promise<StoryFrame> {
+    // Verify story exists (but don't check ownership)
+    await prisma.story.findFirstOrThrow({
+      where: { id: storyId },
+    });
+
+    const frameData: any = {
+      order: data.order,
+      hasContent: data.hasContent || false,
+      name: data.name || null,
+      link: data.link || null,
+      linkText: data.linkText || null,
+      storyId,
+    };
+
+    if (typeof (data as any).type !== 'undefined') {
+      frameData.type = (data as any).type;
+    }
+    if (typeof (data as any).adConfig !== 'undefined') {
+      frameData.adConfig = (data as any).adConfig;
+    }
+    if (typeof (data as any).durationMs !== 'undefined') {
+      frameData.durationMs = (data as any).durationMs;
+    }
+
+    const frame = await prisma.storyFrame.create({
+      data: frameData,
+      include: {
+        elements: true,
+        background: true,
+      },
+    });
+
+    return frame as unknown as StoryFrame;
+  }
+
+  // Update story frame as admin (no ownership check)
+  static async updateStoryFrameAsAdmin(
+    frameId: string,
+    data: UpdateStoryFrameRequest
+  ): Promise<StoryFrame> {
+    // Verify frame exists (but don't check ownership)
+    await prisma.storyFrame.findFirstOrThrow({
+      where: { id: frameId },
+    });
+
+    const updateData: any = {};
+    if (typeof (data as any).name !== 'undefined') updateData.name = (data as any).name;
+    if (typeof (data as any).link !== 'undefined') updateData.link = (data as any).link;
+    if (typeof (data as any).linkText !== 'undefined') updateData.linkText = (data as any).linkText;
+    if (typeof (data as any).order !== 'undefined') updateData.order = (data as any).order;
+    if (typeof (data as any).hasContent !== 'undefined')
+      updateData.hasContent = (data as any).hasContent;
+    if (typeof (data as any).adConfig !== 'undefined') updateData.adConfig = (data as any).adConfig;
+    if (typeof (data as any).durationMs !== 'undefined')
+      updateData.durationMs = (data as any).durationMs;
+
+    const frame = await prisma.storyFrame.update({
+      where: { id: frameId },
+      data: updateData,
+      include: {
+        elements: true,
+        background: true,
+      },
+    });
+
+    return frame as unknown as StoryFrame;
+  }
+
+  // Delete story frame as admin (no ownership check)
+  static async deleteStoryFrameAsAdmin(frameId: string): Promise<void> {
+    await prisma.storyFrame.delete({
+      where: { id: frameId },
+    });
+  }
+
+  // Create story element as admin (no ownership check)
+  static async createStoryElementAsAdmin(
+    frameId: string,
+    data: CreateStoryElementRequest
+  ): Promise<StoryElement> {
+    // Verify frame exists (but don't check ownership)
+    await prisma.storyFrame.findFirstOrThrow({
+      where: { id: frameId },
+    });
+
+    const element = await prisma.storyElement.create({
+      data: {
+        type: data.type,
+        x: data.x,
+        y: data.y,
+        width: data.width,
+        height: data.height,
+        content: data.content || null,
+        mediaUrl: data.mediaUrl || null,
+        style: data.style,
+        frameId,
+      },
+    });
+
+    return element as unknown as StoryElement;
+  }
+
+  // Update story element as admin (no ownership check)
+  static async updateStoryElementAsAdmin(
+    elementId: string,
+    data: UpdateStoryElementRequest
+  ): Promise<StoryElement> {
+    const element = await prisma.storyElement.update({
+      where: { id: elementId },
+      data,
+    });
+
+    return element as unknown as StoryElement;
+  }
+
+  // Delete story element as admin (no ownership check)
+  static async deleteStoryElementAsAdmin(elementId: string): Promise<void> {
+    await prisma.storyElement.delete({
+      where: { id: elementId },
+    });
+  }
+
+  // Create or update story background as admin (no ownership check)
+  static async upsertStoryBackgroundAsAdmin(
+    frameId: string,
+    data: CreateStoryBackgroundRequest
+  ): Promise<StoryBackground> {
+    // Verify frame exists (but don't check ownership)
+    await prisma.storyFrame.findFirstOrThrow({
+      where: { id: frameId },
+    });
+
+    const background = await prisma.storyBackground.upsert({
+      where: { frameId },
+      update: data,
+      create: {
+        ...data,
+        frameId,
+      },
+    });
+
+    return background as unknown as StoryBackground;
+  }
+
+  // Delete story background as admin (no ownership check)
+  static async deleteStoryBackgroundAsAdmin(frameId: string): Promise<void> {
+    await prisma.storyBackground.delete({
+      where: { frameId },
+    });
+  }
+
+  // Save complete story as admin (can save any story)
+  static async saveCompleteStoryAsAdmin(adminUserId: string, storyData: any): Promise<Story> {
+    const { story, frames } = storyData;
+    console.log(
+      'Backend received frames (admin):',
+      frames.map((f: any) => ({ id: f.id, name: f.name, type: f.type }))
+    );
+
+    // Update or create story (admin can update any story)
+    let dbStory: Story;
+    if (story.id) {
+      // Update existing story (admin can update any story)
+      dbStory = await this.updateStoryAsAdmin(story.id, story);
+    } else if (story.uniqueId) {
+      // Try to find story by uniqueId and update it (admin can update any story)
+      const existingStory = await this.getStoryByUniqueId(story.uniqueId);
+      if (existingStory) {
+        dbStory = await this.updateStoryAsAdmin(existingStory.id, story);
+      } else {
+        // Create new story with the provided uniqueId
+        dbStory = await this.createStory(adminUserId, story);
+      }
+    } else {
+      // Create new story
+      dbStory = await this.createStory(adminUserId, story);
+    }
+
+    // Clear existing frames and recreate them
+    await prisma.storyFrame.deleteMany({
+      where: {
+        storyId: dbStory.id,
+      },
+    });
+
+    // Create frames with elements and backgrounds
+    for (const frame of frames) {
+      console.log('Creating frame with name (admin):', frame.name);
+      const dbFrame = await prisma.storyFrame.create({
+        data: {
+          order: frame.order,
+          type: frame.type || 'story',
+          hasContent: frame.hasContent,
+          name: frame.name || null,
+          link: frame.link || null,
+          linkText: frame.linkText || null,
+          adConfig: frame.adConfig || null,
+          storyId: dbStory.id,
+        },
+      });
+      console.log('Created frame (admin):', { id: dbFrame.id, name: dbFrame.name });
+
+      // Create elements
+      for (const element of frame.elements || []) {
+        await prisma.storyElement.create({
+          data: {
+            type: element.type,
+            x: element.x,
+            y: element.y,
+            width: element.width,
+            height: element.height,
+            content: element.content || null,
+            mediaUrl: element.mediaUrl || null,
+            style: element.style,
+            frameId: dbFrame.id,
+          },
+        });
+      }
+
+      // Create background
+      if (frame.background) {
+        await prisma.storyBackground.create({
+          data: {
+            type: frame.background.type,
+            value: frame.background.value,
+            opacity: frame.background.opacity || null,
+            rotation: frame.background.rotation || null,
+            zoom: frame.background.zoom || null,
+            filter: frame.background.filter || null,
+            offsetX: frame.background.offsetX || null,
+            offsetY: frame.background.offsetY || null,
+            frameId: dbFrame.id,
+          },
+        });
+      }
+    }
+
+    // Return updated story
+    return (await this.getStoryByIdAsAdmin(dbStory.id)) as Story;
   }
 }

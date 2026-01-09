@@ -3,30 +3,33 @@ import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import { ApiResponse } from '@snappy/shared-types';
 import { StoryService } from '../services/storyService';
-import { AnalyticsService } from '../services/analyticsService';
 
 export class AdminController {
   // Get admin dashboard stats
   static async getStats(req: AuthRequest, res: Response) {
     try {
-      const [totalUsers, totalPublishers, totalStories, totalViews, totalImpressions] =
+      const [totalUsers, totalAdvertisers, totalStories, totalViews, totalImpressions] =
         await Promise.all([
           prisma.user.count(),
-          prisma.user.count({ where: { role: 'publisher' } }),
+          prisma.user.count({ where: { role: 'advertiser' } }),
           prisma.story.count(),
-          (prisma as any).storyAnalytics.aggregate({
-            _sum: { views: true },
-          }).then((result: any) => result._sum.views || 0),
-          (prisma as any).storyAnalytics.aggregate({
-            _sum: { impressions: true },
-          }).then((result: any) => result._sum.impressions || 0),
+          (prisma as any).storyAnalytics
+            .aggregate({
+              _sum: { views: true },
+            })
+            .then((result: any) => result._sum.views || 0),
+          (prisma as any).storyAnalytics
+            .aggregate({
+              _sum: { impressions: true },
+            })
+            .then((result: any) => result._sum.impressions || 0),
         ]);
 
       const response: ApiResponse = {
         success: true,
         data: {
           totalUsers,
-          totalPublishers,
+          totalPublishers: totalAdvertisers, // Keep field name for API compatibility
           totalStories,
           totalViews,
           totalImpressions,
@@ -48,8 +51,13 @@ export class AdminController {
   // Get all users with story counts
   static async getUsers(req: AuthRequest, res: Response) {
     try {
-      const { page = '1', limit = '50', sortBy = 'createdAt', sortOrder = 'desc', search = '' } =
-        req.query;
+      const {
+        page = '1',
+        limit = '50',
+        sortBy = 'createdAt',
+        sortOrder = 'desc',
+        search = '',
+      } = req.query;
 
       const pageNum = parseInt(page as string, 10);
       const limitNum = parseInt(limit as string, 10);
@@ -119,6 +127,86 @@ export class AdminController {
         success: false,
         error: {
           message: error.message || 'Failed to get users',
+        },
+      };
+      res.status(500).json(response);
+    }
+  }
+
+  // Get analytics for a specific user
+  static async getUserAnalytics(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'User ID is required',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Get user's stories with analytics
+      const stories = await prisma.story.findMany({
+        where: { userId },
+        include: {
+          analytics: true,
+        },
+      });
+
+      // Get user info
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        },
+      });
+
+      if (!user) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'User not found',
+          },
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      // Map stories with analytics
+      const analytics = stories.map((story: any) => ({
+        storyId: story.id,
+        storyTitle: story.title,
+        views: story.analytics?.views ?? 0,
+        avgPostsSeen: story.analytics?.avgPostsSeen ?? 0,
+        avgTimeSpent: story.analytics?.avgTimeSpent ?? 0,
+        avgAdsSeen: story.analytics?.avgAdsSeen ?? 0,
+        impressions: story.analytics?.impressions ?? 0,
+        clicks: story.analytics?.clicks ?? 0,
+        ctr: story.analytics?.ctr ?? 0,
+        viewability: story.analytics?.viewability ?? 0,
+      }));
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          user,
+          analytics,
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          message: error.message || 'Failed to get user analytics',
         },
       };
       res.status(500).json(response);

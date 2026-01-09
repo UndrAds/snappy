@@ -25,7 +25,15 @@ export class AnalyticsController {
       }
 
       // Validate eventType
-      const validEventTypes = ['story_view', 'player_viewport', 'frame_view', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
+      const validEventTypes = [
+        'story_view',
+        'player_viewport',
+        'frame_view',
+        'time_spent',
+        'story_complete',
+        'navigation_click',
+        'cta_click',
+      ];
       if (!validEventTypes.includes(eventType)) {
         const response: ApiResponse = {
           success: false,
@@ -120,7 +128,7 @@ export class AnalyticsController {
           const response: ApiResponse = {
             success: false,
             error: {
-              message: 'You do not have permission to view this story\'s analytics',
+              message: "You do not have permission to view this story's analytics",
             },
           };
           res.status(403).json(response);
@@ -254,14 +262,14 @@ export class AnalyticsController {
 
       let startDate: Date | undefined;
       let endDate: Date | undefined;
-      let days = 30;
+      let days: number | undefined = 30;
 
       if (startDateParam && endDateParam) {
         // Custom date range
         startDate = new Date(startDateParam);
         endDate = new Date(endDateParam);
         endDate.setHours(23, 59, 59, 999); // End of day
-        
+
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
           const response: ApiResponse = {
             success: false,
@@ -272,7 +280,7 @@ export class AnalyticsController {
           res.status(400).json(response);
           return;
         }
-        
+
         if (startDate > endDate) {
           const response: ApiResponse = {
             success: false,
@@ -292,7 +300,7 @@ export class AnalyticsController {
             where: { id: storyId },
             select: { createdAt: true },
           });
-          
+
           if (story) {
             startDate = story.createdAt;
             endDate = new Date();
@@ -314,7 +322,12 @@ export class AnalyticsController {
         }
       }
 
-      const result = await AnalyticsService.getStoryDayWiseAnalytics(storyId, days, startDate, endDate);
+      const result = await AnalyticsService.getStoryDayWiseAnalytics(
+        storyId,
+        days,
+        startDate,
+        endDate
+      );
 
       const response: ApiResponse = {
         success: true,

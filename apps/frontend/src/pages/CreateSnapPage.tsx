@@ -58,6 +58,7 @@ interface SnapData {
   storyType: StoryType
   rssConfig?: RSSConfig
   defaultDurationMs?: number
+  cpm?: number
 }
 
 export default function CreateSnapPage() {
@@ -78,6 +79,7 @@ export default function CreateSnapPage() {
     storyType: 'static' as const,
     rssConfig: undefined,
     defaultDurationMs: 2500,
+    cpm: undefined,
   })
 
   const [previewUrls, setPreviewUrls] = useState<{
@@ -113,7 +115,7 @@ export default function CreateSnapPage() {
     }
   }, [snapData.storyType, rssConfig.adInsertionConfig])
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | number | undefined) => {
     setSnapData((prev) => ({
       ...prev,
       [field]: value,
@@ -259,6 +261,7 @@ export default function CreateSnapPage() {
         deviceFrame: snapData.deviceFrame,
         storyType: snapData.storyType,
         rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
+        cpm: snapData.cpm,
       })
 
       if (storyResponse.success && storyResponse.data) {
@@ -728,6 +731,55 @@ export default function CreateSnapPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CPM Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Revenue Settings
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="max-w-xs">
+                        <p className="text-sm">
+                          CPM (Cost Per Mille) is the cost per 1000 impressions.
+                          Revenue will be calculated as: (CPM × Impressions) ÷ 1000
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
+              <CardDescription>
+                Set your CPM rate for revenue calculation in analytics
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpm">CPM (Cost Per Mille)</Label>
+                <Input
+                  id="cpm"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 2.50"
+                  value={snapData.cpm || ''}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'cpm',
+                      e.target.value ? parseFloat(e.target.value) : undefined
+                    )
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Set your CPM rate to calculate revenue in analytics
+                </p>
               </div>
             </CardContent>
           </Card>

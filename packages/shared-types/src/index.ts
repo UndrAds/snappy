@@ -107,6 +107,7 @@ export interface Story {
   deviceFrame: DeviceFrame;
   storyType: StoryType;
   defaultDurationMs?: number;
+  cpm?: number; // Cost Per Mille (cost per 1000 impressions) for revenue calculation
   rssConfig?: RSSConfig;
   embedConfig?: EmbedConfig;
   userId: string;
@@ -131,6 +132,7 @@ export interface CreateStoryRequest {
   embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow providing a specific unique ID
   defaultDurationMs?: number;
+  cpm?: number; // Cost Per Mille (cost per 1000 impressions) for revenue calculation
 }
 
 export interface UpdateStoryRequest {
@@ -150,6 +152,7 @@ export interface UpdateStoryRequest {
   embedConfig?: EmbedConfig;
   uniqueId?: string; // Optional: allow updating the unique ID
   defaultDurationMs?: number;
+  cpm?: number; // Cost Per Mille (cost per 1000 impressions) for revenue calculation
   applyDefaultDurationToAll?: boolean; // If true, set all frames' durationMs to story default
 }
 

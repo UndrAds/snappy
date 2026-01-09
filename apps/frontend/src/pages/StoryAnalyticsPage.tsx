@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   MousePointerClick,
   Info,
+  DollarSign,
 } from 'lucide-react'
 import {
   Tooltip,
@@ -233,6 +234,11 @@ export default function StoryAnalyticsPage() {
     story?.frames?.length && story.frames.length > 0
       ? (avgPostsSeen / story.frames.length) * 100
       : 0
+
+  // Calculate Revenue: (CPM * Impressions) / 1000
+  const cpm = (story as any)?.cpm || 0
+  const revenue =
+    cpm > 0 && totalImpressions > 0 ? (cpm * totalImpressions) / 1000 : 0
 
   // Calculate insights
   const peakDay = dayWiseData.reduce(
@@ -597,6 +603,32 @@ export default function StoryAnalyticsPage() {
               </p>
             </CardContent>
           </Card>
+
+          {cpm > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Revenue calculated as: (CPM × Impressions) ÷ 1000</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">${revenue.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground">
+                  CPM: ${cpm.toFixed(2)} | Impressions:{' '}
+                  {totalImpressions.toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </TooltipProvider>
 

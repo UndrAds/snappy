@@ -111,13 +111,22 @@ export class StoryService {
       format: data.format || 'portrait',
       deviceFrame: data.deviceFrame || 'mobile',
       storyType: data.storyType || 'static',
-      // defaultDurationMs removed from explicit set; rely on Prisma default
-      rssConfig: data.rssConfig ? JSON.parse(JSON.stringify(data.rssConfig)) : null,
-      embedConfig: (data as any).embedConfig
-        ? JSON.parse(JSON.stringify((data as any).embedConfig))
-        : null,
       userId,
     };
+
+    // Only include optional fields if they are provided
+    if ((data as any).defaultDurationMs !== undefined) {
+      createData.defaultDurationMs = (data as any).defaultDurationMs;
+    }
+    if ((data as any).cpm !== undefined) {
+      createData.cpm = (data as any).cpm;
+    }
+    if (data.rssConfig) {
+      createData.rssConfig = JSON.parse(JSON.stringify(data.rssConfig));
+    }
+    if ((data as any).embedConfig) {
+      createData.embedConfig = JSON.parse(JSON.stringify((data as any).embedConfig));
+    }
     const story = await prisma.story.create({
       data: createData,
       include: {
@@ -310,6 +319,7 @@ export class StoryService {
       updateData.storyType = (data as any).storyType;
     if (typeof (data as any).defaultDurationMs !== 'undefined')
       updateData.defaultDurationMs = (data as any).defaultDurationMs;
+    if (typeof (data as any).cpm !== 'undefined') updateData.cpm = (data as any).cpm;
     if (typeof (data as any).rssConfig !== 'undefined') {
       updateData.rssConfig = (data as any).rssConfig
         ? JSON.parse(JSON.stringify((data as any).rssConfig))
@@ -1173,6 +1183,7 @@ export class StoryService {
       updateData.storyType = (data as any).storyType;
     if (typeof (data as any).defaultDurationMs !== 'undefined')
       updateData.defaultDurationMs = (data as any).defaultDurationMs;
+    if (typeof (data as any).cpm !== 'undefined') updateData.cpm = (data as any).cpm;
     if (typeof (data as any).rssConfig !== 'undefined') {
       updateData.rssConfig = (data as any).rssConfig
         ? JSON.parse(JSON.stringify((data as any).rssConfig))

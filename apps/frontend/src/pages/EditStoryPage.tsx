@@ -125,7 +125,7 @@ export default function EditStoryPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | number | undefined) => {
     if (!story) return
 
     setStory((prev) =>
@@ -133,7 +133,7 @@ export default function EditStoryPage() {
         ? {
             ...prev,
             [field]: value,
-          }
+          } as any
         : null
     )
   }
@@ -184,6 +184,7 @@ export default function EditStoryPage() {
         deviceFrame: story.deviceFrame || 'mobile',
         storyType: story.storyType || 'static',
         defaultDurationMs: (story as any).defaultDurationMs,
+        cpm: (story as any).cpm,
         rssConfig:
           story.storyType === 'dynamic'
             ? (story as any).rssConfig || undefined
@@ -504,6 +505,59 @@ export default function EditStoryPage() {
                   value={story.title}
                   onChange={(e) => handleInputChange('title', e.target.value)}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* CPM Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Revenue Settings
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="max-w-xs">
+                        <p className="text-sm">
+                          CPM (Cost Per Mille) is the cost per 1000 impressions.
+                          Revenue will be calculated as: (CPM × Impressions) ÷ 1000
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
+              <CardDescription>
+                Set your CPM rate for revenue calculation in analytics
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="cpm">CPM (Cost Per Mille)</Label>
+                <Input
+                  id="cpm"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 2.50"
+                  value={
+                    (story as any).cpm !== null && (story as any).cpm !== undefined
+                      ? String((story as any).cpm)
+                      : ''
+                  }
+                  onChange={(e) =>
+                    handleInputChange(
+                      'cpm',
+                      e.target.value ? parseFloat(e.target.value) : undefined
+                    )
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Set your CPM rate to calculate revenue in analytics
+                </p>
               </div>
             </CardContent>
           </Card>

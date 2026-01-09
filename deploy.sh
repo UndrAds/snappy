@@ -34,7 +34,7 @@ echo "👤 Initializing admin user..."
 # Wait a bit more to ensure backend is fully ready
 sleep 5
 if docker-compose ps backend | grep -q "Up"; then
-    if docker-compose exec -T backend npx tsx apps/backend/scripts/init-admin.ts; then
+    if docker-compose exec -T backend sh -c "npx tsx /app/apps/backend/scripts/init-admin.ts"; then
         echo "✅ Admin user initialization completed"
     else
         echo "⚠️ Admin user initialization failed, but continuing deployment..."

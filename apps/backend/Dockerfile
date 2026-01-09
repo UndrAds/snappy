@@ -50,6 +50,7 @@ RUN npm ci --only=production
 # Copy built application from builder stage
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/scripts ./apps/backend/scripts
 COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 
 # Create uploads directory

@@ -2,7 +2,12 @@
 // This is a deployment script - Prisma types may not be fully up to date
 // but the role field exists in the schema and will work at runtime
 import bcrypt from 'bcryptjs';
-import prisma from '../src/config/database';
+import { PrismaClient } from '@prisma/client';
+
+// Create Prisma client directly (works in both dev and production)
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
 async function initAdmin() {
   try {

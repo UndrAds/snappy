@@ -2,7 +2,12 @@
 // Script to create or update a user in the database
 // Usage: npx tsx scripts/create-user.ts <email> <password> [name] [role]
 import bcrypt from 'bcryptjs';
-import prisma from '../src/config/database';
+import { PrismaClient } from '@prisma/client';
+
+// Create Prisma client directly (works in both dev and production)
+const prisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
 async function createOrUpdateUser() {
   try {

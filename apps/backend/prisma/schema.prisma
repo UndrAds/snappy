@@ -134,6 +134,9 @@ model StoryAnalytics {
   avgTimeSpent Float   @default(0) // Average time spent in milliseconds
   avgAdsSeen  Float   @default(0) // Average number of ads seen per view
   impressions Int      @default(0) // Total ad impressions
+  clicks      Int      @default(0) // Total clicks (navigation clicks + CTA clicks)
+  ctr         Float    @default(0) // Click-through rate for CTA clicks (percentage)
+  viewability Float    @default(0) // Viewability percentage (frames viewed / total frames)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -146,7 +149,7 @@ model StoryAnalytics {
 model StoryAnalyticsEvent {
   id          String   @id @default(cuid())
   storyId     String
-  eventType   String   // 'story_view' | 'frame_view' | 'ad_impression' | 'time_spent' | 'story_complete'
+  eventType   String   // 'story_view' | 'frame_view' | 'ad_impression' | 'time_spent' | 'story_complete' | 'navigation_click' | 'cta_click'
   frameIndex  Int?     // Frame index for frame_view events
   value       Float?   // Value for time_spent events (in ms)
   sessionId   String?  // Session identifier to group events from same user session

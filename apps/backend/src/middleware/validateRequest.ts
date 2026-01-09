@@ -6,7 +6,7 @@ export const validateRequest = (req: Request, _res: Response, next: NextFunction
 
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map((error) => error.msg);
-    const error = new Error(errorMessages.join(', ')) as any;
+    const error = new Error(errorMessages.join(', ')) as Error & { statusCode?: number; details?: string[] };
     error.statusCode = 400;
     error.details = errorMessages;
     next(error);

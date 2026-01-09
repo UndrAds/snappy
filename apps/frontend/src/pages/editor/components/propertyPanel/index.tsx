@@ -23,7 +23,7 @@ export default function PropertyPanel({
   onFrameUpdate,
   storyDefaultDurationMs,
 }: any) {
-  let type =
+  const type =
     selectedElement?.type ||
     (selectedElement === undefined ? 'background' : null)
   const PanelComponent = PROPERTY_PANEL_REGISTRY[type]

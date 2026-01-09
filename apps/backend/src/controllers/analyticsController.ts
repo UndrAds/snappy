@@ -25,7 +25,7 @@ export class AnalyticsController {
       }
 
       // Validate eventType
-      const validEventTypes = ['story_view', 'frame_view', 'ad_impression', 'time_spent', 'story_complete'];
+      const validEventTypes = ['story_view', 'frame_view', 'ad_impression', 'time_spent', 'story_complete', 'navigation_click', 'cta_click'];
       if (!validEventTypes.includes(eventType)) {
         const response: ApiResponse = {
           success: false,
@@ -71,7 +71,6 @@ export class AnalyticsController {
   static async getStoryAnalytics(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
-      const userId = (req as any).user?.id;
 
       if (!storyId) {
         const response: ApiResponse = {
@@ -183,8 +182,8 @@ export class AnalyticsController {
   static async getStoryAnalyticsEvents(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 100;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const limit = parseInt(req.query['limit'] as string) || 100;
+      const offset = parseInt(req.query['offset'] as string) || 0;
 
       if (!storyId) {
         const response: ApiResponse = {
@@ -224,7 +223,7 @@ export class AnalyticsController {
   static async getStoryDayWiseAnalytics(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
-      const days = parseInt(req.query.days as string) || 30;
+      const days = parseInt(req.query['days'] as string) || 30;
 
       if (!storyId) {
         const response: ApiResponse = {

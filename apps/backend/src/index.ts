@@ -38,12 +38,19 @@ app.use(
   })
 );
 
-// Rate limiting
+// Rate limiting - general limiter (exclude auth routes which have their own limiter)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for auth routes (they have their own limiter)
+    return req.path.startsWith('/api/auth');
+  },
 });
+
 app.use(limiter);
 
 // Body parsing middleware

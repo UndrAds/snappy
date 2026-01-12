@@ -82,12 +82,14 @@ export class AdminController {
       const response: ApiResponse = {
         success: true,
         data: {
-          advertisers: advertisers.map((user: { id: string; email: string; name: string | null }) => ({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            displayText: `${user.email}${user.name ? ` <${user.name}>` : ''}`,
-          })),
+          advertisers: advertisers.map(
+            (user: { id: string; email: string; name: string | null }) => ({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              displayText: `${user.email}${user.name ? ` <${user.name}>` : ''}`,
+            })
+          ),
         },
       };
 
@@ -97,6 +99,67 @@ export class AdminController {
         success: false,
         error: {
           message: error.message || 'Failed to get advertisers',
+        },
+      };
+      res.status(500).json(response);
+    }
+  }
+
+  // Get user by ID (admin only)
+  static async getUserById(req: AuthRequest, res: Response) {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'User ID is required',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        },
+      });
+
+      if (!user) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'User not found',
+          },
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            displayText: `${user.email}${user.name ? ` <${user.name}>` : ''}`,
+          },
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error: any) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          message: error.message || 'Failed to get user',
         },
       };
       res.status(500).json(response);
@@ -158,7 +221,7 @@ export class AdminController {
         email: user.email,
         name: user.name,
         role: user.role,
-        storyCount: (user)._count.stories,
+        storyCount: user._count.stories,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       }));

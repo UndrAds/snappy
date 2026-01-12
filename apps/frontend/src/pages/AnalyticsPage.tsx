@@ -238,7 +238,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle>Story Analytics</CardTitle>
           <CardDescription>
-            Detailed metrics for each of your stories
+            Click on any story row to view detailed analytics with insights, charts, and date ranges
           </CardDescription>
         </CardHeader>
         <CardContent>

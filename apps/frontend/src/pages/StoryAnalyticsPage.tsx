@@ -61,10 +61,10 @@ export default function StoryAnalyticsPage() {
     }>
   >([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedDays, setSelectedDays] = useState<number | null>(30)
+  const [selectedDays, setSelectedDays] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<
     'today' | 'yesterday' | 'custom' | 'all' | null
-  >(null)
+  >('today')
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
   const { theme } = useTheme()
@@ -259,9 +259,9 @@ export default function StoryAnalyticsPage() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground">Story not found</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
+          <Button onClick={() => navigate(-1)} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
+            Go Back
           </Button>
         </div>
       </div>
@@ -273,7 +273,7 @@ export default function StoryAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
@@ -604,31 +604,43 @@ export default function StoryAnalyticsPage() {
             </CardContent>
           </Card>
 
-          {cpm > 0 && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3 w-3 cursor-help text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Revenue calculated as: (CPM × Impressions) ÷ 1000</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${revenue.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">
-                  CPM: ${cpm.toFixed(2)} | Impressions:{' '}
-                  {totalImpressions.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Revenue calculated as: (CPM × Impressions) ÷ 1000</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {cpm > 0 ? (
+                <>
+                  <div className="text-2xl font-bold">
+                    ${revenue.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    CPM: ${cpm.toFixed(2)} | Impressions:{' '}
+                    {totalImpressions.toLocaleString()}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">$0.00</div>
+                  <p className="text-xs text-muted-foreground">
+                    Revenue is $0 because CPM is not set. Set a CPM value in
+                    story settings to calculate revenue.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </TooltipProvider>
 

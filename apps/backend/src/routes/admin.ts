@@ -15,6 +15,7 @@ router.get('/stats', AdminController.getStats);
 // User management
 router.get('/advertisers', AdminController.getAdvertisers);
 router.get('/users/:userId/analytics', AdminController.getUserAnalytics);
+router.get('/users/:userId', AdminController.getUserById);
 router.get('/users', AdminController.getUsers);
 
 // Story management

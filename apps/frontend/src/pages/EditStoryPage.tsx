@@ -45,7 +45,7 @@ export default function EditStoryPage() {
   const { uniqueId } = useParams()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
-  
+
   const [story, setStory] = useState<Story | null>(null)
   const [frames, setFrames] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -65,7 +65,12 @@ export default function EditStoryPage() {
   // Advertiser search state (admin only)
   const [advertiserSearch, setAdvertiserSearch] = useState('')
   const [advertisers, setAdvertisers] = useState<
-    Array<{ id: string; email: string; name: string | null; displayText: string }>
+    Array<{
+      id: string
+      email: string
+      name: string | null
+      displayText: string
+    }>
   >([])
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<{
     id: string
@@ -105,6 +110,52 @@ export default function EditStoryPage() {
     }
   }, [story])
 
+  // Load story owner when story is loaded (admin only)
+  useEffect(() => {
+    if (!isAdmin || !story) return
+
+    const userId = (story as any).userId
+    if (userId && !selectedAdvertiser) {
+      // Load the story owner to pre-fill the advertiser field
+      adminAPI
+        .getUserById(userId)
+        .then((userResponse) => {
+          if (userResponse.success && userResponse.data) {
+            const owner = userResponse.data.user
+            const ownerAsAdvertiser = {
+              id: owner.id,
+              email: owner.email,
+              name: owner.name,
+              displayText: owner.displayText,
+            }
+            setSelectedAdvertiser(ownerAsAdvertiser)
+            setAdvertiserSearch(owner.displayText)
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to load story owner:', error)
+          // Fallback: try to find in advertisers list
+          adminAPI
+            .getAdvertisers({ search: '' })
+            .then((advResponse) => {
+              if (advResponse.success && advResponse.data) {
+                const currentAdvertiser = advResponse.data.advertisers.find(
+                  (a) => a.id === userId
+                )
+                if (currentAdvertiser) {
+                  setSelectedAdvertiser(currentAdvertiser)
+                  setAdvertiserSearch(currentAdvertiser.displayText)
+                }
+              }
+            })
+            .catch((advError) => {
+              console.error('Failed to load current advertiser:', advError)
+            })
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [story, isAdmin])
+
   // Load advertisers when admin searches (debounced)
   useEffect(() => {
     if (!isAdmin) return
@@ -143,26 +194,8 @@ export default function EditStoryPage() {
       const response = await storyAPI.getStoryByUniqueId(uniqueId!)
 
       if (response.success && response.data) {
-        setStory(response.data)
-        // Load story's userId for admin
-        if (isAdmin && (response.data as any).userId) {
-          const userId = (response.data as any).userId
-          // Load advertisers to find the current one
-          try {
-            const advResponse = await adminAPI.getAdvertisers({ search: '' })
-            if (advResponse.success && advResponse.data) {
-              const currentAdvertiser = advResponse.data.advertisers.find(
-                (a) => a.id === userId
-              )
-              if (currentAdvertiser) {
-                setSelectedAdvertiser(currentAdvertiser)
-                setAdvertiserSearch(currentAdvertiser.displayText)
-              }
-            }
-          } catch (error) {
-            console.error('Failed to load current advertiser:', error)
-          }
-        }
+        const storyData = response.data
+        setStory(storyData)
         // Load frames from story data
         if (
           (response.data as any).frames &&
@@ -193,15 +226,18 @@ export default function EditStoryPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string | number | undefined) => {
+  const handleInputChange = (
+    field: string,
+    value: string | number | undefined
+  ) => {
     if (!story) return
 
     setStory((prev) =>
       prev
-        ? {
+        ? ({
             ...prev,
             [field]: value,
-          } as any
+          } as any)
         : null
     )
   }
@@ -258,7 +294,7 @@ export default function EditStoryPage() {
             ? (story as any).rssConfig || undefined
             : null,
       }
-      
+
       // Include userId if admin is reassigning
       if (isAdmin && selectedAdvertiser) {
         updateData.userId = selectedAdvertiser.id
@@ -609,11 +645,11 @@ export default function EditStoryPage() {
                       }}
                     />
                     {advertiserSearch && advertisers.length > 0 && (
-                      <div className="border rounded-md max-h-60 overflow-auto bg-background">
+                      <div className="max-h-60 overflow-auto rounded-md border bg-background">
                         {advertisers.map((advertiser) => (
                           <div
                             key={advertiser.id}
-                            className="px-4 py-2 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            className="cursor-pointer border-b px-4 py-2 last:border-b-0 hover:bg-accent"
                             onClick={() => {
                               setSelectedAdvertiser(advertiser)
                               setAdvertiserSearch(advertiser.displayText)
@@ -627,7 +663,7 @@ export default function EditStoryPage() {
                       </div>
                     )}
                     {selectedAdvertiser && (
-                      <div className="mt-2 p-2 bg-muted rounded-md">
+                      <div className="mt-2 rounded-md bg-muted p-2">
                         <div className="text-sm text-foreground">
                           <span className="font-medium">Selected: </span>
                           {selectedAdvertiser.displayText}
@@ -671,7 +707,8 @@ export default function EditStoryPage() {
                       <div className="max-w-xs">
                         <p className="text-sm">
                           CPM (Cost Per Mille) is the cost per 1000 impressions.
-                          Revenue will be calculated as: (CPM × Impressions) ÷ 1000
+                          Revenue will be calculated as: (CPM × Impressions) ÷
+                          1000
                         </p>
                       </div>
                     </TooltipContent>
@@ -692,14 +729,17 @@ export default function EditStoryPage() {
                   step="0.01"
                   placeholder="e.g., 2.50"
                   value={
-                    (story as any).cpm !== null && (story as any).cpm !== undefined
+                    (story as any).cpm !== null &&
+                    (story as any).cpm !== undefined
                       ? String((story as any).cpm)
-                      : ''
+                      : '0'
                   }
                   onChange={(e) =>
                     handleInputChange(
                       'cpm',
-                      e.target.value ? parseFloat(e.target.value) : undefined
+                      e.target.value !== ''
+                        ? parseFloat(e.target.value) || 0
+                        : 0
                     )
                   }
                 />

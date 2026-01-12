@@ -567,6 +567,23 @@ export const adminAPI = {
     return response.data
   },
 
+  // Get user by ID
+  getUserById: async (
+    userId: string
+  ): Promise<
+    ApiResponse<{
+      user: {
+        id: string
+        email: string
+        name: string | null
+        displayText: string
+      }
+    }>
+  > => {
+    const response = await api.get(`/api/admin/users/${userId}`)
+    return response.data
+  },
+
   // Get analytics for a specific user
   getUserAnalytics: async (
     userId: string

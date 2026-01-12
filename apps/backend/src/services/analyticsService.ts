@@ -102,11 +102,11 @@ export class AnalyticsService {
         }
       });
 
-      // Count impressions: sessions where frames seen > 50% of total frames
+      // Count impressions: sessions where frames seen >= 50% of total frames
       const threshold = Math.ceil(totalFrames * 0.5); // 50% threshold
       let storyImpressions = 0;
       sessionFrameCounts.forEach((framesSeen) => {
-        if (framesSeen.size > threshold) {
+        if (framesSeen.size >= threshold) {
           storyImpressions += 1;
         }
       });
@@ -154,6 +154,13 @@ export class AnalyticsService {
 
       // Calculate CTR: (CTA clicks / story views) * 100
       const ctr = storyViews > 0 ? (ctaClicks / storyViews) * 100 : 0;
+
+      // Debug logging for CTR calculation
+      if (ctaClicks > 0 || storyViews > 0) {
+        console.log(
+          `[Analytics] Story ${storyId}: Views=${storyViews}, CTA Clicks=${ctaClicks}, CTR=${ctr.toFixed(2)}%`
+        );
+      }
 
       // Calculate viewability: (average frames seen / total frames) * 100
       const viewability = totalFrames > 0 ? (avgPostsSeen / totalFrames) * 100 : 0;
@@ -457,10 +464,10 @@ export class AnalyticsService {
         const avgAdsSeen =
           Array.from(dayData.adsSeen.values()).reduce((sum, ads) => sum + ads, 0) / sessionCount;
 
-        // Calculate impressions: sessions where frames seen > 50% of total frames
+        // Calculate impressions: sessions where frames seen >= 50% of total frames
         let dayImpressions = 0;
         dayData.framesSeen.forEach((framesSeen) => {
-          if (framesSeen.size > threshold) {
+          if (framesSeen.size >= threshold) {
             dayImpressions += 1;
           }
         });

@@ -71,7 +71,7 @@ export default function CreateSnapPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
-  
+
   const [snapData, setSnapData] = useState<SnapData>({
     name: 'My Amazing Story',
     publisher: {
@@ -91,7 +91,12 @@ export default function CreateSnapPage() {
   // Advertiser search state (admin only)
   const [advertiserSearch, setAdvertiserSearch] = useState('')
   const [advertisers, setAdvertisers] = useState<
-    Array<{ id: string; email: string; name: string | null; displayText: string }>
+    Array<{
+      id: string
+      email: string
+      name: string | null
+      displayText: string
+    }>
   >([])
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<{
     id: string
@@ -166,7 +171,10 @@ export default function CreateSnapPage() {
     }
   }
 
-  const handleInputChange = (field: string, value: string | number | undefined) => {
+  const handleInputChange = (
+    field: string,
+    value: string | number | undefined
+  ) => {
     setSnapData((prev) => ({
       ...prev,
       [field]: value,
@@ -314,12 +322,12 @@ export default function CreateSnapPage() {
         rssConfig: snapData.storyType === 'dynamic' ? rssConfig : undefined,
         cpm: snapData.cpm,
       }
-      
+
       // Include userId if admin is assigning to advertiser
       if (isAdmin && selectedAdvertiser) {
         storyData.userId = selectedAdvertiser.id
       }
-      
+
       const storyResponse = await storyAPI.createStory(storyData)
 
       if (storyResponse.success && storyResponse.data) {
@@ -499,11 +507,11 @@ export default function CreateSnapPage() {
                       }}
                     />
                     {advertiserSearch && advertisers.length > 0 && (
-                      <div className="border rounded-md max-h-60 overflow-auto bg-background">
+                      <div className="max-h-60 overflow-auto rounded-md border bg-background">
                         {advertisers.map((advertiser) => (
                           <div
                             key={advertiser.id}
-                            className="px-4 py-2 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                            className="cursor-pointer border-b px-4 py-2 last:border-b-0 hover:bg-accent"
                             onClick={() => {
                               setSelectedAdvertiser(advertiser)
                               setSnapData((prev) => ({
@@ -521,7 +529,7 @@ export default function CreateSnapPage() {
                       </div>
                     )}
                     {selectedAdvertiser && (
-                      <div className="mt-2 p-2 bg-muted rounded-md">
+                      <div className="mt-2 rounded-md bg-muted p-2">
                         <div className="text-sm text-foreground">
                           <span className="font-medium">Selected: </span>
                           {selectedAdvertiser.displayText}
@@ -888,7 +896,8 @@ export default function CreateSnapPage() {
                       <div className="max-w-xs">
                         <p className="text-sm">
                           CPM (Cost Per Mille) is the cost per 1000 impressions.
-                          Revenue will be calculated as: (CPM × Impressions) ÷ 1000
+                          Revenue will be calculated as: (CPM × Impressions) ÷
+                          1000
                         </p>
                       </div>
                     </TooltipContent>
@@ -908,11 +917,17 @@ export default function CreateSnapPage() {
                   min="0"
                   step="0.01"
                   placeholder="e.g., 2.50"
-                  value={snapData.cpm || ''}
+                  value={
+                    snapData.cpm !== null && snapData.cpm !== undefined
+                      ? String(snapData.cpm)
+                      : '0'
+                  }
                   onChange={(e) =>
                     handleInputChange(
                       'cpm',
-                      e.target.value ? parseFloat(e.target.value) : undefined
+                      e.target.value !== ''
+                        ? parseFloat(e.target.value) || 0
+                        : 0
                     )
                   }
                 />

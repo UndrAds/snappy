@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   Story,
   CreateStoryRequest,
@@ -16,8 +16,7 @@ import {
   AdInsertionConfig,
 } from '@snappy/shared-types';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 // Helper function to convert Prisma story to shared types format
 function convertPrismaStoryToSharedType(prismaStory: any): Story {

@@ -7,9 +7,12 @@ import { S3Service } from './s3Service';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import archiver from 'archiver';
-import { minify } from 'html-minifier-terser';
-import { minify as minifyCSS } from 'csso';
-import { minify as minifyJS } from 'terser';
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const { minify: minifyHTML } = require('html-minifier-terser');
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const { minify: minifyCSSLib } = require('csso');
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const { minify: minifyJSLib } = require('terser');
 
 export interface ExportOptions {
   exportType: 'standard' | 'app-campaigns'; // Standard Display Network or App Campaigns
@@ -107,7 +110,7 @@ export class ExportService {
       const isDynamicStory = story.storyType === 'dynamic';
       const html = this.generateHTML(story, storyFrames, imageMap, options, isDynamicStory);
 
-      // Minify HTML
+      // Minify HTML (CSS and JS are already inlined, so we only minify HTML)
       const minifiedHTML = await this.minifyHTML(html);
 
       // Write single HTML file
@@ -206,6 +209,10 @@ export class ExportService {
         }
       }
 
+      if (chunks.length === 0) {
+        throw new Error('Empty response body from S3');
+      }
+
       return Buffer.concat(chunks);
     } else {
       // External URL
@@ -236,7 +243,7 @@ export class ExportService {
    */
   private static getImageExtension(url: string): string {
     const match = url.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
-    return match ? `.${match[1].toLowerCase()}` : '.jpg';
+    return match && match[1] ? `.${match[1].toLowerCase()}` : '.jpg';
   }
 
   /**
@@ -317,7 +324,7 @@ export class ExportService {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${this.escapeHtml(story.title)}</title>
+  <title>${this.escapeHtml(story.title || 'Story')}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
 ${css}
@@ -445,7 +452,7 @@ ${js}
    */
   private static getElementStyle(
     element: any,
-    imageMap: Map<string, string>,
+    _imageMap: Map<string, string>,
     isDynamicStory: boolean = false
   ): string {
     const styles: string[] = [];
@@ -508,7 +515,7 @@ ${js}
   /**
    * Generate CSS
    */
-  private static generateCSS(story: Story, options: ExportOptions): string {
+  private static generateCSS(story: Story, _options: ExportOptions): string {
     const format = story.format || 'portrait';
     const deviceFrame = story.deviceFrame || 'mobile';
 
@@ -641,7 +648,7 @@ body {
   /**
    * Generate JavaScript (with click navigation)
    */
-  private static generateJS(story: Story, frames: StoryFrame[], options: ExportOptions): string {
+  private static generateJS(_story: Story, frames: StoryFrame[], _options: ExportOptions): string {
     return `
 (function() {
   let currentFrame = 0;
@@ -728,7 +735,8 @@ body {
    */
   private static async minifyHTML(html: string): Promise<string> {
     try {
-      return await minify(html, {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const result = await minifyHTML(html, {
         collapseWhitespace: true,
         removeComments: true,
         minifyCSS: true,
@@ -736,6 +744,8 @@ body {
         removeAttributeQuotes: true,
         removeEmptyAttributes: true,
       });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return result;
     } catch (error) {
       console.warn('HTML minification failed, using original:', error);
       return html.replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
@@ -743,26 +753,34 @@ body {
   }
 
   /**
-   * Minify CSS
+   * Minify CSS (used internally by minifyHTML, but kept for potential future use)
    */
+  // @ts-expect-error - Function is kept for potential future use
   private static async minifyCSS(css: string): Promise<string> {
     try {
-      const result = minifyCSS(css);
-      return result.css;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+      const result = minifyCSSLib(css);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      return result.css as string;
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.warn('CSS minification failed, using original:', error);
       return css.replace(/\s+/g, ' ').replace(/;\s*}/g, '}').trim();
     }
   }
 
   /**
-   * Minify JavaScript
+   * Minify JavaScript (used internally by minifyHTML, but kept for potential future use)
    */
+  // @ts-expect-error - Function is kept for potential future use
   private static async minifyJS(js: string): Promise<string> {
     try {
-      const result = await minifyJS(js);
-      return result.code || js;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const result = await minifyJSLib(js);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      return (result.code as string) || js;
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.warn('JS minification failed, using original:', error);
       return js.replace(/\s+/g, ' ').trim();
     }
@@ -815,7 +833,7 @@ body {
       '"': '&quot;',
       "'": '&#039;',
     };
-    return text.replace(/[&<>"']/g, (m) => map[m]);
+    return text.replace(/[&<>"']/g, (m) => map[m] || m);
   }
 
   /**

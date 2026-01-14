@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { StoryController } from '../controllers/storyController';
+import { ExportController } from '../controllers/exportController';
 import { authenticateToken } from '../middleware/auth';
 import { validateRequest } from '../middleware/validateRequest';
 import { body, param } from 'express-validator';
@@ -28,6 +29,19 @@ router.post(
 );
 
 router.get('/', StoryController.getUserStories);
+
+// Export routes (must come before /:id to avoid path conflicts)
+router.get(
+  '/:storyId/export/info',
+  [param('storyId').notEmpty().withMessage('Story ID is required'), validateRequest],
+  ExportController.getExportInfo
+);
+
+router.get(
+  '/:storyId/export/h5',
+  [param('storyId').notEmpty().withMessage('Story ID is required'), validateRequest],
+  ExportController.exportToH5Ads
+);
 
 router.get(
   '/:id',

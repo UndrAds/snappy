@@ -6,6 +6,7 @@ import EditorSidebar from './components/EditorSidebar'
 import EditorCanvas from './components/EditorCanvas'
 import PropertyPanel from './components/propertyPanel'
 import EmbedModal from './components/EmbedModal'
+import ExportModal from './components/ExportModal'
 import RSSUpdateTimer from '@/components/RSSUpdateTimer'
 import { storyAPI } from '@/lib/api'
 
@@ -120,6 +121,7 @@ export default function EditorPage() {
   const [selectedFrameId, setSelectedFrameId] = useState<string>('')
   const [selectedElementId, setSelectedElementId] = useState<string>('')
   const [embedOpen, setEmbedOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [, setIsLoading] = useState(false)
   const [currentStoryId, setCurrentStoryId] = useState<string | undefined>(
@@ -851,6 +853,10 @@ export default function EditorPage() {
     setEmbedOpen(true)
   }
 
+  const handleExport = () => {
+    setExportOpen(true)
+  }
+
   const selectedFrame = frames.find((frame) => frame.id === selectedFrameId)
   const selectedElement = selectedFrame?.elements.find(
     (el) => el.id === selectedElementId
@@ -860,7 +866,8 @@ export default function EditorPage() {
     <EditorLayout
       onSave={handleSave}
       onPreview={handlePreview}
-      onEmbed={handleEmbed}
+        onEmbed={handleEmbed}
+        onExport={handleExport}
       storyTitle={storyDataState?.storyTitle}
       isSaving={isSaving}
       rssTimer={
@@ -1066,6 +1073,12 @@ export default function EditorPage() {
           'demo'
         }
         storyData={{ story: storyDataState, frames }}
+      />
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        storyId={currentStoryId || (storyDataState as any)?.id || uniqueId || ''}
+        storyTitle={storyDataState?.storyTitle}
       />
     </EditorLayout>
   )

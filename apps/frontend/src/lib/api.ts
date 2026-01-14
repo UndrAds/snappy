@@ -136,6 +136,49 @@ export const storyAPI = {
     return response.data
   },
 
+  // Export story to Google H5 Ads
+  getExportInfo: async (
+    storyId: string,
+    exportType: 'standard' | 'app-campaigns' = 'standard'
+  ): Promise<
+    ApiResponse<{
+      storyFrames: number
+      imageCount: number
+      estimatedFiles: number
+      maxSize: number
+      maxFiles: number
+      constraints: {
+        fileSize: { limit: number; limitKB: number }
+        fileCount: { limit: number; estimated: number }
+      }
+    }>
+  > => {
+    const response = await api.get(`/api/stories/${storyId}/export/info`, {
+      params: { exportType },
+    })
+    return response.data
+  },
+
+  exportToH5Ads: async (
+    storyId: string,
+    exportType: 'standard' | 'app-campaigns' = 'standard'
+  ): Promise<void> => {
+    const response = await api.get(`/api/stories/${storyId}/export/h5`, {
+      params: { exportType },
+      responseType: 'blob',
+    })
+    
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `story-h5-${storyId}.zip`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  },
+
   // Save complete story from editor
   saveCompleteStory: async (storyData: any): Promise<ApiResponse<Story>> => {
     const response = await api.post('/api/stories/save-complete', storyData)

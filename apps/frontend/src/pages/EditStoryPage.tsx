@@ -27,12 +27,14 @@ import {
   Smartphone,
   Monitor,
   Megaphone,
+  Download,
 } from 'lucide-react'
 import { storyAPI, uploadAPI, rssAPI, adminAPI } from '@/lib/api'
 import RSSProgressLoader from '@/components/RSSProgressLoader'
 import { Story, AdInsertionConfig } from '@snappy/shared-types'
 import StoryFrame from '@/components/StoryFrame'
 import { useAuth } from '@/hooks/useAuth'
+import ExportModal from '@/pages/editor/components/ExportModal'
 import {
   Tooltip,
   TooltipContent,
@@ -79,6 +81,7 @@ export default function EditStoryPage() {
     displayText: string
   } | null>(null)
   const [isLoadingAdvertisers, setIsLoadingAdvertisers] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   // Load story data
   useEffect(() => {
@@ -1322,6 +1325,14 @@ export default function EditStoryPage() {
           </div>
           <div className="flex space-x-4">
             <Button
+              variant="outline"
+              onClick={() => setExportOpen(true)}
+              className="flex items-center space-x-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export H5</span>
+            </Button>
+            <Button
               onClick={handleSaveAndEdit}
               className="flex items-center space-x-2"
               disabled={isSaving}
@@ -1339,6 +1350,16 @@ export default function EditStoryPage() {
           storyId={currentStoryId}
           onComplete={handleProgressComplete}
           onError={handleProgressError}
+        />
+      )}
+
+      {/* Export Modal */}
+      {story && (
+        <ExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          storyId={story.id}
+          storyTitle={story.title}
         />
       )}
     </div>

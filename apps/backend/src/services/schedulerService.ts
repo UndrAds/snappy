@@ -56,8 +56,9 @@ export class SchedulerService {
    */
   private setupQueueProcessors() {
     // Process RSS update jobs with concurrency limit to prevent blocking
-    // Concurrency of 2 allows parallel processing while keeping resource usage reasonable
-    this.rssQueue.process('update-story', 2, async (job) => {
+    // Concurrency of 1 prevents database connection pool exhaustion
+    // RSS jobs use long-running transactions that need dedicated connections
+    this.rssQueue.process('update-story', 1, async (job) => {
       const { storyId, rssConfig } = job.data;
 
       try {

@@ -710,12 +710,20 @@ export class StoryService {
 
   // Generate frames from RSS feed items
   static async generateFramesFromRSS(storyId: string, feedItems: RSSFeedItem[]): Promise<number> {
-    // Use a transaction to ensure atomicity
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Retry logic with exponential backoff for transaction timeouts
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        console.log(
-          `Starting frame generation for story ${storyId} with ${feedItems.length} items`
-        );
+        // Use a transaction with increased timeout for long-running operations
+        // maxWait: time to wait for connection (30s)
+        // timeout: max transaction duration (5 minutes for large RSS feeds)
+        return await prisma.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            console.log(
+              `Starting frame generation for story ${storyId} with ${feedItems.length} items`
+            );
 
         // Get the story to understand its format and preserve defaultDurationMs
         // Always read from database to get latest rssConfig with adInsertionConfig
@@ -1095,20 +1103,51 @@ export class StoryService {
           }))
         );
 
-        // Verify no duplicate orders
-        const orders = verificationFrames.map((f: any) => f.order);
-        const uniqueOrders = new Set(orders);
-        if (orders.length !== uniqueOrders.size) {
-          console.error('ERROR: Duplicate orders detected!', orders);
-          throw new Error('Duplicate frame orders detected after generation');
+            // Verify no duplicate orders
+            const orders = verificationFrames.map((f: any) => f.order);
+            const uniqueOrders = new Set(orders);
+            if (orders.length !== uniqueOrders.size) {
+              console.error('ERROR: Duplicate orders detected!', orders);
+              throw new Error('Duplicate frame orders detected after generation');
+            }
+
+            return framesGenerated;
+          },
+          {
+            maxWait: 30000, // 30 seconds to wait for connection
+            timeout: 300000, // 5 minutes for transaction completion
+          }
+        );
+      } catch (error: any) {
+        lastError = error;
+        const isConnectionError =
+          error?.code === 'P2024' || // Connection pool timeout
+          error?.code === 'P2028' || // Transaction timeout
+          error?.message?.includes('connection') ||
+          error?.message?.includes('timeout');
+
+        if (isConnectionError && attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.warn(
+            `Transaction failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`,
+            error.message
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
         }
 
-        return framesGenerated;
-      } catch (error) {
+        // If not a connection error or out of retries, throw immediately
         console.error('Error generating frames from RSS:', error);
         throw error;
       }
-    });
+    }
+
+    // If we exhausted all retries, throw the last error
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw new Error('Failed to generate frames from RSS after retries');
   }
 
   // Get RSS processing status for a story

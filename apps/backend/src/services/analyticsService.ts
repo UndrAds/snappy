@@ -30,22 +30,19 @@ export interface StoryAnalytics {
   viewability: number; // Viewability percentage (frames viewed / total frames)
 }
 
+// Debounce map: storyId -> timeout handle
+const aggregationDebounceMap = new Map<string, NodeJS.Timeout>();
+// Debounce delay: 5 seconds - aggregate after 5s of no new events
+const AGGREGATION_DEBOUNCE_MS = 5000;
+
 export class AnalyticsService {
   /**
    * Track an analytics event
+   * Optimized: Event insertion is fast, aggregation is debounced and non-blocking
    */
   static async trackEvent(data: TrackEventData): Promise<void> {
     try {
-      // Verify story exists
-      const story = await prisma.story.findUnique({
-        where: { id: data.storyId },
-      });
-
-      if (!story) {
-        throw new Error('Story not found');
-      }
-
-      // Create event record
+      // Fast path: Just insert the event, don't block on aggregation
       await (prisma as any).storyAnalyticsEvent.create({
         data: {
           storyId: data.storyId,
@@ -57,108 +54,173 @@ export class AnalyticsService {
         },
       });
 
-      // Update aggregated analytics
-      await this.updateAggregatedAnalytics(data.storyId);
+      // Schedule debounced aggregation update (non-blocking)
+      this.scheduleAggregationUpdate(data.storyId);
     } catch (error: any) {
+      // Don't throw - analytics failures shouldn't break the app
+      // Log error but allow request to complete
       console.error('Error tracking analytics event:', error);
-      throw error;
+      // Only throw if it's a critical error (like story not found during validation)
+      if (error.message?.includes('Story not found')) {
+        throw error;
+      }
     }
   }
 
   /**
+   * Schedule a debounced aggregation update
+   * Only updates aggregation after a period of inactivity to avoid connection pool exhaustion
+   */
+  private static scheduleAggregationUpdate(storyId: string): void {
+    // Clear existing timeout if any
+    const existingTimeout = aggregationDebounceMap.get(storyId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Schedule new aggregation update
+    const timeout = setTimeout(async () => {
+      aggregationDebounceMap.delete(storyId);
+      // Run aggregation in background, don't await
+      this.updateAggregatedAnalytics(storyId).catch((error) => {
+        console.error(`Failed to update aggregated analytics for story ${storyId}:`, error);
+        // Don't throw - aggregation failures are non-critical
+      });
+    }, AGGREGATION_DEBOUNCE_MS);
+
+    aggregationDebounceMap.set(storyId, timeout);
+  }
+
+  /**
    * Update aggregated analytics for a story
+   * Optimized: Uses database-level aggregations instead of fetching all events
    */
   private static async updateAggregatedAnalytics(storyId: string): Promise<void> {
     try {
-      // Get all events for this story
-      const events = await (prisma as any).storyAnalyticsEvent.findMany({
-        where: { storyId },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      // Get story first to know total frames count
+      // Get story to know total frames count (single query)
       const story = await prisma.story.findUnique({
         where: { id: storyId },
-        include: { frames: true },
+        select: {
+          id: true,
+          frames: {
+            select: { id: true },
+          },
+        },
       });
-      const totalFrames = story?.frames?.length || 1;
 
-      // Calculate metrics
-      // Views = number of times player appears in viewport
-      const storyViews = events.filter((e: any) => e.eventType === 'player_viewport').length;
+      if (!story) {
+        console.warn(`Story ${storyId} not found for analytics aggregation`);
+        return;
+      }
 
-      // Impressions = stories viewed more than 50% of frames
-      // Group by session and count only sessions where >50% of frames were viewed
+      const totalFrames = story.frames?.length || 1;
+      const threshold = Math.ceil(totalFrames * 0.5); // 50% threshold for impressions
+
+      // Use database-level aggregations for performance
+      // This is much faster than fetching all events and processing in memory
+      const [
+        storyViewsResult,
+        navigationClicksResult,
+        ctaClicksResult,
+        sessionFrameData,
+        sessionTimeData,
+      ] = await Promise.all([
+        // Count player_viewport events (views)
+        (prisma as any).storyAnalyticsEvent.count({
+          where: {
+            storyId,
+            eventType: 'player_viewport',
+          },
+        }),
+
+        // Count navigation clicks
+        (prisma as any).storyAnalyticsEvent.count({
+          where: {
+            storyId,
+            eventType: 'navigation_click',
+          },
+        }),
+
+        // Count CTA clicks
+        (prisma as any).storyAnalyticsEvent.count({
+          where: {
+            storyId,
+            eventType: 'cta_click',
+          },
+        }),
+
+        // Get frame_view events grouped by session (for impressions and avgPostsSeen)
+        (prisma as any).storyAnalyticsEvent.findMany({
+          where: {
+            storyId,
+            eventType: 'frame_view',
+            frameIndex: { not: null },
+          },
+          select: {
+            sessionId: true,
+            frameIndex: true,
+          },
+        }),
+
+        // Get time_spent events for average calculation
+        (prisma as any).storyAnalyticsEvent.findMany({
+          where: {
+            storyId,
+            eventType: 'time_spent',
+            value: { not: null },
+          },
+          select: {
+            sessionId: true,
+            value: true,
+          },
+        }),
+      ]);
+
+      const storyViews = storyViewsResult || 0;
+      const navigationClicks = navigationClicksResult || 0;
+      const ctaClicks = ctaClicksResult || 0;
+      const totalClicks = navigationClicks + ctaClicks;
+
+      // Process session frame data in memory (much smaller dataset than all events)
       const sessionFrameCounts = new Map<string, Set<number>>();
-      events.forEach((event: any) => {
-        if (event.eventType === 'frame_view' && event.frameIndex !== null) {
-          const sessionId = event.sessionId || 'anonymous';
-          if (!sessionFrameCounts.has(sessionId)) {
-            sessionFrameCounts.set(sessionId, new Set());
-          }
+      sessionFrameData.forEach((event: any) => {
+        const sessionId = event.sessionId || 'anonymous';
+        if (!sessionFrameCounts.has(sessionId)) {
+          sessionFrameCounts.set(sessionId, new Set());
+        }
+        if (event.frameIndex !== null) {
           sessionFrameCounts.get(sessionId)!.add(event.frameIndex);
         }
       });
 
       // Count impressions: sessions where frames seen >= 50% of total frames
-      const threshold = Math.ceil(totalFrames * 0.5); // 50% threshold
       let storyImpressions = 0;
       sessionFrameCounts.forEach((framesSeen) => {
         if (framesSeen.size >= threshold) {
           storyImpressions += 1;
         }
       });
-      const navigationClicks = events.filter((e: any) => e.eventType === 'navigation_click').length;
-      const ctaClicks = events.filter((e: any) => e.eventType === 'cta_click').length;
-      const totalClicks = navigationClicks + ctaClicks;
 
-      // Group events by session to calculate per-session metrics
-      const sessions = new Map<
-        string,
-        {
-          framesSeen: Set<number>;
-          timeSpent: number;
-          adsSeen: number;
-        }
-      >();
+      // Calculate average posts seen
+      const sessionCount = sessionFrameCounts.size || 1;
+      const avgPostsSeen =
+        Array.from(sessionFrameCounts.values()).reduce((sum, frames) => sum + frames.size, 0) /
+        sessionCount;
 
-      events.forEach((event: any) => {
+      // Calculate average time spent
+      const sessionTimeMap = new Map<string, number>();
+      sessionTimeData.forEach((event: any) => {
         const sessionId = event.sessionId || 'anonymous';
-        if (!sessions.has(sessionId)) {
-          sessions.set(sessionId, {
-            framesSeen: new Set(),
-            timeSpent: 0,
-            adsSeen: 0,
-          });
-        }
-
-        const session = sessions.get(sessionId)!;
-
-        if (event.eventType === 'frame_view' && event.frameIndex !== null) {
-          session.framesSeen.add(event.frameIndex);
-        } else if (event.eventType === 'time_spent' && event.value !== null) {
-          session.timeSpent += event.value;
-        }
+        const currentTime = sessionTimeMap.get(sessionId) || 0;
+        sessionTimeMap.set(sessionId, currentTime + (event.value || 0));
       });
 
-      // Calculate averages
-      const sessionCount = sessions.size || 1; // Avoid division by zero
-      const avgPostsSeen =
-        Array.from(sessions.values()).reduce((sum, s) => sum + s.framesSeen.size, 0) / sessionCount;
+      const timeSessionCount = sessionTimeMap.size || 1;
       const avgTimeSpent =
-        Array.from(sessions.values()).reduce((sum, s) => sum + s.timeSpent, 0) / sessionCount;
-      const avgAdsSeen =
-        Array.from(sessions.values()).reduce((sum, s) => sum + s.adsSeen, 0) / sessionCount;
+        Array.from(sessionTimeMap.values()).reduce((sum, time) => sum + time, 0) / timeSessionCount;
 
       // Calculate CTR: (CTA clicks / story views) * 100
       const ctr = storyViews > 0 ? (ctaClicks / storyViews) * 100 : 0;
-
-      // Debug logging for CTR calculation
-      if (ctaClicks > 0 || storyViews > 0) {
-        console.log(
-          `[Analytics] Story ${storyId}: Views=${storyViews}, CTA Clicks=${ctaClicks}, CTR=${ctr.toFixed(2)}%`
-        );
-      }
 
       // Calculate viewability: (average frames seen / total frames) * 100
       const viewability = totalFrames > 0 ? (avgPostsSeen / totalFrames) * 100 : 0;
@@ -171,7 +233,7 @@ export class AnalyticsService {
           views: storyViews,
           avgPostsSeen,
           avgTimeSpent,
-          avgAdsSeen,
+          avgAdsSeen: 0, // Not currently tracked
           impressions: storyImpressions,
           clicks: totalClicks,
           ctr,
@@ -181,7 +243,7 @@ export class AnalyticsService {
           views: storyViews,
           avgPostsSeen,
           avgTimeSpent,
-          avgAdsSeen,
+          avgAdsSeen: 0, // Not currently tracked
           impressions: storyImpressions,
           clicks: totalClicks,
           ctr,
@@ -189,16 +251,40 @@ export class AnalyticsService {
         },
       });
     } catch (error: any) {
-      console.error('Error updating aggregated analytics:', error);
-      throw error;
+      // Don't throw - aggregation failures are non-critical
+      // Log error for monitoring but don't break the application
+      console.error(`Error updating aggregated analytics for story ${storyId}:`, error);
     }
   }
 
   /**
-   * Get analytics for a specific story
+   * Force immediate aggregation update (for admin/API endpoints that need fresh data)
    */
-  static async getStoryAnalytics(storyId: string): Promise<StoryAnalytics | null> {
+  static async forceAggregationUpdate(storyId: string): Promise<void> {
+    // Clear any pending debounced update
+    const existingTimeout = aggregationDebounceMap.get(storyId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      aggregationDebounceMap.delete(storyId);
+    }
+    // Run aggregation immediately
+    await this.updateAggregatedAnalytics(storyId);
+  }
+
+  /**
+   * Get analytics for a specific story
+   * Optionally triggers aggregation if data is stale
+   */
+  static async getStoryAnalytics(
+    storyId: string,
+    forceUpdate: boolean = false
+  ): Promise<StoryAnalytics | null> {
     try {
+      // Force update if requested (for real-time analytics views)
+      if (forceUpdate) {
+        await this.forceAggregationUpdate(storyId);
+      }
+
       const analytics = await (prisma as any).storyAnalytics.findUnique({
         where: { storyId },
       });

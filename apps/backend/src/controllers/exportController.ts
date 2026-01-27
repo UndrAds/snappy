@@ -11,9 +11,35 @@ export class ExportController {
   static async exportToH5Ads(req: Request, res: Response) {
     try {
       const { storyId } = req.params;
-      const { exportType = 'standard' } = req.query;
+      const { exportType = 'standard', destinationUrl } = req.query;
       const userId = (req as any).user?.id;
       const userRole = (req as any).user?.role;
+
+      // Validate destination URL
+      if (!destinationUrl || typeof destinationUrl !== 'string' || destinationUrl.trim() === '') {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'Destination URL is required for Google H5 Ads export',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Validate URL format
+      try {
+        new URL(destinationUrl as string);
+      } catch {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            message: 'Invalid destination URL format',
+          },
+        };
+        res.status(400).json(response);
+        return;
+      }
 
       if (!storyId) {
         const response: ApiResponse = {
@@ -60,6 +86,7 @@ export class ExportController {
       // Export options
       const options: ExportOptions = {
         exportType: exportType === 'app-campaigns' ? 'app-campaigns' : 'standard',
+        destinationUrl: destinationUrl as string,
       };
 
       // Generate export

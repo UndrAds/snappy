@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Download, AlertCircle, CheckCircle2, Info } from 'lucide-react'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
   const [exportType, setExportType] = useState<'standard' | 'app-campaigns'>(
     'standard'
   )
+  const [destinationUrl, setDestinationUrl] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [exportInfo, setExportInfo] = useState<{
     storyFrames: number
@@ -64,9 +66,23 @@ const ExportModal: React.FC<ExportModalProps> = ({
   }
 
   const handleExport = async () => {
+    // Validate destination URL
+    if (!destinationUrl || destinationUrl.trim() === '') {
+      toast.error('Destination URL is required for Google H5 Ads export')
+      return
+    }
+
+    // Basic URL validation
+    try {
+      new URL(destinationUrl)
+    } catch {
+      toast.error('Please enter a valid URL (e.g., https://example.com)')
+      return
+    }
+
     try {
       setIsExporting(true)
-      await storyAPI.exportToH5Ads(storyId, exportType)
+      await storyAPI.exportToH5Ads(storyId, exportType, destinationUrl.trim())
       toast.success('Export started! Your download should begin shortly.')
       onClose()
     } catch (error: any) {
@@ -107,6 +123,24 @@ const ExportModal: React.FC<ExportModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Destination URL (Required) */}
+          <div className="space-y-2">
+            <Label htmlFor="destination-url">
+              Destination URL <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="destination-url"
+              type="url"
+              placeholder="https://example.com"
+              value={destinationUrl}
+              onChange={(e) => setDestinationUrl(e.target.value)}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              The URL users will be redirected to when they click the ad
+            </p>
+          </div>
+
           {/* Export Type Selection */}
           <div className="space-y-3">
             <Label>Export Type</Label>
@@ -290,7 +324,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
           </Button>
           <Button
             onClick={handleExport}
-            disabled={isExporting || isLoadingInfo}
+            disabled={isExporting || isLoadingInfo || !destinationUrl.trim()}
           >
             {isExporting ? (
               <>

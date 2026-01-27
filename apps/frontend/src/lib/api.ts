@@ -161,10 +161,11 @@ export const storyAPI = {
 
   exportToH5Ads: async (
     storyId: string,
-    exportType: 'standard' | 'app-campaigns' = 'standard'
+    exportType: 'standard' | 'app-campaigns' = 'standard',
+    destinationUrl: string
   ): Promise<void> => {
     const response = await api.get(`/api/stories/${storyId}/export/h5`, {
-      params: { exportType },
+      params: { exportType, destinationUrl },
       responseType: 'blob',
     })
     

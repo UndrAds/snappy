@@ -16,6 +16,7 @@ const { minify: minifyJSLib } = require('terser');
 
 export interface ExportOptions {
   exportType: 'standard' | 'app-campaigns'; // Standard Display Network or App Campaigns
+  destinationUrl: string; // Click destination URL for the ad
 }
 
 export interface ExportResult {
@@ -47,19 +48,34 @@ export class ExportService {
       // Publisher pic
       if (story.publisherPic) {
         imageUrls.add(story.publisherPic);
+        console.log(`[Export] Added publisher pic: ${story.publisherPic}`);
+      }
+
+      // Story thumbnails (for static stories)
+      if (story.largeThumbnail) {
+        imageUrls.add(story.largeThumbnail);
+        console.log(`[Export] Added large thumbnail: ${story.largeThumbnail}`);
+      }
+      if (story.smallThumbnail) {
+        imageUrls.add(story.smallThumbnail);
+        console.log(`[Export] Added small thumbnail: ${story.smallThumbnail}`);
       }
 
       // Frame backgrounds and elements
-      storyFrames.forEach((frame) => {
+      storyFrames.forEach((frame, frameIndex) => {
         if (frame.background?.type === 'image' && frame.background.value) {
           imageUrls.add(frame.background.value);
+          console.log(`[Export] Added frame ${frameIndex} background image: ${frame.background.value}`);
         }
-        frame.elements?.forEach((element) => {
+        frame.elements?.forEach((element, elementIndex) => {
           if (element.type === 'image' && element.mediaUrl) {
             imageUrls.add(element.mediaUrl);
+            console.log(`[Export] Added frame ${frameIndex} element ${elementIndex} image: ${element.mediaUrl}`);
           }
         });
       });
+
+      console.log(`[Export] Total unique image URLs collected: ${imageUrls.size}`);
 
       // Download and compress images
       const imageMap = new Map<string, string>(); // original URL -> local filename
@@ -101,8 +117,11 @@ export class ExportService {
 
           fs.writeFileSync(localPath, compressedImage);
           imageMap.set(imageUrl, filename);
+          console.log(`[Export] Successfully downloaded and saved image: ${imageUrl} -> ${filename} (${compressedImage.length} bytes)`);
         } catch (error: any) {
-          warnings.push(`Failed to download/compress image: ${imageUrl} - ${error.message}`);
+          const errorMsg = `Failed to download/compress image: ${imageUrl} - ${error.message}`;
+          warnings.push(errorMsg);
+          console.error(`[Export] ${errorMsg}`);
         }
       }
 
@@ -119,6 +138,11 @@ export class ExportService {
       // Create ZIP file
       const zipPath = path.join(tempDir, 'story.zip');
       const filesToZip = ['index.html', ...Array.from(imageMap.values())];
+      
+      // Log files being added to ZIP for debugging
+      console.log(`[Export] Adding ${filesToZip.length} files to ZIP:`, filesToZip);
+      console.log(`[Export] Image map size: ${imageMap.size}, Image URLs collected: ${imageUrls.size}`);
+      
       await this.createZip(tempDir, zipPath, filesToZip);
 
       // Get file size and count
@@ -319,26 +343,113 @@ export class ExportService {
     const css = this.generateCSS(story, options);
     const js = this.generateJS(story, frames, options);
 
+    // Get dimensions for ad.size meta tag
+    const format = story.format || 'portrait';
+    const deviceFrame = story.deviceFrame || 'mobile';
+    let adWidth: number;
+    let adHeight: number;
+
+    if (format === 'portrait') {
+      if (deviceFrame === 'mobile') {
+        adWidth = 288;
+        adHeight = 550;
+      } else {
+        adWidth = 320;
+        adHeight = 600;
+      }
+    } else {
+      if (deviceFrame === 'mobile') {
+        adWidth = 400;
+        adHeight = 225;
+      } else {
+        adWidth = 480;
+        adHeight = 270;
+      }
+    }
+
+    // Escape destination URL for JavaScript (escape quotes, backslashes, and newlines)
+    const escapedUrl = options.destinationUrl
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
+
+    // Generate progress bar HTML
+    const progressBarHTML = this.generateProgressBar(frames.length);
+    
+    // Generate publisher header HTML
+    const publisherHeaderHTML = this.generatePublisherHeader(story, imageMap);
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="ad.size" content="width=${adWidth},height=${adHeight}">
   <title>${this.escapeHtml(story.title || 'Story')}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
 ${css}
   </style>
+  <script type="text/javascript">
+var clickTag = "${escapedUrl}";
+  </script>
 </head>
 <body>
-  <div class="story-container">
-    ${framesHTML}
-  </div>
+  <a href="javascript:void(window.open(clickTag))">
+    <div class="story-container">
+      ${progressBarHTML}
+      ${publisherHeaderHTML}
+      ${framesHTML}
+    </div>
+  </a>
   <script>
 ${js}
   </script>
 </body>
 </html>`;
+  }
+
+  /**
+   * Generate progress bar HTML
+   */
+  private static generateProgressBar(totalFrames: number): string {
+    const bars = Array.from({ length: totalFrames }, (_, i) => {
+      return `<div class="progress-bar-item" data-frame-index="${i}">
+        <div class="progress-bar-fill" data-frame-index="${i}"></div>
+      </div>`;
+    }).join('');
+
+    return `<div class="progress-bar-container">${bars}</div>`;
+  }
+
+  /**
+   * Generate publisher header HTML
+   */
+  private static generatePublisherHeader(
+    story: Story,
+    imageMap: Map<string, string>
+  ): string {
+    const publisherPic = story.publisherPic;
+    const publisherPicLocal = publisherPic ? imageMap.get(publisherPic) : null;
+    const publisherName = this.escapeHtml(story.publisherName || '');
+    const storyTitle = this.escapeHtml(story.title || '');
+
+    const picHTML = publisherPicLocal
+      ? `<img src="${this.escapeHtml(publisherPicLocal)}" alt="Publisher" class="publisher-pic" />`
+      : '<div class="publisher-pic-placeholder">PP</div>';
+
+    return `<div class="publisher-header">
+      ${picHTML}
+      <div class="publisher-info">
+        <div class="publisher-name">${publisherName}</div>
+        <div class="story-title">${storyTitle}</div>
+      </div>
+      <div class="frame-counter">
+        <span class="current-frame">1</span>/<span class="total-frames">${story.frames?.filter(f => f.type === 'story').length || 1}</span>
+      </div>
+    </div>`;
   }
 
   /**
@@ -635,8 +746,113 @@ body {
   object-fit: cover;
 }
 
+a {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+  height: 100%;
+}
+
 .story-container {
   cursor: pointer;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+}
+
+.progress-bar-item {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #fff;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.progress-bar-fill.active {
+  width: 100%;
+}
+
+.progress-bar-fill.current {
+  width: 25%;
+}
+
+/* Publisher Header */
+.publisher-header {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 32px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.publisher-pic {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.publisher-pic-placeholder {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.publisher-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.publisher-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.story-title {
+  color: #fff;
+  opacity: 0.8;
+  font-size: 12px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.frame-counter {
+  color: #fff;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .frame {
@@ -662,6 +878,24 @@ body {
     frames.forEach((frame, i) => {
       frame.classList.toggle('active', i === index);
     });
+    
+    // Update progress bars
+    const progressBars = document.querySelectorAll('.progress-bar-fill');
+    progressBars.forEach((bar, i) => {
+      bar.classList.remove('active', 'current');
+      if (i < index) {
+        bar.classList.add('active');
+      } else if (i === index) {
+        bar.classList.add('current');
+      }
+    });
+    
+    // Update frame counter
+    const currentFrameEl = document.querySelector('.current-frame');
+    if (currentFrameEl) {
+      currentFrameEl.textContent = (index + 1).toString();
+    }
+    
     // Restart auto-advance timer
     startAutoAdvance();
   }
@@ -718,6 +952,12 @@ body {
     if (container) {
       container.addEventListener('click', handleClick);
     }
+    
+    // Initialize progress bar for first frame
+    const progressBars = document.querySelectorAll('.progress-bar-fill');
+    if (progressBars.length > 0) {
+      progressBars[0].classList.add('current');
+    }
   }
 
   // Start story on load
@@ -740,8 +980,8 @@ body {
         collapseWhitespace: true,
         removeComments: true,
         minifyCSS: true,
-        minifyJS: true,
-        removeAttributeQuotes: true,
+        minifyJS: false, // Disable JS minification to prevent breaking the code
+        removeAttributeQuotes: false, // Keep quotes for proper parsing
         removeEmptyAttributes: true,
       });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -814,7 +1054,11 @@ body {
       files.forEach((file) => {
         const filePath = path.join(sourceDir, file);
         if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          console.log(`[Export] Adding file to ZIP: ${file} (${stats.size} bytes)`);
           archive.file(filePath, { name: file });
+        } else {
+          console.warn(`[Export] File not found, skipping: ${filePath}`);
         }
       });
 

@@ -857,10 +857,10 @@
           var buttonFontSizePx = buttonFontSize + 'px'
           var approxButtonHeight = Math.round(baseButtonHeight * scaleFactor)
 
-          var buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
-          var buttonRight = isWide ? 'auto' : 'auto'
-          var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
-          var buttonMaxWidth = isWide ? '80%' : 'auto'
+          // Full-width CTA (Instagram-style): left/right padding
+          var buttonSidePadding = Math.round(16 * scaleFactor)
+          var buttonLeft = buttonSidePadding + 'px'
+          var buttonRight = buttonSidePadding + 'px'
 
           // Button is fixed at bottom
           var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
@@ -878,10 +878,8 @@
             link: frame.link,
             text: linkButtonText,
             left: buttonLeft,
+            right: buttonRight,
             bottom: buttonBottom, // Fixed at bottom
-            transform: buttonTransform,
-            marginLeft: '0',
-            maxWidth: buttonMaxWidth,
             padding: buttonPadding,
             fontSize: buttonFontSizePx,
             hidden: false, // Ad frame buttons are always visible (unless overflow)
@@ -1108,25 +1106,10 @@
         var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
         var buttonBottom = buttonBottomPadding + 'px'
 
-        // Calculate button horizontal position based on text element or aspect ratio
-        var buttonLeft = ''
-        var buttonTransform = ''
-        var buttonMarginLeft = ''
-
-        if (textElementLeft !== null && textElementWidth !== null) {
-          // Center button relative to text element
-          var buttonWidth = isWide
-            ? Math.min(textElementWidth, width * 0.8)
-            : Math.min(textElementWidth, width - Math.round(32 * scaleFactor))
-          buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
-          buttonTransform = 'translateX(-50%)'
-          buttonMarginLeft = '0'
-        } else {
-          // Fallback: center based on aspect ratio
-          buttonLeft = isWide ? '50%' : Math.round(16 * scaleFactor) + 'px'
-          buttonTransform = isWide ? 'translateX(-50%)' : 'none'
-          buttonMarginLeft = isWide ? '0' : '0'
-        }
+        // Full-width CTA (Instagram-style): left/right padding, centered text, fully rounded
+        var buttonSidePadding = Math.round(16 * scaleFactor)
+        var buttonLeft = buttonSidePadding + 'px'
+        var buttonRight = buttonSidePadding + 'px'
 
         // Use frame-specific link text or default
         var linkButtonText =
@@ -1140,10 +1123,8 @@
           link: frame.link,
           text: linkButtonText,
           left: buttonLeft,
+          right: buttonRight,
           bottom: buttonBottom, // Fixed at bottom
-          transform: buttonTransform,
-          marginLeft: buttonMarginLeft,
-          maxWidth: buttonMaxWidth,
           padding: buttonPadding,
           fontSize: buttonFontSizePx,
           hidden: false, // Regular frame buttons are always visible (unless overflow)
@@ -1206,15 +1187,11 @@
           escapeAttr(btn.link) +
           "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
           btn.left +
-          ';margin-left:' +
-          btn.marginLeft +
+          ';right:' +
+          (btn.right || 'auto') +
           ';' +
           positionStyle +
-          'z-index:70;display:none;text-decoration:none;transform:' +
-          btn.transform +
-          ';max-width:' +
-          btn.maxWidth +
-          ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+          'z-index:70;display:none;text-decoration:none;pointer-events:auto;cursor:pointer;box-sizing:border-box;\"><div style="width:100%;box-sizing:border-box;border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
           btn.padding +
           ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
           btn.fontSize +
@@ -1701,12 +1678,10 @@
                   baseButtonHeight * scaleFactor
                 )
 
-                var buttonLeft = isWide
-                  ? '50%'
-                  : Math.round(16 * scaleFactor) + 'px'
-                var buttonRight = isWide ? 'auto' : 'auto'
-                var buttonTransform = isWide ? 'translateX(-50%)' : 'none'
-                var buttonMaxWidth = isWide ? '80%' : 'auto'
+                // Full-width CTA (Instagram-style): left/right padding
+                var buttonSidePadding = Math.round(16 * scaleFactor)
+                var buttonLeft = buttonSidePadding + 'px'
+                var buttonRight = buttonSidePadding + 'px'
                 // Button is fixed at bottom
                 var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
                 var buttonBottom = buttonBottomPadding + 'px'
@@ -1723,10 +1698,8 @@
                   link: frame.link,
                   text: linkButtonText,
                   left: buttonLeft,
+                  right: buttonRight,
                   bottom: buttonBottom, // Fixed at bottom
-                  transform: buttonTransform,
-                  marginLeft: '0',
-                  maxWidth: buttonMaxWidth,
                   padding: buttonPadding,
                   fontSize: buttonFontSizePx,
                   hidden: false, // Ad frame buttons are always visible (unless overflow)
@@ -1956,30 +1929,10 @@
               var buttonBottomPadding = Math.round(16 * scaleFactor) // Bottom padding for button
               var buttonBottom = buttonBottomPadding + 'px'
 
-              // Calculate button horizontal position based on text element or aspect ratio
-              var buttonLeft = ''
-              var buttonTransform = ''
-              var buttonMarginLeft = ''
-
-              if (textElementLeft !== null && textElementWidth !== null) {
-                // Center button relative to text element
-                var buttonWidth = isWide
-                  ? Math.min(textElementWidth, width * 0.8)
-                  : Math.min(
-                      textElementWidth,
-                      width - Math.round(32 * scaleFactor)
-                    )
-                buttonLeft = textElementLeft + textElementWidth / 2 + 'px'
-                buttonTransform = 'translateX(-50%)'
-                buttonMarginLeft = '0'
-              } else {
-                // Fallback: center based on aspect ratio
-                buttonLeft = isWide
-                  ? '50%'
-                  : Math.round(16 * scaleFactor) + 'px'
-                buttonTransform = isWide ? 'translateX(-50%)' : 'none'
-                buttonMarginLeft = isWide ? '0' : '0'
-              }
+              // Full-width CTA (Instagram-style): left/right padding, centered text, fully rounded
+              var buttonSidePadding = Math.round(16 * scaleFactor)
+              var buttonLeft = buttonSidePadding + 'px'
+              var buttonRight = buttonSidePadding + 'px'
 
               // Use frame-specific link text or default
               var linkButtonText =
@@ -1993,10 +1946,8 @@
                 link: frame.link,
                 text: linkButtonText,
                 left: buttonLeft,
+                right: buttonRight,
                 bottom: buttonBottom, // Fixed at bottom
-                transform: buttonTransform,
-                marginLeft: buttonMarginLeft,
-                maxWidth: buttonMaxWidth,
                 padding: buttonPadding,
                 fontSize: buttonFontSizePx,
                 hidden: false, // Regular frame buttons are always visible (unless overflow)
@@ -2061,15 +2012,11 @@
                 escapeAttr(btn.link) +
                 "', '_blank', 'noopener,noreferrer');\" style=\"position:absolute;left:" +
                 btn.left +
-                ';margin-left:' +
-                btn.marginLeft +
+                ';right:' +
+                (btn.right || 'auto') +
                 ';' +
                 positionStyle +
-                'z-index:70;display:none;text-decoration:none;transform:' +
-                btn.transform +
-                ';max-width:' +
-                btn.maxWidth +
-                ';pointer-events:auto;cursor:pointer;\"><div style="border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
+                'z-index:70;display:none;text-decoration:none;pointer-events:auto;cursor:pointer;box-sizing:border-box;\"><div style="width:100%;box-sizing:border-box;border-radius:999px;background:rgba(255,255,255,0.9);padding:' +
                 btn.padding +
                 ';text-align:center;backdrop-filter:blur(4px);font-weight:600;color:#111;font-size:' +
                 btn.fontSize +

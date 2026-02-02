@@ -929,6 +929,7 @@ export default function EditorPage() {
         background={selectedFrame?.background}
         adConfig={selectedFrame?.adConfig}
         link={selectedFrame?.link}
+        linkText={selectedFrame?.linkText}
         selectedElementId={selectedElementId}
         onElementSelect={setSelectedElementId}
         onBackgroundSelect={() => setSelectedElementId('background')}

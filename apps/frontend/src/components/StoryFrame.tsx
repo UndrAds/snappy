@@ -1040,15 +1040,9 @@ export default function StoryFrame({
         </div>
       </div>
 
-      {/* CTA Button - Fixed at bottom when frame has link */}
+      {/* CTA Button - Instagram-style full width, centered text */}
       {link && (
-        <div
-          className={`absolute bottom-4 z-50 ${
-            format === 'landscape' && deviceFrame === 'video-player'
-              ? 'left-1/2 -translate-x-1/2'
-              : 'left-4'
-          }`}
-        >
+        <div className="absolute bottom-4 left-4 right-4 z-50">
           <a
             href={link}
             target="_blank"
@@ -1058,9 +1052,9 @@ export default function StoryFrame({
                 e.preventDefault()
               }
             }}
-            className={`inline-block rounded-full bg-white/90 px-4 py-2 text-center font-semibold text-gray-900 shadow-lg backdrop-blur-sm transition-all hover:scale-105 hover:bg-white ${
+            className={`block w-full rounded-full py-3 text-center font-semibold text-gray-900 shadow-lg backdrop-blur-sm transition-all bg-white/90 hover:bg-white ${
               format === 'landscape' && deviceFrame === 'video-player'
-                ? 'px-3 py-1.5 text-xs'
+                ? 'py-2 text-xs'
                 : 'text-sm'
             } ${isEditMode ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
           >

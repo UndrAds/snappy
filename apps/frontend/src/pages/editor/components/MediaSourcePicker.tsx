@@ -8,14 +8,34 @@ import MediaSourceModal from './media/MediaSourceModal'
 export default function MediaSourcePicker({
   type = 'image',
   onChange,
+  canAddMedia = true,
+  onDisabledClick,
 }: {
   type?: 'image' | 'video'
   value?: string
   onChange?: (url: string) => void
+  canAddMedia?: boolean
+  onDisabledClick?: () => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [mediaModalOpen, setMediaModalOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  const handleUploadClick = () => {
+    if (!canAddMedia && onDisabledClick) {
+      onDisabledClick()
+      return
+    }
+    fileInputRef.current?.click()
+  }
+
+  const handleOnlineSourceClick = () => {
+    if (!canAddMedia && onDisabledClick) {
+      onDisabledClick()
+      return
+    }
+    setMediaModalOpen(true)
+  }
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -58,7 +78,7 @@ export default function MediaSourcePicker({
     <div className="flex flex-col gap-2">
       <Button
         variant="outline"
-        onClick={() => fileInputRef.current?.click()}
+        onClick={handleUploadClick}
         disabled={isUploading}
       >
         <Upload className="mr-2 h-4 w-4" />
@@ -73,7 +93,7 @@ export default function MediaSourcePicker({
         onChange={handleFileSelect}
         className="hidden"
       />
-      <Button variant="outline" onClick={() => setMediaModalOpen(true)}>
+      <Button variant="outline" onClick={handleOnlineSourceClick}>
         <Image className="mr-2 h-4 w-4" /> Add from Online Source
       </Button>
       {mediaModalOpen && (

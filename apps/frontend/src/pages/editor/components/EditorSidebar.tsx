@@ -374,6 +374,12 @@ export default function EditorSidebar({
 
                 <MediaSourcePicker
                   type="image"
+                  canAddMedia={frames.length > 0}
+                  onDisabledClick={() =>
+                    toast.error(
+                      "You can't upload an image. Create a story frame first to upload an image."
+                    )
+                  }
                   onChange={(url) => {
                     // Add as new image element using the image's intrinsic size
                     const img = new window.Image()

@@ -41,16 +41,27 @@ export default function DashboardLayout() {
     return 'Dashboard'
   }
 
-  // Only show admin menu if user is admin
+  // For admin: first sidebar item is "Admin" (replaces "Home"); for others, "Home"
   const isAdmin = user?.role === 'admin'
 
   const menuItems = [
-    {
-      id: 'home',
-      label: 'Home',
-      icon: Home,
-      path: '/',
-    },
+    ...(isAdmin
+      ? [
+          {
+            id: 'admin',
+            label: 'Admin',
+            icon: Shield,
+            path: '/admin',
+          },
+        ]
+      : [
+          {
+            id: 'home',
+            label: 'Home',
+            icon: Home,
+            path: '/',
+          },
+        ]),
     {
       id: 'create',
       label: 'Create Snap',
@@ -63,16 +74,6 @@ export default function DashboardLayout() {
       icon: BarChart3,
       path: '/analytics',
     },
-    ...(isAdmin
-      ? [
-          {
-            id: 'admin',
-            label: 'Admin',
-            icon: Shield,
-            path: '/admin',
-          },
-        ]
-      : []),
   ]
 
   const handleMenuClick = (path: string) => {
@@ -102,7 +103,7 @@ export default function DashboardLayout() {
           <div className="flex items-center justify-center">
             <button
               className={`text-xl font-bold text-primary ${!sidebarOpen && 'hidden'}`}
-              onClick={() => navigate('/')}
+              onClick={() => navigate(isAdmin ? '/admin' : '/')}
             >
               Snappy
             </button>
@@ -115,6 +116,7 @@ export default function DashboardLayout() {
             const Icon = item.icon
             const isActive =
               location.pathname === item.path ||
+              (item.path === '/admin' && location.pathname.startsWith('/admin')) ||
               (item.path === '/analytics' &&
                 location.pathname.startsWith('/analytics'))
             return (

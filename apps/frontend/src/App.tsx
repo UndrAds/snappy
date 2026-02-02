@@ -30,6 +30,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function DashboardIndexRoute() {
+  const { user, isLoading } = useAuth()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!isLoading && user?.role === 'admin') {
+      navigate('/admin', { replace: true })
+    }
+  }, [user, isLoading, navigate])
+  if (isLoading) return null
+  if (user?.role === 'admin') return null
+  return <DashboardHomePage />
+}
+
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   const navigate = useNavigate()
@@ -64,7 +77,12 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardHomePage />} />
+            <Route
+              index
+              element={
+                <DashboardIndexRoute />
+              }
+            />
             <Route path="create" element={<CreateSnapPage />} />
             <Route path="edit/:uniqueId" element={<EditStoryPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />

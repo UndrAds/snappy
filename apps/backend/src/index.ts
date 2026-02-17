@@ -85,11 +85,26 @@ const startServer = async () => {
     const schedulerService = new SchedulerService();
     await schedulerService.initializeScheduler();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT} in ${config.NODE_ENV} mode`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log(`📡 RSS scheduler initialized`);
     });
+
+    // Graceful shutdown for zero-downtime deploys (finish in-flight requests before exit)
+    const shutdown = (signal: string) => {
+      console.log(`${signal} received, closing server gracefully...`);
+      server.close(() => {
+        console.log('Server closed, exiting');
+        process.exit(0);
+      });
+      setTimeout(() => {
+        console.error('Forced shutdown after 30s timeout');
+        process.exit(1);
+      }, 30000);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

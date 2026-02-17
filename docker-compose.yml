@@ -10,8 +10,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     networks:
       - snappy-network
     restart: unless-stopped
@@ -25,8 +25,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: snappy-redis
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks:
       - snappy-network
     restart: unless-stopped
@@ -36,12 +36,11 @@ services:
       timeout: 10s
       retries: 3
 
-  # Backend API
+  # Backend API (no container_name - allows scaling for zero-downtime deploys)
   backend:
     build:
       context: .
       dockerfile: ./apps/backend/Dockerfile
-    container_name: snappy-backend
     env_file:
       - ./apps/backend/.env
     environment:
@@ -54,8 +53,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       JWT_EXPIRES_IN: 7d
       CORS_ORIGIN: "https://player.tektag.ai"
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,12 +72,11 @@ services:
       retries: 3
       start_period: 60s
 
-  # Frontend
+  # Frontend (no container_name - allows scaling for zero-downtime deploys)
   frontend:
     build:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
-    container_name: snappy-frontend
     env_file:
       - ./apps/frontend/.env
     expose:
@@ -96,7 +94,7 @@ services:
       dockerfile: nginx.Dockerfile
     container_name: snappy-nginx
     ports:
-      - "80:80"
+      - "${APP_PORT:-80}:80"
     volumes:
       - ./uploads:/opt/snappy/uploads:ro
       - ./apps/frontend/public:/usr/share/nginx/html:ro

@@ -2,6 +2,13 @@
 
 A monorepo containing both backend and frontend applications for the Snappy project.
 
+## Full Project Documentation (KT)
+
+For detailed top-down knowledge transfer documentation (architecture, flows, module-level how/when/where/why, and diagrams), see:
+
+- `docs/KT_GUIDE.md`
+- `docs/kt/README.md` (flow-based multi-file KT set)
+
 ## Project Structure
 
 ```
@@ -147,6 +154,25 @@ The `packages/shared-types` package contains TypeScript interfaces and types tha
 - **API Types:** Standardized API response formats
 - **Form Types:** Form validation and state types
 - **Error Types:** Consistent error handling types
+
+## Production Deployment
+
+Zero-downtime deploys via Docker Compose:
+
+```bash
+./deploy.sh
+```
+
+**Requirements:** Docker, docker-compose, `apps/backend/.env` and `apps/frontend/.env` with production values.
+
+**Options:**
+- `APP_PORT=80` - Nginx port (default: 80)
+- `NO_CACHE=1` - Full rebuild without cache
+- `REBUILD_NGINX=1` - Rebuild nginx (after nginx.conf changes)
+- `SKIP_MIGRATE=1` - Skip database migrations
+- `DRY_RUN=1` - Validate only, don't deploy
+
+**First deploy:** Run `docker-compose down` once if migrating from an older setup.
 
 ## Contributing
 
